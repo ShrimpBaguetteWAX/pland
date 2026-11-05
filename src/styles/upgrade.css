@@ -1,0 +1,259 @@
+/* ---- Market: Upgrade tab ---- */
+.up {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.up-head {
+  padding: 14px 16px;
+}
+.up-head .h {
+  margin-bottom: 6px;
+}
+.up-head__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.up-head__help {
+  margin: 0;
+}
+.up-head .btn--go {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.up-progress {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.up-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+}
+.up-kinds {
+  flex: 1 1 360px;
+}
+.up-kinds button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.up-filter .btn.is-on {
+  color: var(--accent);
+}
+.up-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--k);
+}
+
+/* Step kinds: one colour each, from the tokens. */
+.up-k--owned {
+  --k: var(--good);
+}
+.up-k--forge {
+  --k: var(--move);
+}
+.up-k--blend {
+  --k: var(--def);
+}
+.up-k--ascend {
+  --k: var(--accent);
+}
+.up-k--market {
+  --k: var(--atk);
+}
+
+.up-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0 2px;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+.up-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.up-row {
+  display: grid;
+  grid-template-columns: 28px 44px minmax(0, 1fr) minmax(250px, auto) 112px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--piece);
+}
+.up-row.is-alt {
+  margin-left: 28px;
+  background: var(--panel-2);
+  box-shadow: none;
+  border: 1px dashed var(--line-2);
+}
+.up-row--head {
+  background: none;
+  box-shadow: none;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--faint);
+}
+.up-rank {
+  font-weight: 700;
+  color: var(--faint);
+  text-align: center;
+}
+.up-row.is-free .up-rank {
+  color: var(--good);
+}
+.up-art {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--sunk);
+}
+.up-art--plan {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.up-what {
+  min-width: 0;
+}
+.up-what h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.up-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 6px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.up-instead {
+  color: var(--faint);
+}
+.up-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.up-k.pill {
+  white-space: normal;
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: inset 2px 0 0 var(--k);
+  border-radius: 6px;
+}
+.up-k em {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--k);
+}
+.up-k small {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.up-nums {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 0.7fr;
+  align-items: center;
+  gap: 10px;
+  text-align: right;
+}
+.up-cost,
+.up-rate {
+  display: grid;
+  gap: 1px;
+  font-size: 12.5px;
+}
+.up-cost small,
+.up-rate .muted {
+  font-size: 11px;
+}
+.up-days {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+}
+.up-row.is-free .up-days {
+  color: var(--good);
+}
+.up-act {
+  display: flex;
+  justify-content: flex-end;
+}
+.up-act .btn {
+  white-space: nowrap;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.up-foot {
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .up-head__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .up-row {
+    grid-template-columns: 24px 40px minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+  .up-row--head {
+    display: none;
+  }
+  .up-art {
+    width: 40px;
+    height: 40px;
+  }
+  .up-nums,
+  .up-act {
+    grid-column: 1 / -1;
+  }
+  .up-nums {
+    text-align: left;
+  }
+  .up-act .btn {
+    max-width: none;
+    width: 100%;
+    justify-content: center;
+  }
+  .up-row.is-alt {
+    margin-left: 12px;
+  }
+}

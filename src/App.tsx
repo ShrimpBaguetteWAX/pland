@@ -4,12 +4,16 @@ import { useShallow } from 'zustand/react/shallow'
 import { usePlayer, useRewardPool } from '@/data/game'
 import { formatNumber } from '@/lib/format'
 import { useSession } from '@/state/session'
+import { useTheme } from '@/state/theme'
 
 import { Army } from './ui/Army'
 import { Icon, type IconName } from './ui/icons'
+import { Blend } from './ui/Blend'
 import { Campaigns } from './ui/Campaigns'
 import { Console } from './ui/Console'
 import { Forge } from './ui/Forge'
+import { Market } from './ui/Market'
+import { Settings } from './ui/Settings'
 import { Missions } from './ui/Missions'
 import { Toaster } from './ui/Toaster'
 
@@ -19,8 +23,8 @@ import { Toaster } from './ui/Toaster'
  * bar reads as the finished game will, and say they are still to come.
  */
 
-type Page = 'divisions' | 'missions' | 'campaigns' | 'forge'
-const PAGES: Record<string, Page> = { Divisions: 'divisions', Missions: 'missions', Campaigns: 'campaigns', Forge: 'forge' }
+type Page = 'divisions' | 'missions' | 'campaigns' | 'forge' | 'market' | 'blend' | 'settings'
+const PAGES: Record<string, Page> = { Divisions: 'divisions', Missions: 'missions', Campaigns: 'campaigns', Forge: 'forge', Market: 'market', Blend: 'blend' }
 
 const MENU: [string, IconName][] = [
   ['Divisions', 'army'],
@@ -52,17 +56,20 @@ function AccountMenu({
   spectating,
   balances,
   onConnect,
-  onSignOut
+  onSignOut,
+  onSettings
 }: {
   account: string
   spectating: boolean
   balances: { tlm: number; def: number; wax: number; forge: number } | null
   onConnect: () => void
   onSignOut: () => void
+  onSettings: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const pool = useRewardPool()
+  const [theme, setTheme] = useTheme()
   useEffect(() => {
     if (!open) return
     const away = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
@@ -111,6 +118,24 @@ function AccountMenu({
             <small>Left for player rewards</small>
             <b>{pool.data === undefined ? '…' : `${formatNumber(pool.data, 0)} TLM`}</b>
           </span>
+          <div className="me__theme" role="group" aria-label="Theme">
+            <button type="button" className={theme === 'light' ? 'is-on' : ''} onClick={() => setTheme('light')}>
+              Light
+            </button>
+            <button type="button" className={theme === 'dark' ? 'is-on' : ''} onClick={() => setTheme('dark')}>
+              Dark
+            </button>
+          </div>
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={() => {
+              setOpen(false)
+              onSettings()
+            }}
+          >
+            Settings
+          </button>
           {spectating ? (
             <button type="button" className="btn btn--go btn--sm" onClick={onConnect}>
               <Icon name="wallet" size={16} />
@@ -147,7 +172,7 @@ function TopBar({ page, onPage }: { page: Page; onPage: (p: Page) => void }) {
         </div>
         <span className="bar__gap" />
         {account ? (
-          <AccountMenu account={account} spectating={spectating} balances={p ? { tlm: p.tlm, def: p.def, wax: p.wax, forge: p.forgeLevel } : null} onConnect={() => void connectOwn(login)} onSignOut={() => void logout()} />
+          <AccountMenu account={account} spectating={spectating} balances={p ? { tlm: p.tlm, def: p.def, wax: p.wax, forge: p.forgeLevel } : null} onConnect={() => void connectOwn(login)} onSignOut={() => void logout()} onSettings={() => onPage('settings')} />
         ) : (
           <button type="button" className="btn btn--go" onClick={() => void login()}>
             <Icon name="wallet" />
@@ -179,6 +204,9 @@ function TopBar({ page, onPage }: { page: Page; onPage: (p: Page) => void }) {
 export function App() {
   const { account, restored, spectating, login } = useSession(useShallow((s) => ({ account: s.account, restored: s.restored, spectating: s.spectating, login: s.login })))
   const [page, setPage] = useState<Page>('divisions')
+  /** Pages opened so far this visit; each stays mounted from then on. */
+  const [seen, setSeen] = useState<Set<Page>>(() => new Set(['divisions']))
+  useEffect(() => setSeen((s) => (s.has(page) ? s : new Set([...s, page]))), [page])
   return (
     <div className="app">
       <TopBar page={page} onPage={setPage} />
@@ -186,15 +214,45 @@ export function App() {
       {!restored ? (
         <p className="wrap muted page-msg">Opening the deck…</p>
       ) : account ? (
-        page === 'missions' ? (
-          <Missions account={account} spectating={spectating} />
-        ) : page === 'campaigns' ? (
-          <Campaigns account={account} spectating={spectating} />
-        ) : page === 'forge' ? (
-          <Forge account={account} spectating={spectating} />
-        ) : (
-          <Army account={account} />
-        )
+        /* A page stays mounted once opened and is only hidden when another is shown, so whatever it
+           is doing (an optimizer search, a market scan, a plan) carries on and is still there on return. */
+        <>
+          {seen.has('divisions') && (
+            <div className="page" hidden={page !== 'divisions'}>
+              <Army account={account} />
+            </div>
+          )}
+          {seen.has('missions') && (
+            <div className="page" hidden={page !== 'missions'}>
+              <Missions account={account} spectating={spectating} />
+            </div>
+          )}
+          {seen.has('campaigns') && (
+            <div className="page" hidden={page !== 'campaigns'}>
+              <Campaigns account={account} spectating={spectating} />
+            </div>
+          )}
+          {seen.has('market') && (
+            <div className="page" hidden={page !== 'market'}>
+              <Market account={account} spectating={spectating} onMissions={() => setPage('missions')} />
+            </div>
+          )}
+          {seen.has('blend') && (
+            <div className="page" hidden={page !== 'blend'}>
+              <Blend account={account} spectating={spectating} />
+            </div>
+          )}
+          {seen.has('settings') && (
+            <div className="page" hidden={page !== 'settings'}>
+              <Settings />
+            </div>
+          )}
+          {seen.has('forge') && (
+            <div className="page" hidden={page !== 'forge'}>
+              <Forge account={account} spectating={spectating} />
+            </div>
+          )}
+        </>
       ) : (
         <section className="wrap welcome">
           <div className="box welcome__card">

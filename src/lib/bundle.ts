@@ -125,48 +125,69 @@ const power = (c: { atk: number; def: number }) => c.atk + c.def
 
 /**
  * Puts the gear on the mercenaries and computes the division, the contract's way: per mercenary,
- * (merc + equipment + supply + creature) × Lava Lux, rounded down; move = (merc move − supply
- * reduction) × Lava Lux move. The strongest weapons and creatures go to the strongest mercenaries;
- * then the strongest Lava Lux (by its multipliers, then the least move it adds) to the units
- * strongest with that gear, so the multiplier works on the most; supplies go where they cut the most move.
+ * (merc + equipment + supply + creature) × Lava Lux, each rounded down; move = (merc move − supply
+ * reduction) × Lava Lux move, rounded down. The best units carry the best of everything:
+ *  - the strongest weapons and creatures go to the strongest mercenaries;
+ *  - the Lava Lux go to the units strongest with that gear, so the multiplier works on the most;
+ *  - supplies go to the Lava Lux carriers first (a supply's attack and defense are multiplied
+ *    there too, and the move it cuts would have been multiplied), the slowest of them first, then
+ *    to the slowest of the rest.
+ * A Lava Lux multiplies move as well (the Basic Suite by 1.7), so a second placement puts it on the
+ * units with no move left first. With a target, the placement that meets it at less move wins;
+ * without one, the stronger.
  */
-export function evaluate(p: Parts): { units: UnitPlan[]; atk: number; def: number; move: number } {
-  const units = [...p.mercs].sort((a, b) => power(b) - power(a)).map((merc) => ({ merc, gear: {} as UnitPlan['gear'] }))
+export function evaluate(p: Parts, target?: { atk: number; def: number }): { units: UnitPlan[]; atk: number; def: number; move: number } {
+  const order = [...p.mercs].sort((a, b) => power(b) - power(a) || (a.key < b.key ? -1 : 1))
+  const base = order.map((merc) => ({ merc, gear: {} as UnitPlan['gear'] }))
   for (const kind of ['weapon', 'creature'] as const) {
-    ;[...p.gear[kind]].sort((a, b) => power(b) - power(a)).forEach((g, i) => units[i] && (units[i].gear[kind] = g))
+    ;[...p.gear[kind]].sort((a, b) => power(b) - power(a) || (a.key < b.key ? -1 : 1)).forEach((g, i) => base[i] && (base[i].gear[kind] = g))
   }
   const lava = [...p.gear.lavalux].sort(
     (a, b) =>
-      (b.atkMult ?? 1) + (b.defMult ?? 1) - ((a.atkMult ?? 1) + (a.defMult ?? 1)) || (a.moveMult ?? 1) - (b.moveMult ?? 1)
+      (b.atkMult ?? 1) + (b.defMult ?? 1) - ((a.atkMult ?? 1) + (a.defMult ?? 1)) || (a.moveMult ?? 1) - (b.moveMult ?? 1) || (a.key < b.key ? -1 : 1)
   )
-  const armed = (u: (typeof units)[number]) =>
-    power(u.merc) + (u.gear.weapon ? power(u.gear.weapon) : 0) + (u.gear.creature ? power(u.gear.creature) : 0)
-  const byArmed = [...units].sort((a, b) => armed(b) - armed(a))
-  lava.forEach((l, i) => byArmed[i] && (byArmed[i].gear.lavalux = l))
-  // Supplies: the biggest move cuts to the mercenaries with the most move to cut.
-  const byMove = [...units].sort(
-    (a, b) => b.merc.move * (b.gear.lavalux?.moveMult ?? 1) - a.merc.move * (a.gear.lavalux?.moveMult ?? 1)
-  )
-  ;[...p.gear.supply]
-    .sort((a, b) => b.moveReduction - a.moveReduction)
-    .forEach((s, i) => byMove[i] && (byMove[i].gear.supply = s))
+  const supplies = [...p.gear.supply].sort((a, b) => b.moveReduction - a.moveReduction || power(b) - power(a) || (a.key < b.key ? -1 : 1))
+  const armed = (u: (typeof base)[number]) => power(u.merc) + (u.gear.weapon ? power(u.gear.weapon) : 0) + (u.gear.creature ? power(u.gear.creature) : 0)
 
-  let atk = 0
-  let def = 0
-  let move = 0
-  const plans: UnitPlan[] = units.map(({ merc, gear }) => {
-    const add = [merc, gear.weapon, gear.supply, gear.creature].filter((x): x is Candidate => !!x)
-    const l = gear.lavalux
-    const a = Math.floor(add.reduce((n, x) => n + x.atk, 0) * (l?.atkMult ?? 1))
-    const d = Math.floor(add.reduce((n, x) => n + x.def, 0) * (l?.defMult ?? 1))
-    const m = Math.round(Math.max(0, merc.move - (gear.supply?.moveReduction ?? 0)) * (l?.moveMult ?? 1))
-    atk += a
-    def += d
-    move += m
-    return { merc, gear, atk: a, def: d, move: m }
-  })
-  // The warlord's move reduction comes off the division's total, as the contract counts it.
-  return { units: plans, atk, def, move: Math.max(0, move - (p.warlord.moveReduction ?? 0)) }
+  /** One full placement of Lava Lux and supplies, given the order the Lava Lux go out in. */
+  const place = (zeroFirst: boolean) => {
+    const units = base.map((u) => ({ merc: u.merc, gear: { ...u.gear } }))
+    const byArmed = [...units].sort((a, b) => armed(b) - armed(a))
+    const lavaOrder = zeroFirst ? [...byArmed].sort((a, b) => Number(a.merc.move > 0) - Number(b.merc.move > 0) || armed(b) - armed(a)) : byArmed
+    lava.forEach((l, i) => lavaOrder[i] && (lavaOrder[i].gear.lavalux = l))
+    const bySupply = [...units].sort(
+      (a, b) =>
+        Number(!!b.gear.lavalux) - Number(!!a.gear.lavalux) ||
+        b.merc.move * (b.gear.lavalux?.moveMult ?? 1) - a.merc.move * (a.gear.lavalux?.moveMult ?? 1) ||
+        armed(b) - armed(a)
+    )
+    supplies.forEach((s, i) => bySupply[i] && (bySupply[i].gear.supply = s))
+    let atk = 0
+    let def = 0
+    let move = 0
+    const plans: UnitPlan[] = units.map(({ merc, gear }) => {
+      const add = [merc, gear.weapon, gear.supply, gear.creature].filter((x): x is Candidate => !!x)
+      const l = gear.lavalux
+      const a = Math.floor(add.reduce((n, x) => n + x.atk, 0) * (l?.atkMult ?? 1) + 1e-9)
+      const d = Math.floor(add.reduce((n, x) => n + x.def, 0) * (l?.defMult ?? 1) + 1e-9)
+      const m = Math.floor(Math.max(0, merc.move - (gear.supply?.moveReduction ?? 0)) * (l?.moveMult ?? 1) + 1e-9)
+      atk += a
+      def += d
+      move += m
+      return { merc, gear, atk: a, def: d, move: m }
+    })
+    // The warlord's move reduction comes off the division's total, as the contract counts it.
+    return { units: plans, atk, def, move: Math.max(0, move - (p.warlord.moveReduction ?? 0)) }
+  }
+  const a = place(false)
+  if (!lava.length) return a
+  const b = place(true)
+  const meets = (x: { atk: number; def: number }) => !!target && x.atk >= target.atk && x.def >= target.def
+  if (target && (meets(a) || meets(b))) {
+    if (meets(a) && meets(b)) return b.move < a.move ? b : a
+    return meets(b) ? b : a
+  }
+  return power(b) > power(a) ? b : a
 }
 
 /** Prices a bundle: NFTs, the slots it needs beyond the free ones, and the Forge level all of that needs. */
@@ -186,7 +207,7 @@ function price(p: Parts, input: SolveInput): Bundle {
     for (const o of bought) level = Math.max(level, o.level)
   }
   const forgeCost = eco.levelWax[level] ?? Infinity
-  const ev = evaluate(p)
+  const ev = evaluate(p, input)
   return { ...p, ...ev, nftCost, slotCost, forgeCost, level, slotsBought, cost: nftCost + slotCost + forgeCost }
 }
 

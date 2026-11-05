@@ -1,0 +1,604 @@
+/* ---- Blend page (ui/Blend.tsx): the rail and page layout of the Market, and the Blend's own pieces ---- */
+
+.bl {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding-top: 18px;
+  padding-bottom: 40px;
+}
+@media (max-width: 860px) {
+  .bl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bl .mkt__rail {
+    position: static;
+  }
+  .bl .mkt__rail button {
+    flex: none;
+    white-space: nowrap;
+  }
+}
+.bl__page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+.bl__page > .box {
+  padding: 16px 18px;
+  min-width: 0;
+}
+.bl-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.bl-spin {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: bl-spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes bl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.bl-blurb {
+  margin: -4px 0 10px;
+  color: var(--dim);
+  font-size: 12.5px;
+  max-width: 76ch;
+}
+.bl-note {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.bl-warn {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--bad);
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.bl-help {
+  margin: 0 2px 6px;
+  max-width: 90ch;
+}
+
+/* Filters */
+.bl-tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.bl-tools .seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.bl-rarities {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.bl-rarity {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 9px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--rc);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1.5px var(--rc);
+}
+.bl-rarity.is-off {
+  color: var(--faint);
+  box-shadow: inset 0 0 0 1.5px var(--line-2);
+  text-decoration: line-through;
+}
+
+/* Pictures and the name block next to them */
+.bl-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  box-shadow: inset 0 0 0 2px var(--rc, var(--line-2));
+  flex: none;
+}
+.bl-pic--lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+}
+.bl-pic--xs {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+.bl-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.bl-card__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  justify-items: start;
+}
+.bl-card__text b {
+  font-weight: 600;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+.bl-card--sm .bl-card__text b {
+  font-size: 12.5px;
+}
+.bl-card__text small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.bl-card__text .trio {
+  margin-top: 0;
+}
+
+/* Figures */
+.bl-fig {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.bl-fig[title] {
+  cursor: help;
+}
+.bl-fig small {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.bl-fig b {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.bl-figrow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+  gap: 10px 16px;
+  margin: 10px 0;
+}
+
+/* ---- Recipes (and ascend rows): fields aligned at the top; the stepper and button in a fixed-width
+   column, so they sit at the same x on every row and do not move as the count or price changes ---- */
+.bl-recs {
+  display: grid;
+  min-width: 0;
+}
+.bl-rec {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.45fr) minmax(0, 1fr) 232px;
+  gap: 12px 14px;
+  align-items: start;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.bl-rec--asc {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1fr) 132px;
+}
+.bl-rec.is-capped {
+  opacity: 0.6;
+}
+.bl-rec.is-ready {
+  box-shadow: inset 3px 0 0 var(--good);
+  padding-left: 10px;
+}
+@media (max-width: 1180px) {
+  .bl-rec,
+  .bl-rec--asc {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .bl-rec,
+  .bl-rec--asc {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.bl-ings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+.bl-ing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 3px 9px 3px 3px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  cursor: help;
+}
+.bl-ing__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bl-ing b {
+  flex: none;
+  font-weight: 600;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.bl-ing.is-owned {
+  border-color: var(--good);
+}
+.bl-ing.is-owned b {
+  color: var(--good);
+}
+.bl-ing.is-missing {
+  border-style: dashed;
+  border-color: var(--bad);
+}
+.bl-ing.is-missing b {
+  color: var(--bad);
+}
+
+.bl-figs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 12.5px;
+  min-width: 0;
+}
+.bl-figs dt {
+  color: var(--dim);
+}
+.bl-figs dt[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--line-2);
+  text-underline-offset: 3px;
+}
+.bl-figs dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bl-act {
+  display: grid;
+  grid-template-columns: auto 132px;
+  align-items: center;
+  justify-content: end;
+  gap: 8px;
+}
+.bl-act--one {
+  grid-template-columns: 132px;
+}
+@media (max-width: 600px) {
+  .bl-act {
+    justify-content: start;
+  }
+}
+.bl-act .btn,
+.bl-line__btn {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bl-stepper {
+  margin-top: 0;
+}
+.bl-stepper b {
+  min-width: 26px;
+  font-variant-numeric: tabular-nums;
+}
+.bl-count {
+  box-sizing: border-box;
+  width: 40px;
+  height: 24px;
+  padding: 0 4px;
+  text-align: center;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+}
+
+/* Ascend rows */
+.bl-change {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 12.5px;
+  min-width: 0;
+}
+.bl-change > span:not(.bl-change__arrow) {
+  display: grid;
+  gap: 1px;
+}
+.bl-change small {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.bl-change b {
+  font-weight: 600;
+}
+.bl-change__arrow {
+  color: var(--faint);
+}
+.bl-cost {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* ---- Tables that turn into stacked cards on narrow screens (Materials, Sacrifice) ---- */
+.bl-stack {
+  table-layout: auto;
+}
+.bl-stepcol {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+.t th.bl-stepcol {
+  text-align: right;
+}
+@media (max-width: 1000px) {
+  .bl-stack,
+  .bl-stack tbody {
+    display: block;
+  }
+  .bl-stack thead {
+    display: none;
+  }
+  .t.bl-stack tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+    align-items: start;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+  .t.bl-stack td {
+    display: block;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    text-align: left;
+    white-space: normal;
+  }
+  .bl-stack tr:last-child td {
+    border: 0;
+  }
+  .bl-stack td.bl-stack__lead {
+    grid-column: 1 / -1;
+  }
+  .bl-stack td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    color: var(--faint);
+    margin-bottom: 2px;
+  }
+  .bl-stack .bl-stepcol {
+    width: auto;
+  }
+  .bl-stack tr.is-me {
+    background: var(--accent-soft);
+    border-radius: var(--radius-sm);
+    padding-inline: 8px;
+  }
+  .bl-stack tr.is-me td {
+    background: none;
+  }
+}
+
+/* Materials definitions */
+.bl-defs {
+  margin: -4px 0 12px;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+  color: var(--dim);
+  font-size: 12.5px;
+  max-width: 90ch;
+}
+.bl-defs b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---- Chests & keys ---- */
+.bl-loots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .bl-loots {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.bl-loot {
+  padding: 16px 18px;
+  min-width: 0;
+}
+.bl-loot__head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.bl-loot__head > div {
+  min-width: 0;
+}
+.bl-loot__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.bl-loot__head .bl-blurb {
+  margin: 0;
+}
+.bl-verdict {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.bl-verdict .pill {
+  margin-right: 4px;
+}
+.bl-line {
+  display: grid;
+  grid-template-columns: 44px 104px 180px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+.bl-line__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dim);
+}
+.bl-line__note {
+  font-size: 12px;
+  min-width: 0;
+}
+.bl-line__none {
+  grid-column: 2 / -1;
+  font-size: 12.5px;
+}
+@media (max-width: 480px) {
+  .bl-line {
+    grid-template-columns: 104px 150px;
+    justify-content: start;
+  }
+  .bl-line__label,
+  .bl-line__note,
+  .bl-line__none {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The opening reveal */
+.bl-reveal {
+  display: grid;
+  gap: 10px;
+}
+.bl-reveal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bl-reveal__title {
+  min-width: 0;
+}
+.bl-reveal__title h3 {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.bl-reveal .bl-figrow,
+.bl-reveal .bl-note {
+  margin: 0;
+}
+.bl-x {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--dim);
+}
+.bl-x:hover {
+  color: var(--ink);
+}
+.bl-reveal__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
+  gap: 10px;
+}
+.bl-reveal__item {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 12px 8px 10px;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 -3px 0 var(--rc);
+  min-width: 0;
+  font-size: 12px;
+}
+.bl-reveal__count {
+  font-size: 15px;
+  font-weight: 700;
+}
+.bl-reveal__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Sacrifice summary */
+.bl-summary {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+.bl-summary .bl-figrow {
+  margin-top: 0;
+}
+.bl-summary__go {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 10px;
+}
+/* Buy and open steppers are as wide as each other, so both buttons start at the same x. */
+.bl-line .bl-stepper b {
+  min-width: 40px;
+}

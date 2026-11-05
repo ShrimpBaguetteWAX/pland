@@ -1,0 +1,512 @@
+/* ---- Market: the division builder and the "open chests first?" forecast (MarketBuilder.tsx) ---- */
+
+.mb-wrap {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.mb-box {
+  padding: 16px 18px;
+  min-width: 0;
+}
+.mb-box.none {
+  border: 0;
+  padding: 24px;
+}
+
+/* Goal */
+.mb-goal {
+  display: grid;
+  gap: 14px;
+}
+.mb-goal .h {
+  margin: 0;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.mb-goal__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.mb-goal__opts {
+  align-items: center;
+  justify-content: space-between;
+}
+.mb-field {
+  display: grid;
+  gap: 4px;
+  width: 128px;
+}
+.mb-field > span:first-child {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.mb-field .stepper {
+  margin-top: 0;
+}
+.mb-field--preset {
+  flex: 1 1 240px;
+  width: auto;
+  min-width: 0;
+  color: var(--dim);
+}
+.mb-select {
+  font-size: 13.5px;
+  font-weight: 500;
+  padding-right: 8px;
+  text-overflow: ellipsis;
+}
+.mb-rarities {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.mb-rarity {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 9px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--rc);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1.5px var(--rc);
+}
+.mb-rarity.is-off {
+  color: var(--faint);
+  box-shadow: inset 0 0 0 1.5px var(--line-2);
+  text-decoration: line-through;
+}
+.mb-rarity:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.mb-goal__go {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.mb-goal__status {
+  font-size: 12.5px;
+}
+.mb-nothing {
+  text-align: left;
+}
+
+/* Spinner */
+.mb-spin {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: mb-spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes mb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Search progress */
+.mb-refine {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  font-size: 12px;
+}
+.mb-refine__text {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.mb-refine__bar {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--sunk);
+}
+.mb-refine__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.6s ease;
+}
+
+/* Two columns: the bundle and what it costs */
+.mb-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .mb-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The bundle table */
+.mb-table td {
+  padding-block: 6px;
+}
+.mb-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.mb-card__pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  box-shadow: 0 0 0 2px var(--rc);
+}
+.mb-card__pic.is-small {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+.mb-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--sunk);
+  color: var(--dim);
+}
+.mb-card__text {
+  display: grid;
+  min-width: 0;
+}
+.mb-card__text b {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+.mb-card__text small {
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.mb-gear td:first-child {
+  padding-left: 30px;
+}
+.mb-gear .mb-card__text b {
+  font-size: 12.5px;
+}
+.mb-with td {
+  font-size: 11.5px;
+  color: var(--faint);
+  padding-top: 2px;
+}
+.mb-extra td {
+  background: var(--panel-2);
+}
+.mb-pill--blend {
+  background: color-mix(in srgb, var(--r-epic) 15%, transparent);
+  color: var(--r-epic);
+}
+
+/* Side: price, lines, buy */
+.mb-side {
+  display: grid;
+  gap: 12px;
+}
+.mb-side > small {
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.mb-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.mb-price .eyebrow {
+  flex-basis: 100%;
+}
+.mb-price b {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.mb-price b small {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--faint);
+}
+.mb-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+}
+.mb-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mb-lines small {
+  color: var(--faint);
+}
+.mb-lines .num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mb-lines__pay {
+  border-top: 1px solid var(--line-2);
+  padding-top: 6px;
+  font-weight: 600;
+}
+.mb-reached {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+.mb-reached .trio {
+  display: inline-flex;
+  gap: 10px;
+  font-weight: 600;
+}
+.mb-have {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.mb-buy {
+  width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+.mb-link {
+  justify-self: center;
+  font-size: 12.5px;
+}
+.mb-link:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Purchase and build steps */
+.mb-steps {
+  display: grid;
+  gap: 10px;
+}
+.mb-steps__head {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+.mb-steps__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+}
+.mb-steps__list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--faint);
+}
+.mb-steps__list li.is-done {
+  color: var(--good);
+}
+.mb-steps__list li.is-now {
+  color: var(--ink);
+  font-weight: 600;
+}
+.mb-steps__list li.is-failed {
+  color: var(--bad);
+  font-weight: 600;
+}
+.mb-steps__dot {
+  width: 10px;
+  height: 10px;
+  margin: 0 2px;
+  border-radius: 50%;
+  flex: none;
+  background: currentColor;
+  opacity: 0.6;
+}
+.mb-steps__list li.is-now .mb-steps__dot {
+  background: var(--accent);
+  opacity: 1;
+  animation: mb-pulse 1.4s ease-in-out infinite;
+}
+@keyframes mb-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.mb-steps__note {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+/* Payback */
+.mb-roi {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--line-2);
+  padding-top: 12px;
+}
+.mb-roi__head {
+  margin: 0;
+  font-weight: 600;
+}
+.mb-roi > small {
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.mb-roi__rows {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.mb-roi__rows li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+.mb-roi__rows li.is-best {
+  background: var(--accent-soft);
+}
+.mb-roi__name {
+  display: grid;
+  min-width: 0;
+}
+.mb-roi__name b {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mb-roi__name small {
+  font-size: 11px;
+}
+
+/* Open chests first? */
+.mb-chest {
+  display: grid;
+  gap: 12px;
+}
+.mb-chest__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mb-chest__head > div:first-child {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.mb-chest__head .h {
+  margin-bottom: 4px;
+}
+.mb-chest__lead {
+  margin: 0;
+  font-size: 12.5px;
+}
+.mb-chest__fields {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+.mb-count {
+  display: grid;
+  gap: 4px;
+  width: 112px;
+}
+.mb-count > span:first-child {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--dim);
+}
+.mb-count .stepper {
+  margin-top: 0;
+}
+.mb-chest .help {
+  margin-top: 0;
+}
+
+/* The price column is 300 px: its contents wrap inside it rather than stretching the grid track. */
+.mb-side {
+  grid-template-columns: minmax(0, 1fr);
+}
+.mb-side > * {
+  min-width: 0;
+}
+.mb-lines li {
+  flex-wrap: wrap;
+}
+
+/* Every goal field is a label over one control row, so Mission, Attack, Defense and Move line up:
+   the − / + buttons sit beside the number instead of under it. */
+.mb-goal__row {
+  align-items: flex-start;
+}
+.mb-field__ctl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mb-field__ctl .input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 38px;
+}
+.mb-field:has(.stepper) {
+  width: 176px;
+}
+.mb-select {
+  height: 38px;
+}
+
+/* Quickest payback */
+.mb-roiSweep .h {
+  align-items: center;
+}
+.mb-roiSweep__progress {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.mb-roiSweep td small {
+  white-space: nowrap;
+}
+.mb-roiSweep__act {
+  text-align: right;
+}

@@ -28,6 +28,7 @@
   --r-rare: #3d8fd8;
   --r-epic: #8f63e0;
   --r-legendary: #e9a227;
+  --r-mythic: #ff2e7e;
   --radius: 18px;
   --radius-sm: 12px;
   --piece: 0 4px 0 var(--ledge), 0 12px 24px rgba(30, 42, 64, 0.06);
@@ -36,6 +37,10 @@
 }
 * {
   box-sizing: border-box;
+}
+/* hidden always hides, whatever display a class gives the element. */
+[hidden] {
+  display: none !important;
 }
 html,
 body {
@@ -3584,4 +3589,456 @@ code {
 }
 .h__end {
   margin-left: auto;
+}
+
+/* ---- Dark mode: the couch mode's palette (warm black, parchment text, bronze edges, blood accent) on
+   the same tabletop pieces. Chosen in the wallet menu; html[data-theme="dark"]. ---- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0605;
+  --panel: #1b120f;
+  --panel-2: #231813;
+  --sunk: #120b09;
+  --line: rgba(230, 216, 188, 0.08);
+  --line-2: rgba(230, 216, 188, 0.17);
+  --ledge: #050202;
+  --ink: #e6d8bc;
+  --dim: #a8977a;
+  --faint: #7a6a54;
+  --accent: #e0402a;
+  --accent-ink: #fff4ea;
+  --accent-ledge: #7e1d12;
+  --accent-soft: rgba(224, 64, 42, 0.16);
+  --good: #7fb38a;
+  --bad: #ff5a42;
+  --atk: #f0705a;
+  --def: #7fb38a;
+  --move: #f08a4a;
+  --r-common: #8f8576;
+  --r-legendary: #d0773a;
+  --r-mythic: #ff3d86;
+  --bronze: rgba(138, 109, 74, 0.35);
+  --piece: 0 4px 0 var(--ledge), 0 14px 30px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme='dark'] body {
+  background: radial-gradient(900px 520px at 80% -10%, rgba(90, 30, 22, 0.35), transparent 65%), radial-gradient(700px 400px at 0% 110%, rgba(240, 138, 74, 0.08), transparent 70%), var(--bg);
+  background-attachment: fixed;
+}
+/* Panels get a thin bronze edge, the couch frames' colour. */
+:root[data-theme='dark'] .box,
+:root[data-theme='dark'] .bar,
+:root[data-theme='dark'] .menu {
+  border-color: var(--bronze);
+}
+:root[data-theme='dark'] .box {
+  border: 1px solid var(--bronze);
+}
+:root[data-theme='dark'] .bar {
+  background: #140d0a;
+}
+/* Pieces that sit dark-on-light in the light theme stay dark here: ink would now be parchment. */
+:root[data-theme='dark'] .menu button.is-on,
+:root[data-theme='dark'] .count,
+:root[data-theme='dark'] .toast,
+:root[data-theme='dark'] .level__badge {
+  background: #3b2c1e;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--bronze);
+}
+:root[data-theme='dark'] .tl__now {
+  background: var(--ink);
+}
+:root[data-theme='dark'] .div:hover,
+:root[data-theme='dark'] .world:hover {
+  background: rgba(230, 216, 188, 0.04);
+}
+:root[data-theme='dark'] .pv__row.is-gear,
+:root[data-theme='dark'] .od__u.is-gear {
+  background: rgba(230, 216, 188, 0.06);
+}
+:root[data-theme='dark'] img {
+  /* Card art is drawn for light pages; soften it a touch on the dark table. */
+  filter: brightness(0.94);
+}
+
+/* The theme switch in the wallet menu */
+.me__theme {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--sunk);
+  border-radius: 11px;
+  padding: 3px;
+  gap: 2px;
+}
+.me__theme button {
+  all: unset;
+  cursor: pointer;
+  text-align: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.me__theme button.is-on {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 0 var(--ledge);
+}
+
+/* ---- Market: aisles ---- */
+.mkt {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding-top: 18px;
+  padding-bottom: 40px;
+}
+@media (max-width: 860px) {
+  .mkt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mkt__wax {
+    margin-left: 0;
+  }
+  .mkt__rail {
+    display: flex !important;
+    overflow-x: auto;
+    gap: 4px;
+  }
+  .mkt__rail button {
+    white-space: nowrap;
+  }
+  .mkt__sep {
+    display: none;
+  }
+}
+.mkt__rail {
+  display: grid;
+  gap: 2px;
+  position: sticky;
+  top: 12px;
+}
+.mkt__rail button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--dim);
+}
+.mkt__rail button:hover {
+  background: var(--panel-2);
+}
+.mkt__rail button.is-on {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: var(--piece);
+}
+.mkt__rail small {
+  color: var(--faint);
+  font-size: 11px;
+}
+.mkt__sep {
+  height: 1px;
+  background: var(--line-2);
+  margin: 6px 8px;
+}
+.mkt__page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+.mkt__page > .box {
+  padding: 16px 18px;
+}
+.mkt__blurb {
+  margin: -4px 0 10px;
+  color: var(--dim);
+  font-size: 12.5px;
+  max-width: 76ch;
+}
+.mkt__tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.mkt__tools .seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.mkt__tools .seg button {
+  text-transform: capitalize;
+}
+.mkt__stake {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.mkt__wax {
+  margin-left: auto;
+  font-size: 12px;
+}
+.mkt__table td {
+  vertical-align: middle;
+}
+.mkt__item {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mkt__item b {
+  display: block;
+  font-weight: 600;
+}
+.mkt__item small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--faint);
+  font-size: 11.5px;
+  text-transform: capitalize;
+}
+.mkt__pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  box-shadow: inset 0 0 0 2px var(--rc);
+  flex: none;
+}
+.mkt__buycol {
+  text-align: right;
+}
+.mkt__buy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.mkt__table tr.is-open td {
+  background: var(--panel-2);
+}
+.mkt__offers td {
+  background: var(--panel-2);
+  padding-top: 0;
+}
+.mkt__offers ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 6px 50px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 4px 16px;
+  font-size: 12px;
+}
+.mkt__offers li {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+.mkt__offers li.is-chosen {
+  background: var(--accent-soft);
+}
+.mkt__offers a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* Market shelves: the stepper sits at the same place on every row and does not move as the count or
+   the price changes; the price button has a fixed width and the count a fixed-width cell. */
+.mkt__buy {
+  display: inline-grid;
+  grid-template-columns: auto 132px;
+  align-items: center;
+  gap: 8px;
+}
+.mkt__buy .stepper b {
+  min-width: 26px;
+  text-align: center;
+}
+.mkt__buy .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Chests & keys: what they are worth */
+.chv {
+  display: grid;
+  gap: 12px;
+}
+.chv .h {
+  margin: 0;
+}
+.chv__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+.chv__card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  justify-items: start;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+.chv__card > b {
+  font-size: 20px;
+  font-weight: 600;
+}
+.chv__vs {
+  font-size: 12px;
+  color: var(--dim);
+}
+.chv__more {
+  font-size: 12px;
+}
+.chv__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.chv__pic {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--rc);
+}
+
+/* ---- Settings ---- */
+.set {
+  display: grid;
+  gap: 14px;
+  max-width: 900px;
+  padding-top: 18px;
+  padding-bottom: 40px;
+}
+.set__card {
+  padding: 16px 18px;
+}
+.set__card .h {
+  align-items: center;
+}
+.set__lead {
+  margin: 0 0 6px;
+  color: var(--dim);
+  font-size: 13px;
+}
+.set__modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+.set__mode {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  border: 1.5px solid var(--line);
+}
+.set__mode b {
+  display: block;
+  font-weight: 600;
+}
+.set__mode small {
+  color: var(--dim);
+  font-size: 12px;
+}
+.set__mode.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.set__radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line-2);
+  margin-top: 1px;
+  background: var(--panel);
+}
+.set__mode.is-on .set__radio {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 9px var(--accent);
+}
+.set__status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 640px) {
+  .set__status {
+    grid-template-columns: 1fr;
+  }
+}
+.set__groups {
+  display: grid;
+  gap: 12px;
+}
+.set__group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px 10px;
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+.set__group legend {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 600;
+  padding: 0 4px;
+}
+.set__action {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 5px 2px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.set__action input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.set__action code {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.set__action small {
+  display: block;
+  color: var(--bad);
+  font-size: 11.5px;
+}
+.set__action.is-risky span {
+  color: var(--ink);
 }

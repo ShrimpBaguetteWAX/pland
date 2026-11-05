@@ -15,7 +15,7 @@ export const RARITY: Record<string, string> = {
   rare: 'var(--r-rare)',
   epic: 'var(--r-epic)',
   legendary: 'var(--r-legendary)',
-  mythic: 'var(--r-legendary)'
+  mythic: 'var(--r-mythic)'
 }
 export const rarityColor = (rarity?: string) => RARITY[(rarity || '').toLowerCase()] ?? RARITY.common
 
