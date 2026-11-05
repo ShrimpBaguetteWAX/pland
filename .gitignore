@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.tsbuildinfo
+*.local
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Report written by scripts/check-nodes.mjs
+node-health.md
+
+# Local tool settings
+.claude/
+
+# Local arbitrage bot: its data stays on your computer
+bot/settings.json
+bot/trades.jsonl
+bot/run-state.json
+bot/swaps.jsonl
+bot/_*.ts
