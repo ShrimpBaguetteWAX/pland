@@ -514,3 +514,20 @@ export async function refreshPlayer(account: string | null) {
     queryClient.invalidateQueries({ queryKey: ['missions'] })
   ])
 }
+
+/**
+ * What the game has left to pay out: the TLM the missions contract (miss.pdef, which holds and
+ * pays the player rewards) has on alien.worlds right now.
+ */
+export function useRewardPool(): UseQueryResult<number> {
+  return useQuery({
+    queryKey: ['reward-pool'],
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    queryFn: async () => {
+      const rows = await getRows<{ balance: string }>({ code: CONTRACTS.TLM, table: 'accounts', scope: CONTRACTS.MISSIONS })
+      const hit = rows.map((r) => parseAsset(r.balance)).find((a) => a.symbol === 'TLM')
+      return hit?.amount ?? 0
+    }
+  })
+}
