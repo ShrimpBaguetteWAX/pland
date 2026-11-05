@@ -4,7 +4,7 @@ import { APP_NAME, CHAIN_ID } from '@/chain/config'
 import { endpointPool } from '@/chain/endpoints'
 
 import { AUTO_SIGN_PERMISSION, savedActions, whitelistOf } from './autoSign'
-import { isAuthorityError, signsWithKey, syncAutoSign as matchChain, walletOnly } from './autoSignSync'
+import { isAuthorityError, markJustSetUp, signsWithKey, syncAutoSign as matchChain, walletOnly } from './autoSignSync'
 
 let kit: Promise<SessionKit> | null = null
 let current: Session | undefined
@@ -212,6 +212,8 @@ export async function autoSignStatus(): Promise<AutoSignStatus> {
 export async function enableAutoSign(): Promise<void> {
   const session = await currentSession()
   await session.setupSessionKey()
+  // The status read that follows may come from a node that has not seen the new key yet.
+  markJustSetUp()
 }
 
 /** Brings the on-chain links in line with the picked actions: one wallet signature. */

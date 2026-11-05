@@ -39,6 +39,35 @@ export function reconcile(localKey: string | null, chain: ChainPermission | null
 
 const wharf = () => import('@wharfkit/session')
 
+/*
+ * A key added a moment ago is not on every node yet: the read that follows the setup can come from
+ * a node a few blocks behind, which still shows the permission without it. Believing that read
+ * threw the brand-new key away, so "Add this device" never stuck. Two guards: a key set up in this
+ * browser in the last few minutes is kept whatever a read says, and a key missing from a read is
+ * only dropped when it is still missing on a second and a third read a little later.
+ */
+const JUST_SET_UP = 'pd-army.autosign.setupAt'
+const GRACE_MS = 5 * 60_000
+const RECHECKS = [2_000, 4_000]
+
+/** Called right after this browser's key was set up (or added next to another device's). */
+export function markJustSetUp() {
+  try {
+    localStorage.setItem(JUST_SET_UP, String(Date.now()))
+  } catch {
+    /* storage blocked: the re-reads below still protect the new key */
+  }
+}
+function setUpRecently(): boolean {
+  try {
+    const at = Number(localStorage.getItem(JUST_SET_UP) ?? 0)
+    return at > 0 && Date.now() - at < GRACE_MS
+  } catch {
+    return false
+  }
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 async function normaliseKey(key: unknown): Promise<string> {
   const { PublicKey } = await wharf()
   return String(PublicKey.from(String(key)))
@@ -83,7 +112,23 @@ export async function syncAutoSign(session: Session): Promise<AutoSignReading | 
   }
   const plugin = keyWallet(session)
   const mine = plugin ? await normaliseKey(plugin.getPublicKey()) : null
-  const reading = reconcile(mine, chain)
+  let reading = reconcile(mine, chain)
+  // This browser holds a key the read does not show: just set up, or a node behind? Ask again
+  // before dropping it, and never drop one set up in the last few minutes.
+  if (mine && !reading.active) {
+    for (const wait of RECHECKS) {
+      if (setUpRecently()) break
+      await sleep(wait)
+      try {
+        chain = await readPermission(session)
+      } catch {
+        return null
+      }
+      reading = reconcile(mine, chain)
+      if (reading.active) break
+    }
+    if (!reading.active && setUpRecently()) reading = { ...reading, active: true, exists: true }
+  }
   // WharfKit compares whitelist entries with .equals, so they must be its Name objects.
   const { Name } = await wharf()
   const byContract = new Map<string, string[]>()
