@@ -15,6 +15,7 @@ import { Forge } from './ui/Forge'
 import { Market } from './ui/Market'
 import { Settings } from './ui/Settings'
 import { Missions } from './ui/Missions'
+import { Swap } from './ui/Swap'
 import { Toaster } from './ui/Toaster'
 
 /*
@@ -23,10 +24,10 @@ import { Toaster } from './ui/Toaster'
  * bar reads as the finished game will, and say they are still to come.
  */
 
-type Page = 'divisions' | 'missions' | 'campaigns' | 'forge' | 'market' | 'blend' | 'settings'
-const PAGES: Record<string, Page> = { Divisions: 'divisions', Missions: 'missions', Campaigns: 'campaigns', Forge: 'forge', Market: 'market', Blend: 'blend' }
+type Page = 'divisions' | 'missions' | 'campaigns' | 'forge' | 'market' | 'blend' | 'swap' | 'settings'
+const PAGES: Record<string, Page> = { Divisions: 'divisions', Missions: 'missions', Campaigns: 'campaigns', Forge: 'forge', Market: 'market', Blend: 'blend', Swap: 'swap' }
 
-const ALL_PAGES: Page[] = ['divisions', 'missions', 'campaigns', 'forge', 'market', 'blend', 'settings']
+const ALL_PAGES: Page[] = ['divisions', 'missions', 'campaigns', 'forge', 'market', 'blend', 'swap', 'settings']
 /** The page named in the address (#missions); Divisions when there is none or it is unknown. */
 function pageFromHash(): Page {
   const h = window.location.hash.replace('#', '') as Page
@@ -39,7 +40,8 @@ const MENU: [string, IconName][] = [
   ['Campaigns', 'flag'],
   ['Forge', 'flame'],
   ['Market', 'cart'],
-  ['Blend', 'spark']
+  ['Blend', 'spark'],
+  ['Swap', 'wallet']
 ]
 
 /**
@@ -64,7 +66,8 @@ function AccountMenu({
   balances,
   onConnect,
   onSignOut,
-  onSettings
+  onSettings,
+  onSwap
 }: {
   account: string
   spectating: boolean
@@ -72,6 +75,7 @@ function AccountMenu({
   onConnect: () => void
   onSignOut: () => void
   onSettings: () => void
+  onSwap: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -121,6 +125,16 @@ function AccountMenu({
           ) : (
             <span className="muted">Reading the balances…</span>
           )}
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={() => {
+              setOpen(false)
+              onSwap()
+            }}
+          >
+            Swap · deposit · withdraw
+          </button>
           <span className="me__pool" title="TLM the missions contract (miss.pdef) holds for player rewards right now">
             <small>Left for player rewards</small>
             <b>{pool.data === undefined ? '…' : `${formatNumber(pool.data, 0)} TLM`}</b>
@@ -179,7 +193,7 @@ function TopBar({ page, onPage }: { page: Page; onPage: (p: Page) => void }) {
         </div>
         <span className="bar__gap" />
         {account ? (
-          <AccountMenu account={account} spectating={spectating} balances={p ? { tlm: p.tlm, def: p.def, wax: p.wax, forge: p.forgeLevel } : null} onConnect={() => void connectOwn(login)} onSignOut={() => void logout()} onSettings={() => onPage('settings')} />
+          <AccountMenu account={account} spectating={spectating} balances={p ? { tlm: p.tlm, def: p.def, wax: p.wax, forge: p.forgeLevel } : null} onConnect={() => void connectOwn(login)} onSignOut={() => void logout()} onSettings={() => onPage('settings')} onSwap={() => onPage('swap')} />
         ) : (
           <button type="button" className="btn btn--go" onClick={() => void login()}>
             <Icon name="wallet" />
@@ -259,6 +273,11 @@ export function App() {
           {seen.has('blend') && (
             <div className="page" hidden={page !== 'blend'}>
               <Blend account={account} spectating={spectating} />
+            </div>
+          )}
+          {seen.has('swap') && (
+            <div className="page" hidden={page !== 'swap'}>
+              <Swap account={account} spectating={spectating} />
             </div>
           )}
           {seen.has('settings') && (

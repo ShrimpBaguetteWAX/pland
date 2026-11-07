@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react'
 
-import { useArmy, type Division } from '@/data/game'
+import { useArmy, useMissionEntries, type Division } from '@/data/game'
 import { formatDuration, formatNumber } from '@/lib/format'
 import { costParts, cycleSeconds, isTokenLoop, meetsRequirements, rewardParts, tlmPerHour, type MissionEconomics } from '@/lib/loop'
 import { chainDate, shortDuration } from '@/lib/time'
@@ -152,6 +152,36 @@ export function Missions({ account, spectating }: { account: string; spectating:
   }, [econ, home, chosen, market, movePer100, field, now, filter])
   const bestEfficiency = rows.reduce((n, r) => Math.max(n, r.efficiency ?? 0), 0)
 
+  // The whole game's flow per hour, from every player's divisions still running (as on the old deck):
+  // each one joins again as soon as its cycle ends (its own join-to-unlock time), paying the entry
+  // and collecting the reward. Divisions back and waiting for the claim are left out.
+  const open = useMemo(() => [...econ.values()].filter((e) => e.state !== 'closed'), [econ])
+  const flowIds = useMemo(() => open.filter((e) => e.joined > 0).map((e) => e.id), [open])
+  const entries = useMissionEntries(flowIds)
+  const flow = useMemo(() => {
+    const t = { divisions: 0, atk: 0, def: 0, tlmIn: 0, defIn: 0, tlmOut: 0, defOut: 0 }
+    for (const e of open) {
+      const list = (entries.data?.get(e.id) ?? []).filter((r) => +chainDate(r.unlock_time) > now)
+      if (!list.length) continue
+      const cycles = list.reduce((n, r) => {
+        const ms = +chainDate(r.unlock_time) - +chainDate(r.join_time)
+        return ms > 0 ? n + 3_600_000 / ms : n
+      }, 0)
+      t.divisions += list.length
+      for (const r of list) {
+        t.atk += Number(r.atk) || 0
+        t.def += Number(r.def) || 0
+      }
+      t.tlmIn += cycles * e.costTlm
+      t.defIn += cycles * e.costDef
+      t.tlmOut += cycles * e.rewardTlm
+      t.defOut += cycles * e.rewardDef
+    }
+    return t
+  }, [open, entries.data, now])
+  // Until every entry is read the figures wait, rather than show a guess.
+  const flowReady = !!entries.data || !flowIds.length
+
   if (army.isError) return <p className="wrap page-msg c-bad">The army could not be read: {String(army.error)}</p>
   if (!f.loaded) return <p className="wrap page-msg muted">Contacting the field…</p>
 
@@ -198,6 +228,24 @@ export function Missions({ account, spectating }: { account: string; spectating:
 
   return (
     <main className="mis wrap">
+      <section className="box mis__flow" aria-label="The whole game's flow, from every player's divisions out now">
+        {(
+          [
+            ['Divisions out', flow.divisions, '', "Every player's divisions still running on an open mission right now; those back and waiting for the claim are not counted."],
+            ['Attack out', flow.atk, 'c-atk', 'The attack of all those divisions together, as each had it when it joined.'],
+            ['Defense out', flow.def, 'c-def', 'The defense of all those divisions together, as each had it when it joined.'],
+            ['TLM demand / h', flow.tlmIn, '', 'TLM paid in entry fees per hour if every division out joins its mission again as soon as its cycle ends.'],
+            ['DEF demand / h', flow.defIn, 'c-def', 'DEF paid in entry fees per hour if every division out joins its mission again as soon as its cycle ends.'],
+            ['TLM payout / h', flow.tlmOut, '', 'TLM the missions pay out per hour to the divisions out now, each on its own cycle.'],
+            ['DEF payout / h', flow.defOut, 'c-def', 'DEF the missions pay out per hour to the divisions out now, each on its own cycle.']
+          ] as const
+        ).map(([label, value, tone, help]) => (
+          <div key={label} className="mis__fig" title={help}>
+            <small className={tone}>{label}</small>
+            <b>{flowReady ? formatNumber(value, 0) : '…'}</b>
+          </div>
+        ))}
+      </section>
       <aside className="mis__field">
         <div className="box panel">
           <h3 className="h">

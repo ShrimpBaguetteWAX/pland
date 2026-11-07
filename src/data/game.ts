@@ -191,7 +191,9 @@ async function fetchPlayer(account: string): Promise<PlayerData> {
       () => null
     ),
     getRows<PowerupRow>({ code: CONTRACTS.FORGE, table: 'powerups', scope: account }),
-    getRows<ForgeProgressRow>({ code: CONTRACTS.FORGE, table: 'forgeprog', scope: account })
+    // forge.pdef dropped this table (2026-11-07); without it nothing counts as paid towards the next
+    // level. Optional, so a contract change here never holds up the whole player again.
+    getRows<ForgeProgressRow>({ code: CONTRACTS.FORGE, table: 'forgeprog', scope: account }).catch(() => [])
   ])
   return {
     registered: !!player && player.owner === account,
