@@ -26,6 +26,13 @@ import { Toaster } from './ui/Toaster'
 type Page = 'divisions' | 'missions' | 'campaigns' | 'forge' | 'market' | 'blend' | 'settings'
 const PAGES: Record<string, Page> = { Divisions: 'divisions', Missions: 'missions', Campaigns: 'campaigns', Forge: 'forge', Market: 'market', Blend: 'blend' }
 
+const ALL_PAGES: Page[] = ['divisions', 'missions', 'campaigns', 'forge', 'market', 'blend', 'settings']
+/** The page named in the address (#missions); Divisions when there is none or it is unknown. */
+function pageFromHash(): Page {
+  const h = window.location.hash.replace('#', '') as Page
+  return ALL_PAGES.includes(h) ? h : 'divisions'
+}
+
 const MENU: [string, IconName][] = [
   ['Divisions', 'army'],
   ['Missions', 'rocket'],
@@ -203,9 +210,21 @@ function TopBar({ page, onPage }: { page: Page; onPage: (p: Page) => void }) {
 
 export function App() {
   const { account, restored, spectating, login } = useSession(useShallow((s) => ({ account: s.account, restored: s.restored, spectating: s.spectating, login: s.login })))
-  const [page, setPage] = useState<Page>('divisions')
+  // The page is in the address (#market), so a reload or a shared link opens the same page.
+  const [page, setPage] = useState<Page>(pageFromHash)
+  useEffect(() => {
+    const want = page === 'divisions' ? '' : '#' + page
+    if (window.location.hash !== want) window.history.replaceState(null, '', window.location.pathname + window.location.search + want)
+    // The browser tab names the page too.
+    document.title = 'Planetary Defense · ' + page.charAt(0).toUpperCase() + page.slice(1)
+  }, [page])
+  useEffect(() => {
+    const back = () => setPage(pageFromHash())
+    window.addEventListener('hashchange', back)
+    return () => window.removeEventListener('hashchange', back)
+  }, [])
   /** Pages opened so far this visit; each stays mounted from then on. */
-  const [seen, setSeen] = useState<Set<Page>>(() => new Set(['divisions']))
+  const [seen, setSeen] = useState<Set<Page>>(() => new Set([pageFromHash()]))
   useEffect(() => setSeen((s) => (s.has(page) ? s : new Set([...s, page]))), [page])
   return (
     <div className="app">
