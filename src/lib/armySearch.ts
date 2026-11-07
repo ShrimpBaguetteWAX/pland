@@ -97,11 +97,13 @@ export interface Effort {
   balanceStarts: number
   /** Starting points the balancing works on side by side (the best deal always among them). */
   balanceRuns: number
+  /** Rounds of the exchange pass (every card for every card between divisions and the reserve), each keeping the best exchange. */
+  exchange: number
 }
 export const EFFORTS = {
-  quick: { missions: 6, counts: 2, fill: 4, partners: 2, rounds: 2, balanceTurns: 6, balanceStarts: 4, balanceRuns: 3 },
-  normal: { missions: 12, counts: 4, fill: 6, partners: 3, rounds: 4, balanceTurns: 16, balanceStarts: 8, balanceRuns: 5 },
-  thorough: { missions: 30, counts: 8, fill: 10, partners: 6, rounds: 12, balanceTurns: 40, balanceStarts: 16, balanceRuns: 8 }
+  quick: { missions: 6, counts: 2, fill: 4, partners: 2, rounds: 2, balanceTurns: 6, balanceStarts: 4, balanceRuns: 3, exchange: 6 },
+  normal: { missions: 12, counts: 4, fill: 6, partners: 3, rounds: 4, balanceTurns: 16, balanceStarts: 8, balanceRuns: 5, exchange: 15 },
+  thorough: { missions: 30, counts: 8, fill: 10, partners: 6, rounds: 12, balanceTurns: 40, balanceStarts: 16, balanceRuns: 8, exchange: 40 }
 } satisfies Record<string, Effort>
 export type EffortLevel = keyof typeof EFFORTS
 
@@ -228,6 +230,12 @@ interface Model {
    * division that stops meeting its mission makes the whole state invalid.
    */
   frozen?: boolean
+  /**
+   * Balancing only: per mission index, how many divisions the army must still field on it (those the
+   * best answer fields on its real missions). Balancing trades income for closer move costs; it never
+   * gives up a real division to get there. Small side divisions are not counted and may come and go.
+   */
+  keep?: Map<number, number>
   /** TLM an hour per move point of spread beyond the goal (see SearchInput.matchWeight). */
   matchCost: number
   /** Spread within a length group that counts as reached (see SearchInput.matchGoal). */
@@ -688,6 +696,21 @@ function objective(M: Model, s: State): { earn: number; real: number; guided: nu
         if (v > near) near = v
       }
       guide += GUIDE * near
+    }
+  }
+  if (M.keep) {
+    const have = new Map<number, number>()
+    for (const d of s.divs) {
+      if (d.w < 0 || d.k < 0 || !M.keep.has(d.k)) continue
+      const mis = M.missions[d.k]
+      if (d.mercs.length && d.atk >= mis.minAtk && d.def >= mis.minDef) have.set(d.k, (have.get(d.k) ?? 0) + 1)
+    }
+    for (const [k, n] of M.keep) {
+      const missing = n - (have.get(k) ?? 0)
+      if (missing > 0) {
+        broken = true
+        short += missing * 2 * rate(M.missions[k], 0)
+      }
     }
   }
   let penalty = 0
@@ -2033,6 +2056,95 @@ function exchangePass(M: Model, s: State, deadline: number) {
   }
 }
 
+/**
+ * Every exchange that can lower a division's move cost, tried outright and judged by the score,
+ * with every other division and with the cards nobody fields (the reserve, and the wallet when it
+ * is in play) as the other side: a mercenary swapped, sent over or taken in; any kind of gear
+ * swapped, sent over or taken in; each time with attack sent back across when a side would
+ * otherwise fall short (compensate). The best one is kept, then again until none helps. The
+ * divisions and their missions stay as they are (the model should be frozen), so it serves the
+ * best answer (income only) as well as the balanced one. A single change seldom helps a tight
+ * army; an exchange with its compensation often does.
+ */
+function exchangeAll(M: Model, s: State, deadline = Infinity, maxRounds = 40): number {
+  const log: Undo[] = []
+  let made = 0
+  const room = (di: number) => M.warlords[s.divs[di].w].slots - s.divs[di].mercs.length
+  // The likeliest cards first, a bounded number of each: the slowest of the division that should get
+  // quicker, the quickest of the other side.
+  const LIST = 16
+  const slowest = (list: number[]) => [...list].sort((a, b) => M.mercs[b].move - M.mercs[a].move || a - b).slice(0, LIST)
+  const quickest = (list: number[]) => [...list].sort((a, b) => M.mercs[a].move - M.mercs[b].move || a - b).slice(0, LIST)
+  for (let round = 0; round < maxRounds && Date.now() < deadline; round++) {
+    let bestV = objective(M, s).real
+    if (bestV < -1e8) return made
+    let snap: State | null = null
+    const trial = (i: number, j: number, apply: () => boolean) => {
+      const mark = log.length
+      if (apply()) {
+        const touched = j >= 0 ? [i, j] : [i]
+        for (const di of touched) {
+          shedGear(s, di, log)
+          refresh(M, s, di, log)
+        }
+        if (j >= 0) {
+          compensate(M, s, i, j, log)
+          for (const di of touched) refresh(M, s, di, log)
+        }
+        const v = objective(M, s).real
+        if (v > bestV + 1e-9) {
+          bestV = v
+          snap = cloneState(s)
+        }
+      }
+      undoTo(log, mark)
+      evalDiv(M, s.divs[i])
+      if (j >= 0) evalDiv(M, s.divs[j])
+    }
+    const divs = live(s).filter((di) => s.divs[di].k >= 0)
+    const poolMercs = quickest(M.mercs.map((_, m) => m).filter((m) => s.mAt[m] < 0))
+    const poolGear = M.gear.map((list, kind) => list.map((_, g) => g).filter((g) => s.gAt[kind][g] < 0))
+    for (const i of divs) {
+      if (s.divs[i].move <= 0 || Date.now() > deadline) continue
+      const A = slowest(s.divs[i].mercs)
+      // With another division.
+      for (const j of divs) {
+        if (j === i || Date.now() > deadline) continue
+        const B = quickest(s.divs[j].mercs)
+        for (const a of A) for (const b of B) trial(i, j, () => (moveMerc(s, a, j, log), moveMerc(s, b, i, log), true))
+        if (room(j) > 0) for (const a of A) trial(i, j, () => (moveMerc(s, a, j, log), true))
+        if (room(i) > 0) for (const b of B) trial(i, j, () => (moveMerc(s, b, i, log), true))
+        for (let kind = 0; kind < 4; kind++) {
+          const Gi = [...s.divs[i].gear[kind]]
+          const Gj = [...s.divs[j].gear[kind]]
+          for (const a of Gi) for (const b of Gj) trial(i, j, () => (moveGear(s, kind, a, j, log), moveGear(s, kind, b, i, log), true))
+          for (const a of Gi) trial(i, j, () => (moveGear(s, kind, a, j, log), true))
+          for (const b of Gj) trial(i, j, () => (moveGear(s, kind, b, i, log), true))
+        }
+      }
+      // With the cards nobody fields.
+      for (const a of A) {
+        trial(i, -1, () => (moveMerc(s, a, -1, log), true))
+        for (const b of poolMercs) trial(i, -1, () => (moveMerc(s, a, -1, log), moveMerc(s, b, i, log), true))
+      }
+      if (room(i) > 0) for (const b of poolMercs) trial(i, -1, () => (moveMerc(s, b, i, log), true))
+      for (let kind = 0; kind < 4; kind++) {
+        const Gi = [...s.divs[i].gear[kind]]
+        for (const a of Gi) {
+          trial(i, -1, () => (moveGear(s, kind, a, -1, log), true))
+          for (const b of poolGear[kind]) trial(i, -1, () => (moveGear(s, kind, a, -1, log), moveGear(s, kind, b, i, log), true))
+        }
+        for (const b of poolGear[kind]) trial(i, -1, () => (s.used[kind] < M.caps[kind] ? (moveGear(s, kind, b, i, log), true) : false))
+      }
+    }
+    if (!snap) break
+    Object.assign(s, snap)
+    log.length = 0
+    made++
+  }
+  return made
+}
+
 /** The arrangement as text, to tell two states apart. */
 function signature(s: State): string {
   return live(s)
@@ -2599,14 +2711,33 @@ export function searchArmy(
     // Who carries what, unit by unit: the player's own pairing where it still applies.
     const ownPairs = new Map<number, number[]>()
     for (const d of asIs.divs) if (d.fixed) for (const [m, g] of d.fixed) ownPairs.set(m, g)
+    {
+      // Divisions that meet nothing earn nothing; out they go, so the frozen view can judge the rest.
+      const log: Undo[] = []
+      for (const di of live(best.state)) if (best.state.divs[di].k < 0) dissolve(best.state, di, log)
+    }
+    const xRounds = work ? work.exchange : 15
+    exchangeAll({ ...M, frozen: true }, best.state, work ? Infinity : Math.min(started + total, Date.now() + 5000), xRounds)
     repairAll(M, best.state, ownPairs)
+    exchangeAll({ ...M, frozen: true }, best.state, work ? Infinity : Math.min(started + total, Date.now() + 3000), Math.ceil(xRounds / 3))
     best.real = objective(M, best.state).real
     // The second answer: the best army balanced for move cost, without giving up much income.
     let balanced: SearchResult['balanced']
     if (input.alignMove) {
       begin(work ? Infinity : ph.balanceMs)
       progress('balancing', best.real)
-      const M2: Model = { ...M, alignMove: true, frozen: true }
+      // The real divisions of the best answer (by mission) stay: a side division earning under a tenth
+      // of the best division's mission may come and go, nothing else.
+      const keep = new Map<number, number>()
+      {
+        const fielded = live(best.state).filter((di) => best.state.divs[di].k >= 0)
+        const top = Math.max(0, ...fielded.map((di) => rate(M.missions[best.state.divs[di].k], 0)))
+        for (const di of fielded) {
+          const k = best.state.divs[di].k
+          if (rate(M.missions[k], 0) >= 0.1 * top) keep.set(k, (keep.get(k) ?? 0) + 1)
+        }
+      }
+      const M2: Model = { ...M, alignMove: true, frozen: true, keep }
       const unlimitedBalance = !!work || !Number.isFinite(ph.balanceMs)
       const stop = work ? Infinity : phaseStart + ph.balanceMs
       /*
@@ -2629,7 +2760,7 @@ export function searchArmy(
         // The count the army fields, and one fewer and one more: the odd division out may be better
         // left off (or one more may fit) once the move costs have to match.
         for (const [k, has] of counts)
-          for (const n of [has, has - 1, has + 1]) {
+          for (const n of [has, has + 1]) {
             if (n < 2 || n > M.maxDivs || dealtAt.has(`${k}:${n}`) || Date.now() > stop) continue
             dealtAt.add(`${k}:${n}`)
             const st = dealPack(M, M.missions[k], n, r)
@@ -2694,7 +2825,7 @@ export function searchArmy(
        * for the frozen balancing below, which then evens it out card by card.
        */
       {
-        const M3: Model = { ...M, alignMove: true }
+        const M3: Model = { ...M, alignMove: true, keep }
         const byMatched = (list: [string, State][]) =>
           list
             .map(([n, st]) => ({ n, st, v: objective(M3, st).real }))
@@ -2780,6 +2911,12 @@ export function searchArmy(
           const v = objective(M2, st).real
           if (v > -1e8 && (!winner || v > winner.real + 1e-9)) winner = { state: st, real: v }
         }
+        // The exchanges, on the winner only: they are the costly part of the finish.
+        if (winner) {
+          exchangeAll(M2, winner.state, work ? Infinity : Math.min(started + total, Date.now() + 3000), work ? work.exchange : 15)
+          repairAll(M2, winner.state, ownPairs)
+          winner.real = objective(M2, winner.state).real
+        }
         if (winner && winner.real >= bb.real - 1e-9) bb = winner
       }
       const vb = verified(M2, bb.state, input)
@@ -2840,4 +2977,5 @@ export function searchArmy(
     tried
   }
 }
+
 

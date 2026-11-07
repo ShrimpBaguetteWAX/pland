@@ -923,13 +923,21 @@ export function OptimizePanel({
             <span className="seg seg--pick">
               <button type="button" className={pick === 'now' ? 'is-on' : ''} onClick={() => setPick('now')}>
                 Now
+                <small className="seg__value">{nowTotal === null ? '…' : `${formatNumber(nowTotal, 1)} TLM / h`}</small>
               </button>
               <button type="button" className={pick === 'best' ? 'is-on' : ''} onClick={() => setPick('best')}>
                 Best TLM / h
+                <small className="seg__value">
+                  {bestTotal === null ? '…' : `${formatNumber(bestTotal, 1)} TLM / h`}
+                  {search.running ? ' so far' : ''}
+                </small>
               </button>
               {(balanced || alignMove) && (
                 <button type="button" className={pick === 'balanced' ? 'is-on' : ''} onClick={() => setPick('balanced')}>
                   Balanced for move cost
+                  <small className="seg__value">
+                    {balanced ? `${formatNumber(keptPerHour + balanced.perHour, 1)} TLM / h${search.running ? ' so far' : ''}` : search.running ? 'after the rearrange' : '–'}
+                  </small>
                 </button>
               )}
             </span>

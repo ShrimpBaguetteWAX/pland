@@ -2145,6 +2145,21 @@ code {
 .seg--pick button {
   font-size: 12px;
   padding: 6px 10px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1.2;
+}
+/* The TLM / h each answer earns, under its name */
+.seg__value {
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.is-on > .seg__value {
+  opacity: 0.9;
 }
 
 /* How much income balancing may give up */
