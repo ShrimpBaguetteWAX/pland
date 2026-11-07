@@ -3061,17 +3061,6 @@ code {
   align-items: center;
   flex-wrap: wrap;
 }
-.level__part {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-}
-.level__part .input {
-  width: 96px;
-  height: 30px;
-  padding: 0 10px;
-  font-size: 12.5px;
-}
 .steps {
   display: flex;
   gap: 6px;

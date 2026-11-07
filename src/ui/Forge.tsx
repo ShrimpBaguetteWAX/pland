@@ -11,7 +11,7 @@ import { Icon } from './icons'
 
 /*
  * The Forge as a workbench. The Forge level is its own piece at the top (price of the next level,
- * what is paid so far, pay the rest or a part). Below it one rail per slot kind: a pip per slot the
+ * paid in one go: the contract keeps no part payments since 2026-11-07). Below it one rail per slot kind: a pip per slot the
  * shop sells, the ones you own in the kind's colour, the level bands with their price range under
  * the rail. Click a pip to plan up to there; the plan panel prices it in DEF and, at Alcor's live
  * rate, in TLM, checks the balances and buys everything in one transaction (split in parts of 25
@@ -42,15 +42,14 @@ export function Forge({ account, spectating }: { account: string; spectating: bo
   const market = useMarket()
   const { run, pending } = useTransaction()
   const [plan, setPlan] = useState<Record<SlotKind, number>>({ divslot: 0, eqpslot: 0, supslot: 0, lavaslot: 0 })
-  const [partial, setPartial] = useState('')
 
   const level = player.data?.forgeLevel ?? 0
   const levels = useMemo(() => (forge.data?.levels ?? []).map((l) => ({ level: Number(l.level), tlm: parseAsset(l.tlm_cost).amount })), [forge.data])
   const maxLevel = levels.reduce((n, l) => Math.max(n, l.level), 0)
   const next = levels.find((l) => l.level === level + 1) ?? null
-  const progress = player.data?.forgeProgress
-  const paid = progress && Number(progress.level) === level + 1 ? parseAsset(progress.paid_tlm).amount : 0
-  const remaining = next ? Math.max(0, next.tlm - paid) : 0
+  // A level is paid in full in one transfer; the contract no longer keeps part payments.
+  const paid = 0
+  const remaining = next ? next.tlm : 0
 
   /** Shop rows by kind, in buying order (lowest band first, then id: the prices climb that way). */
   const shop = useMemo(() => {
@@ -103,9 +102,9 @@ export function Forge({ account, spectating }: { account: string; spectating: bo
     setPlan((p) => ({ ...p, [k]: Math.max(0, Math.min(max, Math.round(n))) }))
   }
 
-  const payLevel = (amount: number) => {
-    if (!next || amount <= 0) return
-    void run((a, p) => payForgeLevel(a, p, next.level, asset(Math.min(amount, remaining), 'TLM'), tlmContract), amount >= remaining ? `Forge level ${next.level} paid` : `${formatNumber(amount, 2)} TLM paid towards level ${next.level}`, 'forge-level')
+  const payLevel = () => {
+    if (!next || remaining <= 0) return
+    void run((a, p) => payForgeLevel(a, p, next.level, asset(remaining, 'TLM'), tlmContract), `Forge level ${next.level} paid`, 'forge-level')
   }
 
   /** Levels first, each its own transaction (a band opens once its level is on chain), then every slot in one go. */
@@ -136,21 +135,11 @@ export function Forge({ account, spectating }: { account: string; spectating: bo
               <>
                 <p>
                   Level {next.level} costs {formatNumber(next.tlm, 0)} TLM and opens the next band of every slot kind, plus the next tier of supplies and creatures.
-                  {paid > 0 ? ` ${formatNumber(paid, 0)} TLM is paid already; ${formatNumber(remaining, 0)} to go.` : ''}
                 </p>
-                <span className="level__bar">
-                  <i style={{ width: `${next.tlm ? Math.min(100, (paid / next.tlm) * 100) : 0}%` }} />
-                </span>
                 <span className="level__pay">
-                  <button type="button" className="btn btn--sm btn--go" disabled={busy || spectating || held.tlm < remaining} title={held.tlm < remaining ? `You hold ${formatNumber(held.tlm, 0)} TLM` : undefined} onClick={() => payLevel(remaining)}>
+                  <button type="button" className="btn btn--sm btn--go" disabled={busy || spectating || held.tlm < remaining} title={held.tlm < remaining ? `You hold ${formatNumber(held.tlm, 0)} TLM` : undefined} onClick={payLevel}>
                     Pay {formatNumber(remaining, 0)} TLM
                   </button>
-                  <span className="level__part">
-                    <input className="input" inputMode="decimal" placeholder="part" value={partial} onChange={(e) => setPartial(e.target.value)} />
-                    <button type="button" className="btn btn--sm" disabled={busy || spectating || !(Number(partial) > 0) || Number(partial) > held.tlm} onClick={() => payLevel(Number(partial))}>
-                      Pay a part
-                    </button>
-                  </span>
                 </span>
               </>
             ) : (
