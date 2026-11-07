@@ -191,9 +191,9 @@ async function fetchPlayer(account: string): Promise<PlayerData> {
       () => null
     ),
     getRows<PowerupRow>({ code: CONTRACTS.FORGE, table: 'powerups', scope: account }),
-    // forge.pdef dropped this table (2026-11-07); without it nothing counts as paid towards the next
-    // level. Optional, so a contract change here never holds up the whole player again.
-    getRows<ForgeProgressRow>({ code: CONTRACTS.FORGE, table: 'forgeprog', scope: account }).catch(() => [])
+    // forge.pdef dropped its forgeprog table (2026-11-07), so nothing counts as paid towards the next
+    // level. Not read at all: nodes answer a missing table with HTTP 500, which benches healthy nodes.
+    Promise.resolve([] as ForgeProgressRow[])
   ])
   return {
     registered: !!player && player.owner === account,
