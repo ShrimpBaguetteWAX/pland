@@ -733,27 +733,23 @@ function objective(M: Model, s: State): { earn: number; real: number; guided: nu
   // the further short they are. Such a state is never an answer, but the walk may pass through it.
   let short = 0
   let broken = false
-  const lo = new Map<number, number>()
-  const hi = new Map<number, number>()
-  if (M.alignMove)
-    for (const [base, move] of M.anchors) {
-      lo.set(base, move)
-      hi.set(base, move)
-    }
+  const groups = new Map<number, number[]>()
+  if (M.alignMove) for (const [base, move] of M.anchors) groups.set(base, [move])
   for (const d of s.divs) {
     if (d.w < 0) continue
     if (d.k >= 0) {
       const mis = M.missions[d.k]
       if (M.frozen && !(d.mercs.length && d.atk >= mis.minAtk && d.def >= mis.minDef)) {
         const lack = Math.max(0, mis.minAtk ? 1 - d.atk / mis.minAtk : 0, mis.minDef ? 1 - d.def / mis.minDef : 0)
-        short += rate(mis, d.move) * (1 + 4 * lack)
+        short += Math.max(rate(mis, d.move) * (1 + 4 * lack), M.alignMove ? M.matchCost * (30 + 150 * lack) : 0)
         broken = true
         continue
       }
       earn += rate(mis, d.move)
       if (M.alignMove) {
-        lo.set(mis.base, Math.min(lo.get(mis.base) ?? Infinity, d.move))
-        hi.set(mis.base, Math.max(hi.get(mis.base) ?? -Infinity, d.move))
+        const g = groups.get(mis.base)
+        if (g) g.push(d.move)
+        else groups.set(mis.base, [d.move])
       }
     } else if (M.frozen) {
       broken = true
@@ -778,21 +774,30 @@ function objective(M: Model, s: State): { earn: number; real: number; guided: nu
       const missing = n - (have.get(k) ?? 0)
       if (missing > 0) {
         broken = true
-        short += missing * 2 * rate(M.missions[k], 0)
+        short += missing * Math.max(2 * rate(M.missions[k], 0), M.alignMove ? M.matchCost * 200 : 0)
       }
     }
   }
   let penalty = 0
+  // The walk's own gradient: the spread only sees the two extreme divisions; the distance of every
+  // division from the group's middle tells the walk which way to go in between.
+  let dev = 0
   if (M.alignMove)
-    for (const [base, h] of hi) {
-      const spread = h - (lo.get(base) ?? h)
+    for (const moves of groups.values()) {
+      if (moves.length < 2) continue
+      const spread = Math.max(...moves) - Math.min(...moves)
+      if (moves.length > 2) {
+        const sorted = [...moves].sort((a, b) => a - b)
+        const mid = sorted[Math.floor(sorted.length / 2)]
+        for (const m of sorted) dev += Math.abs(m - mid)
+      }
       const beyond = Math.max(0, spread - M.matchGoal)
       const within = Math.min(Math.max(0, spread - MATCH_TOLERANCE), M.matchGoal - MATCH_TOLERANCE)
       penalty += M.matchCost * beyond + M.withinCost * within
     }
   // Frozen: every division must still stand and meet its mission for the state to count at all.
   const real = broken ? -1e9 : earn - penalty
-  return { earn, real, guided: earn - penalty - short + guide }
+  return { earn, real, guided: earn - penalty - short + guide - M.matchCost * 0.02 * dev }
 }
 
 // ---- Changes to the state, each undoable ---------------------------------------------------------
@@ -2077,7 +2082,7 @@ function balanceGroups(M: Model, s: State, log: Undo[]) {
  * slowest and the quickest and only at the gap; this weighs income and spread together over every
  * pair. Balancing only (the model is frozen).
  */
-function exchangePass(M: Model, s: State, deadline: number) {
+function exchangePass(M: Model, s: State, deadline: number, rounds = 80) {
   const log: Undo[] = []
   const groups = new Map<number, number[]>()
   for (const di of live(s)) {
@@ -2087,7 +2092,7 @@ function exchangePass(M: Model, s: State, deadline: number) {
   const rm = (di: number) => M.warlords[s.divs[di].w].slots - s.divs[di].mercs.length
   for (const dis of groups.values()) {
     if (dis.length < 2) continue
-    for (let round = 0; round < 80 && Date.now() < deadline; round++) {
+    for (let round = 0; round < rounds && Date.now() < deadline; round++) {
       let bestV = objective(M, s).real
       let snap: State | null = null
       const trial = (i: number, j: number, apply: () => void) => {
@@ -2108,15 +2113,35 @@ function exchangePass(M: Model, s: State, deadline: number) {
         undoTo(log, mark)
         for (const di of [i, j]) evalDiv(M, s.divs[di])
       }
+      // Warlords: a spare one with more places or a bigger cut for a division, or two divisions
+      // trading theirs. A full division cannot take a card; a bigger cut takes move off outright.
+      const spare = M.warlords.map((_, w) => w).filter((w) => s.wAt[w] < 0)
+      for (const i of dis) {
+        for (const w of spare) if (M.warlords[w].slots >= s.divs[i].mercs.length) trial(i, i, () => setWarlord(s, i, w, log))
+        for (const j of dis) {
+          if (j <= i) continue
+          const wi = s.divs[i].w
+          const wj = s.divs[j].w
+          if (M.warlords[wj].slots < s.divs[i].mercs.length || M.warlords[wi].slots < s.divs[j].mercs.length) continue
+          trial(i, j, () => {
+            setWarlord(s, j, -1, log)
+            setWarlord(s, i, wj, log)
+            setWarlord(s, j, wi, log)
+          })
+        }
+      }
       for (const i of dis)
         for (const j of dis) {
           if (i === j || s.divs[i].move <= s.divs[j].move) continue
-          const A = [...s.divs[i].mercs].sort((a, b) => M.mercs[b].move - M.mercs[a].move || a - b).slice(0, 8)
-          const B = [...s.divs[j].mercs].sort((a, b) => M.mercs[a].move - M.mercs[b].move || a - b).slice(0, 8)
+          // Every unit of a division this size; the slowest and quickest dozen of a bigger one.
+          const A = [...s.divs[i].mercs].sort((a, b) => M.mercs[b].move - M.mercs[a].move || a - b).slice(0, s.divs[i].mercs.length <= 24 ? 24 : 12)
+          const B = [...s.divs[j].mercs].sort((a, b) => M.mercs[a].move - M.mercs[b].move || a - b).slice(0, s.divs[j].mercs.length <= 24 ? 24 : 12)
           for (const a of A) for (const b of B) if (M.mercs[a].move > M.mercs[b].move) trial(i, j, () => (moveMerc(s, a, j, log), moveMerc(s, b, i, log)))
           // The quick division's strongest units, each for as many of the slow one's weak units as it can spare.
-          const strong = [...s.divs[j].mercs].sort((a, b) => M.mercs[b].atk + M.mercs[b].def - (M.mercs[a].atk + M.mercs[a].def) || a - b).slice(0, 6)
-          for (const b of strong) {
+          const ranked = [...s.divs[j].mercs].sort((a, b) => M.mercs[b].atk + M.mercs[b].def - (M.mercs[a].atk + M.mercs[a].def) || a - b)
+          const picks = new Set<number>(ranked.slice(0, 4))
+          for (let k = 0; k < 8 && ranked.length; k++) picks.add(ranked[Math.min(ranked.length - 1, Math.floor(((k + 0.5) * ranked.length) / 8))])
+          for (const b of picks) {
             trial(i, j, () => manyForOne(M, s, i, j, b, log, true))
             trial(i, j, () => manyForOne(M, s, i, j, b, log, false))
           }
@@ -2267,18 +2292,41 @@ function manyForOne(M: Model, s: State, slow: number, quick: number, b: number, 
   const cost = (m: number) => (M.mercs[m].move + 1) / (M.mercs[m].atk + M.mercs[m].def + 1)
   const order = S.mercs.filter((m) => m !== b).sort((x, y) => cost(y) - cost(x) || x - y)
   for (const u of order) {
-    if (meetsDiv(M, Q)) break
     if (Q.mercs.length >= M.warlords[Q.w].slots) break
+    const met = meetsDiv(M, Q)
+    const gap = Math.abs(S.move - Q.move)
     const mark = log.length
     moveMerc(s, u, quick, log)
     refresh(M, s, slow, log)
-    if (!meetsDiv(M, S)) {
+    refresh(M, s, quick, log)
+    // Until the quick division meets its mission, every card the slow one can spare goes; after
+    // that, only while the two come closer.
+    const keep = meetsDiv(M, S) && (!met || Math.abs(S.move - Q.move) < gap)
+    if (!keep) {
       undoTo(log, mark)
       evalDiv(M, S)
-      continue
+      evalDiv(M, Q)
+      if (met) break
     }
-    refresh(M, s, quick, log)
   }
+}
+
+/**
+ * The most attack (or defense) every card in the model can make together, whatever the divisions:
+ * the best weapons, supplies and creatures on the strongest units, the Lava Lux on the strongest
+ * units once geared, each unit rounded down as the contract does. An upper bound, so when it is
+ * barely above what the fielded divisions need, nothing can be evened out: there is no card to spare.
+ */
+function statBound(M: Model, stat: 'atk' | 'def'): number {
+  const mult = stat === 'atk' ? 'am' : 'dm'
+  const units = M.mercs.map((c) => c[stat]).sort((a, b) => b - a)
+  const gear = (kind: number) => M.gear[kind].map((c) => c[stat]).sort((a, b) => b - a)
+  const w = gear(0)
+  const su = gear(1)
+  const cr = gear(2)
+  const geared = units.map((u, i) => u + (w[i] ?? 0) + (su[i] ?? 0) + (cr[i] ?? 0)).sort((a, b) => b - a)
+  const lux = M.gear[L].map((c) => c[mult]).sort((a, b) => b - a)
+  return geared.reduce((n, a, i) => n + Math.floor(a * (lux[i] ?? 1) + 1e-9), 0)
 }
 
 /** The arrangement as text, to tell two states apart. */
@@ -3056,6 +3104,8 @@ export function searchArmy(
         // The exchanges, on the winner only: they are the costly part of the finish.
         if (winner) {
           exchangeAll(M2, winner.state, work ? Infinity : Math.min(started + total, Date.now() + 3000), work ? work.exchange : 15)
+          // The last word on the spread: the balancing exchanges once more, with room to run.
+          exchangePass(M2, winner.state, work ? Infinity : Math.min(started + total, Date.now() + 4000), 300)
           repairAll(M2, winner.state, ownPairs, work ? Infinity : started + total)
           winner.real = objective(M2, winner.state).real
         }
@@ -3075,14 +3125,24 @@ export function searchArmy(
           if (!top) continue
           const mis = M.missions[top[0]]
           const useAtk = mis.minAtk > 0
+          const stat = useAtk ? 'atk' : 'def'
           const need = top[1].length * (useAtk ? mis.minAtk : mis.minDef)
-          const have = top[1].reduce((n, di) => n + (useAtk ? bb.state.divs[di].atk : bb.state.divs[di].def), 0)
-          const tight = need > 0 && have - need < need * 0.02
-          parts.push(
-            `${top[1].length} × ${mis.m.title} could not be brought within the goal; this is the closest the search found` +
-              (tight ? `. Together they need ${need.toLocaleString('en-US')} ${useAtk ? 'attack' : 'defense'} and reach ${have.toLocaleString('en-US')}, so hardly a card can change sides` : '') +
-              '.'
-          )
+          // Every division of the army that needs this stat is counted against the bound.
+          const needAll = live(bb.state).reduce((n, di) => {
+            const d = bb.state.divs[di]
+            return n + (d.k >= 0 ? (useAtk ? M.missions[d.k].minAtk : M.missions[d.k].minDef) : 0)
+          }, 0)
+          const bound = statBound(M, stat)
+          const spare = bound - needAll
+          const weakest = Math.min(...M.mercs.map((c) => c[stat]).filter((v) => v > 0))
+          const word = useAtk ? 'attack' : 'defense'
+          let why = ''
+          if (spare < need * 0.02)
+            why =
+              ` All the cards together make at most ${bound.toLocaleString('en-US')} ${word}, and the divisions need ${needAll.toLocaleString('en-US')}: ${Math.max(0, spare).toLocaleString('en-US')} to spare` +
+              (spare < weakest ? ', less than the weakest card adds' : '') +
+              ', so hardly a card can change sides. More cards (the wallet, for instance) would give the balancing room.'
+          parts.push(`${top[1].length} × ${mis.m.title} could not be brought within the goal; this is the closest the search found.` + why)
         }
         note = parts.join(' ')
       }
@@ -3151,6 +3211,7 @@ export function searchArmy(
     tried
   }
 }
+
 
 
 
