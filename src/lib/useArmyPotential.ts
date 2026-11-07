@@ -16,9 +16,11 @@ export interface PotentialState {
  * input is there and again whenever it changes. Unlike the main search this needs no button: it is
  * the first thing a player wants to know about an army.
  */
-export function useArmyPotential(input: SearchInput | null): PotentialState {
+/** `paused`: wait (keeping any answer) until it is false, so the main search has the CPU to itself early on. */
+export function useArmyPotential(input: SearchInput | null, paused = false): PotentialState {
   const [state, setState] = useState<PotentialState>({ tried: [], perHour: null, nowPerHour: null, running: false, error: null })
   const seq = useRef(0)
+  const ranFor = useRef<string | null>(null)
   const latest = useRef(input)
   latest.current = input
   const key = input
@@ -37,12 +39,17 @@ export function useArmyPotential(input: SearchInput | null): PotentialState {
       setState({ tried: [], perHour: null, nowPerHour: null, running: false, error: null })
       return
     }
+    // Paused, or already worked out for this input: nothing to do.
+    if (paused || ranFor.current === key) return
+    ranFor.current = key
+    let finished = false
     const id = ++seq.current
     const w = new Worker(new URL('./armyPotential.worker.ts', import.meta.url), { type: 'module' })
     setState((s) => ({ ...s, running: true, error: null }))
     w.onmessage = (e: MessageEvent<PotentialReply>) => {
       const r = e.data
       if (r.id !== id) return
+      finished = true
       if (r.type === 'done') setState({ tried: r.tried, perHour: r.perHour, nowPerHour: r.nowPerHour, running: false, error: null })
       else setState((s) => ({ ...s, running: false, error: r.message }))
       w.terminate()
@@ -50,8 +57,12 @@ export function useArmyPotential(input: SearchInput | null): PotentialState {
     w.onerror = (e) => setState((s) => ({ ...s, running: false, error: e.message || 'The analysis stopped unexpectedly' }))
     const request: PotentialRequest = { id, input: current }
     w.postMessage(request)
-    return () => w.terminate()
+    return () => {
+      w.terminate()
+      // Cut off before it finished (a search took over the CPU): run it again later.
+      if (!finished) ranFor.current = null
+    }
     // key stands for the input.
-  }, [key])
+  }, [key, paused])
   return state
 }

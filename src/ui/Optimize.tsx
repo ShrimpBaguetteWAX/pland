@@ -7,7 +7,7 @@ import { useArmy, useDeployments, useGameBalance, useMarket, useMissionConfig, u
 import { bestLoop, poolOf } from '@/lib/armyOptimizer'
 import { diffArmy } from '@/lib/armyDiff'
 import { readPresets, snapshot, writePresets, type PresetDivision } from '@/lib/armyPresets'
-import type { PhaseBudgets, PlannedDivision, SearchInput } from '@/lib/armySearch'
+import { EFFORTS, type EffortLevel, type PlannedDivision, type SearchInput } from '@/lib/armySearch'
 import type { SlotKind } from '@/lib/bundle'
 import { coveredBy, walletCosts, walletPart } from '@/lib/deposit'
 import { formatDuration, formatNumber } from '@/lib/format'
@@ -35,19 +35,20 @@ type Mode = 'ready' | 'all'
 type Step = 'stake' | 'free' | 'create' | 'fill'
 
 const SLOT_POWERUP: Record<SlotKind, string> = { weapon: 'eqpslot', supply: 'supslot', lavalux: 'lavaslot' }
-/** Time per phase, in seconds; Infinity is the full sweep (coverage) or until it settles. The first is the recommendation. */
-const TIMES: Record<keyof PhaseBudgets, { label: string; options: number[]; recommended: number }> = {
-  coverageMs: { label: 'Coverage', options: [30, 60, 120, 300, Infinity], recommended: 60 },
-  annealMs: { label: 'Rearrange', options: [30, 60, 120, 300, 600, Infinity], recommended: 60 },
-  balanceMs: { label: 'Balance', options: [15, 30, 60, 120, Infinity], recommended: 30 }
-}
-const STORE_TIMES = 'pd-army.opt.times'
-const seconds = (v: number) => (!Number.isFinite(v) ? 'until it settles' : v < 60 ? `${v} s` : `${v / 60} min`)
+/**
+ * How hard the search works, counted in work rather than time, so the same army gives the same
+ * answer whatever else the computer is doing. Several seeds run side by side and the best wins.
+ */
+const EFFORT_LEVELS: { key: EffortLevel; label: string; what: string }[] = [
+  { key: 'quick', label: 'Quick', what: 'The 6 most promising missions, a short rearrange. About a minute on a big army.' },
+  { key: 'normal', label: 'Normal', what: 'The 12 most promising missions at more counts, a longer rearrange. Three to four minutes on a big army.' },
+  { key: 'thorough', label: 'Thorough', what: 'Up to 30 missions at many counts, a long rearrange that stops only when it stops finding anything. Ten minutes or more on a big army.' }
+]
+const STORE_EFFORT = 'pd-army.opt.effort'
 /** The phases of a search, in order, with what each one does. */
 const PHASES: { id: string; label: string; what: string; balancingOnly?: boolean }[] = [
   { id: 'starting', label: 'Read', what: 'The army as it stands, scored; a trimmed copy of it as a first improvement.' },
   { id: 'coverage', label: 'Coverage', what: 'Every mission at every count, each a whole army: the systematic sweep, most promising first.' },
-  { id: 'greedy', label: 'Greedy', what: 'A quick division-by-division build, one more starting point.' },
   { id: 'annealing', label: 'Rearrange', what: 'Millions of small changes from the best starting points, taking turns; this finds the best TLM / h.' },
   { id: 'polishing', label: 'Polish', what: 'Every single change tried once more; the answer is a true local optimum.' },
   { id: 'balancing', label: 'Balance', what: 'The second answer: same divisions, cards shuffled so each mission length comes back close together.', balancingOnly: true },
@@ -122,23 +123,14 @@ export function OptimizePanel({
   const [account, setAccount] = useState(initialAccount)
   const [mode, setMode] = useState<Mode>('ready')
   const [alignMove, setAlignMove] = useState(() => read(STORE_ALIGN, false))
-  const [times, setTimes] = useState<Record<keyof PhaseBudgets, number>>(() => {
-    const saved = read<Partial<Record<keyof PhaseBudgets, number | null>>>(STORE_TIMES, {})
-    const pick = (k: keyof PhaseBudgets) => {
-      const v = saved[k]
-      return v === null ? Infinity : typeof v === 'number' && TIMES[k].options.includes(v) ? v : TIMES[k].recommended
-    }
-    return { coverageMs: pick('coverageMs'), annealMs: pick('annealMs'), balanceMs: pick('balanceMs') }
+  const [effort, setEffortState] = useState<EffortLevel>(() => {
+    const v = read<string>(STORE_EFFORT, 'normal')
+    return v === 'quick' || v === 'thorough' ? v : 'normal'
   })
-  const setTime = (k: keyof PhaseBudgets, v: number) => {
-    const next = { ...times, [k]: v }
-    setTimes(next)
-    write(STORE_TIMES, Object.fromEntries(Object.entries(next).map(([a, b]) => [a, Number.isFinite(b) ? b : null])))
+  const setEffort = (v: EffortLevel) => {
+    setEffortState(v)
+    write(STORE_EFFORT, v)
   }
-  const phases = useMemo<PhaseBudgets>(
-    () => ({ coverageMs: times.coverageMs * 1000, annealMs: times.annealMs * 1000, balanceMs: alignMove ? times.balanceMs * 1000 : 0 }),
-    [times, alignMove]
-  )
   const [off, setOff] = useState<Set<number>>(() => new Set(read<number[]>(STORE_OFF, [])))
   /** Cards still in the wallet count too; the rebuild stakes the ones the plan uses. */
   const [includeWallet, setIncludeWallet] = useState(() => read(STORE_WALLET, true))
@@ -222,12 +214,12 @@ export function OptimizePanel({
         const r = keptRate(d)
         return r ? [{ cooldownBase: r.mission.cooldownBase, move: d.move }] : []
       }),
-      budgetMs: Object.values(phases).some((v) => !Number.isFinite(v)) ? Infinity : Object.values(phases).reduce((n, v) => n + v, 0),
-      phases
+      budgetMs: Infinity,
+      effort: EFFORTS[effort]
     }
     // keptRate is derived from the same data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [army.data, player.data, config.data, kept, rearrange, chosen, market, alignMove, matchWeight, matchGoal, withinGoalWeight, phases, walletCards])
+  }, [army.data, player.data, config.data, kept, rearrange, chosen, market, alignMove, matchWeight, matchGoal, withinGoalWeight, effort, walletCards])
 
   walletIdsForRows = walletIds
   // What the wallet can field at once, whatever is out: every card, every division rebuilt. Worked out
@@ -250,13 +242,14 @@ export function OptimizePanel({
       budgetMs: 15_000
     }
   }, [army.data, player.data, config.data, divisions, chosen, market, walletCards])
-  const potential = useArmyPotential(allInput)
   const inPlay = useMemo(() => {
     const inDivs = rearrange.reduce((n, d) => n + 1 + d.units.reduce((m, u) => m + 1 + GEAR_KINDS.filter((k) => u.gear[k]).length, 0), 0)
     const reserve = army.data ? Object.values(army.data.free).reduce((n, l) => n + l.length, 0) : 0
     return { divisions: inDivs, reserve }
   }, [rearrange, army.data])
   const search = useArmySearch(input)
+  // The background "can field at once" pass waits while a search is still in its first phases.
+  const potential = useArmyPotential(allInput, search.running && ['starting', 'coverage'].includes(search.progress?.phase ?? 'starting'))
   /** Find the best army with a new account typed: look it up, then start as soon as it is read. */
   const [startWhenReady, setStartWhenReady] = useState(false)
   const go = () => {
@@ -568,33 +561,17 @@ export function OptimizePanel({
             />
             Also balance for move cost
           </label>
-          <details className="opt__more">
-            <summary>
-              Time: coverage {seconds(times.coverageMs)} · rearrange {seconds(times.annealMs)}
-              {alignMove ? ` · balance ${seconds(times.balanceMs)}` : ''}
-            </summary>
-            <div className="opt__times">
-              {(Object.keys(TIMES) as (keyof PhaseBudgets)[])
-                .filter((k) => k !== 'balanceMs' || alignMove)
-                .map((k) => (
-                  <span key={k} className="opt__field">
-                    {TIMES[k].label}
-                    <span className="seg">
-                      {TIMES[k].options.map((v) => (
-                        <button key={v} type="button" className={times[k] === v ? 'is-on' : ''} onClick={() => setTime(k, v)} title={v === TIMES[k].recommended ? 'Recommended' : undefined}>
-                          {!Number.isFinite(v) ? (k === 'coverageMs' ? 'Full sweep' : 'Until it settles') : v < 60 ? `${v} s` : `${v / 60} min`}
-                          {v === TIMES[k].recommended ? ' ★' : ''}
-                        </button>
-                      ))}
-                    </span>
-                  </span>
-                ))}
-            </div>
-            <p className="help">
-              ★ recommended. Coverage sweeps every mission at every count (most promising first; the full sweep ends on its own). Rearrange and Balance
-              run until their time is up, or, with no limit, until several rounds in a row find nothing. Stop always keeps the best so far.
-            </p>
-          </details>
+          <span className="opt__field">
+            Effort
+            <span className="seg">
+              {EFFORT_LEVELS.map((l) => (
+                <button key={l.key} type="button" className={effort === l.key ? 'is-on' : ''} title={l.what} onClick={() => setEffort(l.key)}>
+                  {l.label}
+                  {l.key === 'normal' ? ' ★' : ''}
+                </button>
+              ))}
+            </span>
+          </span>
           {alignMove && (
             <details className="opt__more">
               <summary>
@@ -755,6 +732,33 @@ export function OptimizePanel({
               </span>
             )}
           </div>
+          {search.stale && (search.running || search.done) && (
+            <div className="opt__progress opt__stale">
+              <span>
+                <b>Prices or cards changed since this search started.</b> It keeps working on what it read then; search again for today&apos;s numbers.
+              </span>
+              <button type="button" className="btn btn--sm" onClick={() => search.start()}>
+                Search again
+              </button>
+            </div>
+          )}
+          {search.done && search.seeds.length > 1 && (() => {
+            const values = search.seeds.map((s) => s.result?.perHour).filter((v): v is number => v !== undefined).sort((a, b) => b - a)
+            if (values.length < 2) return null
+            const spread = values[0] - values[values.length - 1]
+            return (
+              <div className="opt__progress opt__seeds">
+                <span>
+                  <b>Best of {values.length} searches:</b> {formatNumber(keptPerHour + values[0], 1)} TLM / h · the others reached{' '}
+                  {values
+                    .slice(1)
+                    .map((v) => formatNumber(keptPerHour + v, 1))
+                    .join(', ')}
+                  {spread < 0.05 ? ' — all agree, a solid answer.' : spread < values[0] * 0.02 ? ' — close, the answer is solid.' : ' — they differ: Thorough may find more.'}
+                </span>
+              </div>
+            )
+          })()}
           {balanced && !search.running && (
             <div className="opt__progress opt__balanced">
               <span>
@@ -771,12 +775,7 @@ export function OptimizePanel({
                 return (
                   <li key={p.id} className={state} title={p.what}>
                     <i>{i < at ? '✓' : i + 1}</i>
-                    <span>
-                      {p.label}
-                      {p.id === 'coverage' ? <small> {seconds(times.coverageMs).replace('until it settles', 'full sweep')}</small> : null}
-                      {p.id === 'annealing' ? <small> {seconds(times.annealMs)}</small> : null}
-                      {p.id === 'balancing' ? <small> {seconds(times.balanceMs)}</small> : null}
-                    </span>
+                    <span>{p.label}</span>
                   </li>
                 )
               })}
@@ -791,8 +790,8 @@ export function OptimizePanel({
                   const next = list[list.findIndex((x) => x.id === search.progress!.phase) + 1]
                   return next ? `Next: ${next.label.toLowerCase()}.` : ''
                 })()}{' '}
-                {formatNumber(search.progress.moves, 0)} changes tried · {formatNumber(search.progress.ms / 1000, 0)} s in all
-                {search.progress.pct < 0 ? ' · this phase runs until it settles; Stop keeps the best so far' : ''}
+                {formatNumber(search.progress.moves, 0)} changes tried by {search.seeds.length} searches side by side · {formatNumber(search.progress.ms / 1000, 0)} s ·
+                Stop keeps the best so far
               </span>
               <span className={`opt__bar${search.progress.pct < 0 ? ' is-endless' : ''}`}>
                 <i style={search.progress.pct < 0 ? undefined : { width: `${Math.max(2, search.progress.pct * 100)}%` }} />

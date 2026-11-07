@@ -5,7 +5,7 @@ import type { AssetRef } from '@/data/assets'
 import type { Division } from '@/data/game'
 import type { MissionRow } from '@/data/types'
 
-import { searchArmy, type SearchInput } from './armySearch'
+import { EFFORTS, searchArmy, type SearchInput } from './armySearch'
 import { tlmPerHour, type MissionEconomics } from './loop'
 import { fallbackMarket } from './market'
 import { unitTotals, type Kind } from './stats'
@@ -180,6 +180,21 @@ describe('searchArmy', () => {
     const b = searchArmy(input(pool, missions, { budgetMs: 2000 }))
     expect(b.perHour).toBeCloseTo(a.perHour, 9)
     expect(b.divisions.map((d) => d.warlord.assetId)).toEqual(a.divisions.map((d) => d.warlord.assetId))
+  })
+
+  it('with the work counted, gives exactly the same army for the same input and seed, whatever the clock', () => {
+    const pool = empty()
+    for (let i = 0; i < 6; i++) pool.warlord.push(nft(CATEGORY.WARLORD, { slots: 6 + (i % 3) * 2, red: (i % 2) * 10 }))
+    for (let i = 0; i < 30; i++) pool.mercenary.push(nft(CATEGORY.MERCENARY, { atk: 20 + ((i * 37) % 90), def: 10 + ((i * 23) % 60), move: 8 + ((i * 11) % 30) }))
+    for (let i = 0; i < 6; i++) pool.supply.push(nft(CATEGORY.SUPPLY, { atk: 10, def: 10, red: 6 + i }))
+    const missions = [mission(1, 150, 15), mission(2, 300, 40, 3600, 100), mission(3, 80, 5, 1800)]
+    const run = (seed: number) => searchArmy(input(pool, missions, { effort: { ...EFFORTS.quick, rounds: 1, balanceTurns: 2 }, seed, alignMove: true, slotsFree: { weapon: 0, supply: 4, lavalux: 0 } }))
+    const sig = (r: ReturnType<typeof run>) => JSON.stringify([r.divisions.map((d) => [d.warlord.assetId, d.units.map((u) => [u.merc.assetId, ...Object.values(u.gear).map((g) => g!.assetId)])]), r.balanced?.divisions.map((d) => d.units.length)])
+    const a = run(3)
+    const b = run(3)
+    expect(sig(b)).toBe(sig(a))
+    expect(b.perHour).toBe(a.perHour)
+    expect(b.score).toBe(a.score)
   })
 
   it('is never worse than the army as it stands, and keeps a division that is already right', () => {

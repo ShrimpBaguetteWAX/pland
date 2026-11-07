@@ -69,8 +69,37 @@ export interface SearchInput {
   budgetMs: number
   /** Time per phase; Infinity means the full sweep (coverage) or until it settles (the others). */
   phases?: PhaseBudgets
+  /** Work per phase; when given, no phase is cut by the clock (only Stop ends a search early). */
+  effort?: Effort
   seed?: number
 }
+
+/**
+ * How much work a search does, counted in work rather than time, so the same input and seed give
+ * the same answer on any machine and under any load:
+ *  - missions: how many missions the coverage sweep builds armies for, most promising first (every
+ *    count of each); the missions the army already fields are always counted.
+ *  - rounds: cooling rounds per starting point in the rearrange phase (it stops earlier once every
+ *    lineage has gone cold).
+ *  - balanceTurns: cooling turns of the balancing phase (it stops earlier once every run is cold).
+ */
+export interface Effort {
+  missions: number
+  /** Counts tried per mission around the likely one (and every count up to it on the way down). */
+  counts: number
+  /** Missions the rest of an army is filled in from, most promising first. */
+  fill: number
+  /** Partner missions an efficient mission is paired with. */
+  partners: number
+  rounds: number
+  balanceTurns: number
+}
+export const EFFORTS = {
+  quick: { missions: 6, counts: 2, fill: 4, partners: 2, rounds: 2, balanceTurns: 6 },
+  normal: { missions: 12, counts: 4, fill: 6, partners: 3, rounds: 4, balanceTurns: 12 },
+  thorough: { missions: 30, counts: 8, fill: 10, partners: 6, rounds: 12, balanceTurns: 40 }
+} satisfies Record<string, Effort>
+export type EffortLevel = keyof typeof EFFORTS
 
 export interface PhaseBudgets {
   coverageMs: number
@@ -126,7 +155,11 @@ export interface SearchResult {
    * answer. Divisions on missions of one base length are brought as close in move cost as the cards
    * allow without giving up much income; the player picks which of the two to sign.
    */
-  balanced?: { divisions: PlannedDivision[]; perHour: number; warnings: string[] }
+  balanced?: { divisions: PlannedDivision[]; perHour: number; warnings: string[]; score?: number }
+  /** What the search maximised for the main answer (TLM/h, less any balancing penalty: none there). */
+  score?: number
+  /** The seed this answer came from. */
+  seed?: number
 }
 
 export interface SearchProgress {
@@ -1338,12 +1371,12 @@ function packMost(input: SearchInput, pool: Record<Kind, AssetRef[]>, mis: Mis, 
  * they earn together; the best such batch goes in, then the next from what is left, until the
  * allowance, the cards or the time run out.
  */
-function fillGreedy(M: Model, input: SearchInput, s: State, used: Set<string>, slots: Record<SlotKind, number>, deadline: number) {
-  for (let round = 0; round < 8 && live(s).length < M.maxDivs && Date.now() < deadline; round++) {
+function fillGreedy(M: Model, input: SearchInput, s: State, used: Set<string>, slots: Record<SlotKind, number>, deadline: number, from: Mis[] = M.missions, rounds = 8) {
+  for (let round = 0; round < rounds && live(s).length < M.maxDivs && Date.now() < deadline; round++) {
     const pool = leftover(input.pool, used)
     const left = M.maxDivs - live(s).length
     let best: { plans: Packed; value: number } | null = null
-    for (const mis of M.missions) {
+    for (const mis of from) {
       const plans = packMost(input, pool, mis, slots, left)
       if (!plans) continue
       const value = plans.reduce((v, pl) => v + rate(mis, pl.bundle.move), 0)
@@ -1976,17 +2009,25 @@ function coverage(
   /** Scores a candidate; with move-matching, its matched form as well. */
   const consider = (st: State, mis: Mis, n: number) => score(st, mis, n)
   /** The remainder of `base` filled: plainly, and (for an efficient mission) each partner first. */
+  // Counted work: the rest of an army comes from the most promising few missions, and an efficient
+  // mission tries its first few partners, in a fixed order; no clock decides how much gets done.
+  const eff = input.effort
+  const fillFrom = eff ? byPromise.slice(0, eff.fill) : M.missions
+  const fillRounds = eff ? 4 : 8
+  const partners = eff ? [...focus].slice(0, eff.partners + 1) : [...focus]
   const finish = (base: State, mis: Mis, n: number) => {
     const used = placedIn(M, base)
     const slots = { ...input.slotsFree }
     for (const kk of ['weapon', 'supply', 'lavalux'] as SlotKind[]) slots[kk] = Math.max(0, slots[kk] - base.used[GK.indexOf(kk)])
     {
       const st = cloneState(base)
-      fillGreedy(M, input, st, new Set(used), { ...slots }, deadline)
+      // Counted: the rest is left to the annealing (it raises divisions from what is left). Packing it
+      // here takes the bundle solver hundreds of milliseconds a call, dozens of calls per count.
+      if (!eff) fillGreedy(M, input, st, new Set(used), { ...slots }, deadline, fillFrom, fillRounds)
       consider(st, mis, n)
     }
     if (focus.has(mis))
-      for (const partner of focus) {
+      for (const partner of partners) {
         if (partner === mis || Date.now() > deadline) continue
         const st = cloneState(base)
         const u = new Set(used)
@@ -1994,7 +2035,7 @@ function coverage(
         const rest = packMost(input, leftover(input.pool, u), partner, sl, M.maxDivs - live(st).length)
         if (!rest) continue
         place(M, st, rest, u, sl)
-        fillGreedy(M, input, st, u, sl, deadline)
+        if (!eff) fillGreedy(M, input, st, u, sl, deadline, fillFrom, fillRounds)
         consider(st, mis, n)
       }
   }
@@ -2035,14 +2076,15 @@ function coverage(
   }
   // Most promising mission first; for each, the likely count first, then upward until both packers
   // fail (past what the army already fields), then downward to one.
-  outer: for (const mis of byPromise) {
+  outer: for (const mis of byPromise.slice(0, input.effort ? input.effort.missions : Infinity)) {
     const floor = tried.get(mis.m.id)?.count ?? 0
     const n0 = Math.max(1, Math.min(M.maxDivs, Math.max(estimate(mis), floor)))
-    for (let n = n0; n <= M.maxDivs; n++) {
+    const span = eff ? eff.counts : Infinity
+    for (let n = n0; n <= M.maxDivs && n <= n0 + span; n++) {
       if (Date.now() > deadline) break outer
       if (!tryCount(mis, n) && n > floor) break
     }
-    for (let n = n0 - 1; n >= 1; n--) {
+    for (let n = n0 - 1; n >= Math.max(1, n0 - span); n--) {
       if (Date.now() > deadline) break outer
       tryCount(mis, n)
     }
@@ -2306,7 +2348,8 @@ export function searchArmy(
     // Every mission at every count, each a whole army: the systematic part of the search.
     begin(ph.coverageMs)
     progress('coverage', best.real)
-    const cov = coverage(M, input, asIs, phaseStart + ph.coverageMs, r, (n) => {
+    const work = input.effort
+    const cov = coverage(M, input, asIs, work ? Infinity : phaseStart + ph.coverageMs, r, (n) => {
       extra = n
       progress('coverage', best.real)
     }, (st, v) => {
@@ -2329,10 +2372,14 @@ export function searchArmy(
         show(true)
       }
     }
-    // The greedy construction, with a slice of the budget.
-    begin(5_000)
-    progress('greedy', best.real)
-    const greedy = greedyState(M, input, Math.min(5_000, Number.isFinite(ph.annealMs) ? ph.annealMs * 0.1 : 5_000))
+    // The greedy construction, with a slice of the budget. Left out when the work is counted: it runs
+    // on a clock of its own, and the coverage sweep starts from stronger armies anyway.
+    let greedy: State | null = null
+    if (!work) {
+      begin(5_000)
+      progress('greedy', best.real)
+      greedy = greedyState(M, input, Math.min(5_000, Number.isFinite(ph.annealMs) ? ph.annealMs * 0.1 : 5_000))
+    }
     if (greedy) {
       const v = objective(M, greedy).real
       greedyPerHour = Math.max(greedyPerHour, v)
@@ -2373,16 +2420,18 @@ export function searchArmy(
       const t0 = Math.max(temperature(M, own, r), 0.02 * Math.max(1, objective(M, own).earn))
       lineages.push({ name, state: own, t0, best: { state: cloneState(own), real: objective(M, own).real } })
     }
-    begin(ph.annealMs)
-    const unlimited = !Number.isFinite(ph.annealMs)
-    const annealEnd = phaseStart + ph.annealMs
+    begin(work ? Infinity : ph.annealMs)
+    const unlimited = !!work || !Number.isFinite(ph.annealMs)
+    const annealEnd = work ? Infinity : phaseStart + ph.annealMs
+    const maxRounds = work ? work.rounds * lineages.length : Infinity
+    let cold = false
     // Not before most of the phase's time is used, and not while any lineage still finds something.
     const earliestStop = phaseStart + ph.annealMs * 0.6
     // With no time limit: only once every lineage has had this many cold rounds in a row with nothing.
     const COLD_ROUNDS = unlimited ? 5 : 3
     let since = 0
     let round = 0
-    while (Date.now() < annealEnd) {
+    while (Date.now() < annealEnd && round < maxRounds) {
       const l = lineages[round % lineages.length]
       const before = best.real
       const stop = unlimited ? Infinity : Math.min(annealEnd, Date.now() + (annealEnd - Date.now()) / Math.max(1, 4 - Math.floor(round / lineages.length)))
@@ -2400,26 +2449,31 @@ export function searchArmy(
       since = best.real > before + 1e-9 ? 0 : since + 1
       progress('annealing', best.real)
       // Most of the time used and every lineage had enough cold rounds in a row without finding anything.
-      if ((unlimited || Date.now() > earliestStop) && reheats >= COLD_ROUNDS && since >= lineages.length * COLD_ROUNDS) break
+      if ((unlimited || Date.now() > earliestStop) && reheats >= COLD_ROUNDS && since >= lineages.length * COLD_ROUNDS) {
+        cold = true
+        break
+      }
       // After two full passes, only the three best lineages carry on.
       if (round === lineages.length * 2 && lineages.length > 3) {
         lineages.sort((a, b) => b.best.real - a.best.real)
         lineages.length = 3
       }
     }
-    const converged = Date.now() < annealEnd
-    begin(20_000)
+    const converged = work ? cold : Date.now() < annealEnd
+    begin(work ? Infinity : 20_000)
     progress('polishing', best.real)
-    moves += polish(M, best.state, Date.now() + 20_000)
+    // The polish ends when nothing helps any more (or after its round cap); counted, it has no clock.
+    moves += polish(M, best.state, work ? Infinity : Date.now() + 20_000)
     best.real = objective(M, best.state).real
     // The second answer: the best army balanced for move cost, without giving up much income.
     let balanced: SearchResult['balanced']
     if (input.alignMove) {
-      begin(ph.balanceMs)
+      begin(work ? Infinity : ph.balanceMs)
       progress('balancing', best.real)
       const M2: Model = { ...M, alignMove: true, frozen: true }
-      const unlimitedBalance = !Number.isFinite(ph.balanceMs)
-      const stop = phaseStart + ph.balanceMs
+      const unlimitedBalance = !!work || !Number.isFinite(ph.balanceMs)
+      const stop = work ? Infinity : phaseStart + ph.balanceMs
+      const maxTurns = work ? work.balanceTurns : Infinity
       /*
        * Several starting points, not one: the best army, what the other lineages ended on (often a
        * different set of divisions), and the army as it stands, which may already be better balanced
@@ -2441,7 +2495,7 @@ export function searchArmy(
           if (!st) continue
           const slots = { ...input.slotsFree }
           for (const kk of ['weapon', 'supply', 'lavalux'] as SlotKind[]) slots[kk] = Math.max(0, slots[kk] - st.used[GK.indexOf(kk)])
-          fillGreedy(M, input, st, placedIn(M, st), slots, Date.now() + 2000)
+          fillGreedy(M, input, st, placedIn(M, st), slots, work ? Infinity : Date.now() + 2000, work ? M.missions.slice(0, work.fill) : M.missions, work ? 4 : 8)
           dealt.push([`deal-${n}`, st])
         }
       }
@@ -2459,7 +2513,7 @@ export function searchArmy(
         const log: Undo[] = []
         trimMoves(M2, st, live(st), log)
         balanceGroups(M2, st, log)
-        exchangePass(M2, st, Math.min(stop, Date.now() + 4000))
+        exchangePass(M2, st, work ? Infinity : Math.min(stop, Date.now() + 4000))
       }
       const seed = (name: string, from: State, strict: boolean) => {
         const st = cloneState(from)
@@ -2484,7 +2538,7 @@ export function searchArmy(
       // reheated when a few rounds in a row found nothing. Only the time ends it; with no limit, it
       // ends when every run has gone cold for good.
       const COLD = unlimitedBalance ? 6 : 4
-      for (let turn = 0; Date.now() < stop; turn++) {
+      for (let turn = 0; Date.now() < stop && turn < maxTurns; turn++) {
         const open = unlimitedBalance ? runs.filter((x) => x.cold < COLD) : runs
         if (!open.length) break
         const run = open[turn % open.length]
@@ -2509,9 +2563,9 @@ export function searchArmy(
           runs.length = 2
         }
       }
-      moves += polish(M2, bb.state, Date.now() + 10_000)
+      moves += polish(M2, bb.state, work ? Infinity : Date.now() + 10_000)
       const vb = verified(M2, bb.state, input)
-      balanced = { divisions: vb.divisions, perHour: vb.divisions.reduce((n, d) => n + d.perHour, 0), warnings: vb.warnings }
+      balanced = { divisions: vb.divisions, perHour: vb.divisions.reduce((n, d) => n + d.perHour, 0), warnings: vb.warnings, score: objective(M2, bb.state).real }
     }
     begin(1_000)
     progress('checking', best.real)
@@ -2530,7 +2584,9 @@ export function searchArmy(
       converged,
       warnings: v.warnings,
       tried,
-      balanced
+      balanced,
+      score: objective(M, best.state).real,
+      seed: input.seed
     }
     // Never worse than leaving the army alone, by the score (with move-matching a matched army may earn
     // a little less than the unmatched one it replaces; that is what was asked for).
