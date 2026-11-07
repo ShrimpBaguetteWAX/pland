@@ -40,9 +40,9 @@ const SLOT_POWERUP: Record<SlotKind, string> = { weapon: 'eqpslot', supply: 'sup
  * answer whatever else the computer is doing. Several seeds run side by side and the best wins.
  */
 const EFFORT_LEVELS: { key: EffortLevel; label: string; what: string }[] = [
-  { key: 'quick', label: 'Quick', what: 'The 6 most promising missions, a short rearrange. About a minute on a big army.' },
-  { key: 'normal', label: 'Normal', what: 'The 12 most promising missions at more counts, a longer rearrange. Three to four minutes on a big army.' },
-  { key: 'thorough', label: 'Thorough', what: 'Up to 30 missions at many counts, a long rearrange that stops only when it stops finding anything. Ten minutes or more on a big army.' }
+  { key: 'quick', label: 'Quick', what: 'The 6 most promising missions, a short rearrange. One to three minutes on a big army, the longer with balancing.' },
+  { key: 'normal', label: 'Normal', what: 'The 12 most promising missions at more counts, a longer rearrange. Four to six minutes on a big army with balancing.' },
+  { key: 'thorough', label: 'Thorough', what: 'Up to 30 missions at many counts, a long rearrange that stops only when it stops finding anything. Fifteen minutes or more on a big army.' }
 ]
 const STORE_EFFORT = 'pd-army.opt.effort'
 /** The phases of a search, in order, with what each one does. */
@@ -271,8 +271,16 @@ export function OptimizePanel({
   useEffect(() => setRunState(null), [result])
   const balanced = result?.balanced
   const showBalanced = pick === 'balanced' && !!balanced
+  /** The Balanced tab is picked but no balanced army has been found yet (the search is still before or early in balancing). */
+  const balancedPending = pick === 'balanced' && !balanced
+  // A new search opens on the answer the player asked for: balanced when move-matching is on.
+  const [wasRunning, setWasRunning] = useState(false)
+  if (search.running !== wasRunning) {
+    setWasRunning(search.running)
+    if (search.running) setPick(alignMove ? 'balanced' : 'best')
+  }
   /** The answer that would be signed (the steps, the preset, the deploy), whichever list is on screen. */
-  const shown = useMemo(() => (showBalanced ? balanced!.divisions : (result?.divisions ?? [])), [showBalanced, balanced, result])
+  const shown = useMemo(() => (pick === 'balanced' ? (balanced?.divisions ?? []) : (result?.divisions ?? [])), [pick, balanced, result])
   /** The player's divisions as they are now, in the same rows: out on their mission, or at home valued at the best mission they could take. */
   const nowRows = useMemo<ShownDivision[]>(
     () =>
@@ -889,11 +897,12 @@ export function OptimizePanel({
 
       {result && groups.length > 0 && (
         <p className="opt__groups">
+          <b className="opt__groups-which">{showBalanced ? 'Balanced for move cost' : 'Best TLM / h (not matched for move)'}:</b>{' '}
           {groups.map((g) => (
             <span key={g.base}>
               <b>{formatDuration(g.base)} missions</b>: {g.moves.length} division{g.moves.length === 1 ? '' : 's'}
               {g.out ? ` (+${g.out} out now)` : ''} at {g.max - g.min <= 3 ? `${g.max} move` : `${g.min}–${g.max} move, ${g.max - g.min} apart (${formatDuration((g.max - g.min) * 10)})`}
-              {g.max - g.min <= matchGoal ? ' · within the goal' : ' · the goal was not reached'}.{' '}
+              {g.max - g.min <= matchGoal ? ' · within the goal' : showBalanced ? ' · the goal was not reached' : ' · beyond the goal (see Balanced for move cost)'}.{' '}
             </span>
           ))}
         </p>
@@ -905,18 +914,20 @@ export function OptimizePanel({
             <span className="group__h">
               {pick === 'now'
                 ? `Your divisions as they are now · ${nowTotal === null ? '…' : formatNumber(nowTotal, 1)} TLM / h · nothing here is signed`
-                : showBalanced
-                  ? 'Balanced for move cost · what gets signed if you rearrange now'
-                  : 'Best TLM / h · what gets signed if you rearrange now'}
+                : pick === 'balanced'
+                  ? balancedPending
+                    ? 'Balanced for move cost · comes after the rearrange'
+                    : `Balanced for move cost · ${search.running ? 'the best so far, still balancing' : 'what gets signed if you rearrange now'}`
+                  : `Best TLM / h · ${search.running ? 'the best so far, still searching' : 'what gets signed if you rearrange now'}`}
             </span>
             <span className="seg seg--pick">
               <button type="button" className={pick === 'now' ? 'is-on' : ''} onClick={() => setPick('now')}>
                 Now
               </button>
-              <button type="button" className={pick === 'best' || (pick === 'balanced' && !balanced) ? 'is-on' : ''} onClick={() => setPick('best')}>
+              <button type="button" className={pick === 'best' ? 'is-on' : ''} onClick={() => setPick('best')}>
                 Best TLM / h
               </button>
-              {balanced && (
+              {(balanced || alignMove) && (
                 <button type="button" className={pick === 'balanced' ? 'is-on' : ''} onClick={() => setPick('balanced')}>
                   Balanced for move cost
                 </button>
@@ -929,7 +940,14 @@ export function OptimizePanel({
             shown.map((d) => (
               <PlannedRow key={d.warlord.assetId} d={d} />
             ))}
-          {pick !== 'now' && !shown.length && (
+          {balancedPending && (
+            <p className="none">
+              {search.running
+                ? 'Balancing starts once the rearrange and polish are done; the balanced army shows here as soon as it is found, and keeps updating.'
+                : 'No balanced army: switch on Also balance for move cost and search again.'}
+            </p>
+          )}
+          {pick !== 'now' && !balancedPending && !shown.length && (
             <p className="none">
               {input && input.maxDivisions <= 0
                 ? 'Every division place is taken by a division that is out right now.'
