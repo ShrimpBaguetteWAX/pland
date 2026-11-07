@@ -135,12 +135,12 @@ export function OptimizePanel({
   /** Cards still in the wallet count too; the rebuild stakes the ones the plan uses. */
   const [includeWallet, setIncludeWallet] = useState(() => read(STORE_WALLET, true))
   /** Index into WEIGHTS. */
-  const [weightIx, setWeightIx] = useState(() => Math.min(WEIGHTS.length - 1, Math.max(0, read(STORE_WEIGHT, 0))))
+  const [weightIx, setWeightIx] = useState(() => Math.min(WEIGHTS.length - 1, Math.max(0, read(STORE_WEIGHT, WEIGHTS.length - 1))))
   const matchWeight = WEIGHTS[weightIx]
   const [goalIx, setGoalIx] = useState(() => Math.min(GOALS.length - 1, Math.max(0, read(STORE_GOAL, 4))))
   const goalMin = GOALS[goalIx]
   const matchGoal = Math.round(goalMin * 6)
-  const [withinIx, setWithinIx] = useState(() => Math.min(WITHIN.length - 1, Math.max(0, read(STORE_WITHIN, 2))))
+  const [withinIx, setWithinIx] = useState(() => Math.min(WITHIN.length - 1, Math.max(0, read(STORE_WITHIN, 4))))
   const withinGoalWeight = WITHIN[withinIx]
   const [runState, setRunState] = useState<Run | null>(null)
   const [presetName, setPresetName] = useState('')
@@ -643,8 +643,9 @@ export function OptimizePanel({
                 </span>
               </div>
               <p className="help">
-                Earnings always assume each division is claimed as soon as it is back. Balancing keeps every division on its mission and only moves cards; it
-                never drops one.
+                Earnings always assume each division is claimed as soon as it is back. Balancing brings the divisions of each mission length as close
+                together in move cost as the cards allow, at any price until the goal is reached by default; it never drops a real division, only
+                small side divisions may come and go.
               </p>
             </details>
           )}
@@ -883,6 +884,12 @@ export function OptimizePanel({
         </p>
       )}
 
+      {showBalanced && !search.running && balanced!.note && (
+        <p className="notice notice--read opt__kept">
+          <Icon name="lock" size={16} />
+          <span>{balanced!.note}</span>
+        </p>
+      )}
       {showBalanced &&
         balanced!.warnings.map((w) => (
           <p key={w} className="opt__warn">
@@ -936,7 +943,11 @@ export function OptimizePanel({
                 <button type="button" className={pick === 'balanced' ? 'is-on' : ''} onClick={() => setPick('balanced')}>
                   Balanced for move cost
                   <small className="seg__value">
-                    {balanced ? `${formatNumber(keptPerHour + balanced.perHour, 1)} TLM / h${search.running ? ' so far' : ''}` : search.running ? 'after the rearrange' : '–'}
+                    {balanced
+                      ? `${formatNumber(keptPerHour + balanced.perHour, 1)} TLM / h${search.running ? ' so far' : balanced.goalReached === false ? ' · goal not reached' : balanced.goalReached ? ' · within the goal' : ''}`
+                      : search.running
+                        ? 'after the rearrange'
+                        : '–'}
                   </small>
                 </button>
               )}
