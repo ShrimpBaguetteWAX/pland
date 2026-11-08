@@ -9,7 +9,9 @@ import { queryClient } from './queryClient'
 /*
  * What the player earned today, since 0:00 in their own timezone: TLM paid by missions to their
  * divisions, and TLM mined. Mission rewards are transfers from miss.pdef (counted once per claim,
- * see timesRun). Mining pays nothing out per mine: each mine logs its bounty (logmine) in its own
+ * see timesRun): to the player's wallet, or, since the contracts' update of 7 Nov 2026, credited to
+ * their game balance on core.pdef with memo "credit:<player>" (the history nodes do not filter by
+ * memo, so today's credits of everyone are read and the player's picked out). Mining pays nothing out per mine: each mine logs its bounty (logmine) in its own
  * transaction and the TLM collects at m.federation, so today's mines are listed from the account's
  * history and each one's bounty read from its transaction, once: a bounty never changes, so they
  * are remembered in this browser and only new mines are looked up.
@@ -62,16 +64,25 @@ async function bountyOf(trxId: string, account: string): Promise<number | null> 
 
 async function fetchToday(account: string): Promise<TodayEarnings> {
   const after = startOfToday()
-  const [rewards, mines] = await Promise.all([
+  const [rewards, credits, mines] = await Promise.all([
     getActions(account, {
       filter: 'alien.worlds:transfer',
       'transfer.from': CONTRACTS.MISSIONS,
       'transfer.to': account,
       after
     }),
+    getActions(CONTRACTS.CORE, {
+      filter: 'alien.worlds:transfer',
+      'transfer.from': CONTRACTS.MISSIONS,
+      'transfer.to': CONTRACTS.CORE,
+      after
+    }).catch(() => []),
     getActions(account, { filter: `${CONTRACTS.MINING}:mine`, after })
   ])
-  const divisions = rewards.reduce((n, a) => n + parseAsset(String(a.act.data.quantity ?? '0 TLM')).amount * timesRun(a), 0)
+  const memo = `credit:${account}`
+  const tlmOf = (a: (typeof rewards)[number]) => parseAsset(String(a.act.data.quantity ?? '0 TLM')).amount * timesRun(a)
+  const divisions =
+    rewards.reduce((n, a) => n + tlmOf(a), 0) + credits.filter((a) => String(a.act.data.memo ?? '') === memo).reduce((n, a) => n + tlmOf(a), 0)
 
   const cache = bountyCache()
   const trxIds = [...new Set(mines.filter((a) => a.act.data.miner === account).map((a) => a.trx_id))]

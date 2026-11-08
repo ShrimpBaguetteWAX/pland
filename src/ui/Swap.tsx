@@ -218,6 +218,9 @@ const keyOf = (s: BalanceSymbol) => (s === 'TLM' ? 'tlm' : 'def')
 /** Round down to what the token can hold, so Max never asks for a fraction too many. */
 const floorTo = (n: number, s: BalanceSymbol) => Math.floor(n * 10 ** DECIMALS[s] + 1e-6) / 10 ** DECIMALS[s]
 
+/** core.pdef keeps 5% of TLM taken out of the game balance. */
+const WITHDRAW_FEE_TLM = 0.05
+
 function GameBalanceCard({ account, spectating }: { account: string; spectating: boolean }) {
   const { run, pending } = useTransaction()
   const player = usePlayer(account)
@@ -232,13 +235,20 @@ function GameBalanceCard({ account, spectating }: { account: string; spectating:
   const amount = floorTo(parse(text), symbol)
   const error = text && amount <= 0 ? 'Enter an amount above zero.' : amount > available + 1e-12 ? `Only ${formatNumber(available, 4)} ${symbol} available.` : null
   const busy = pending === 'game-balance'
+  // Withdrawing TLM costs a 5% fee: what arrives in the wallet is the rest.
+  const fee = mode === 'withdraw' && symbol === 'TLM' ? WITHDRAW_FEE_TLM : 0
+  const receive = floorTo(amount * (1 - fee), symbol)
 
   async function submit() {
     if (amount <= 0 || error || busy) return
     const quantity = quantityOf(amount, symbol)
     const ok = await run(
       (a, p) => [mode === 'deposit' ? depositAction(a, p, TOKEN_CONTRACT[symbol], quantity) : withdrawBalanceAction(a, p, quantity)],
-      mode === 'deposit' ? `${quantity} deposited to the game` : `${quantity} withdrawn to your wallet`,
+      mode === 'deposit'
+        ? `${quantity} deposited to the game`
+        : fee
+          ? `${quantity} withdrawn: ${formatNumber(receive, 4)} ${symbol} to your wallet after the ${fee * 100}% fee`
+          : `${quantity} withdrawn to your wallet`,
       'game-balance'
     )
     if (ok) {
@@ -254,8 +264,8 @@ function GameBalanceCard({ account, spectating }: { account: string; spectating:
         <small>core.pdef</small>
       </h3>
       <p className="help sw__lead">
-        Entry fees are taken from here when a division joins a mission, so the loop does not send new TLM or DEF every cycle. Rewards still go to your wallet.
-        Withdraw what is left at any time.
+        Entry fees are taken from here when a division joins a mission, and mission rewards are credited here, so the loop runs without sending tokens
+        every cycle. Withdraw at any time; withdrawing TLM costs a {WITHDRAW_FEE_TLM * 100}% fee.
       </p>
 
       <div className="sw__balances">
@@ -301,10 +311,22 @@ function GameBalanceCard({ account, spectating }: { account: string; spectating:
           onKeyDown={(e) => e.key === 'Enter' && void submit()}
         />
         {error && <small className="c-bad">{error}</small>}
+        {fee > 0 && (
+          <small className="sw__fee">
+            {WITHDRAW_FEE_TLM * 100}% withdrawal fee on TLM
+            {amount > 0 && !error ? (
+              <>
+                : −{formatNumber(amount - receive, 4)} TLM · <b>you receive {formatNumber(receive, 4)} TLM</b>
+              </>
+            ) : (
+              '.'
+            )}
+          </small>
+        )}
       </label>
 
       <button type="button" className="btn btn--go sw__go" disabled={spectating || amount <= 0 || !!error || !!pending} onClick={() => void submit()}>
-        {busy ? (mode === 'deposit' ? 'Depositing…' : 'Withdrawing…') : `${mode === 'deposit' ? 'Deposit' : 'Withdraw'} ${amount > 0 ? `${formatNumber(amount, 4)} ${symbol}` : symbol}`}
+        {busy ? (mode === 'deposit' ? 'Depositing…' : 'Withdrawing…') : `${mode === 'deposit' ? 'Deposit' : 'Withdraw'} ${amount > 0 ? `${formatNumber(amount, 4)} ${symbol}` : symbol}${fee && amount > 0 && !error ? ` · get ${formatNumber(receive, 4)}` : ''}`}
       </button>
       {spectating && <p className="help">Read-only: connect your own wallet to deposit or withdraw.</p>}
     </section>

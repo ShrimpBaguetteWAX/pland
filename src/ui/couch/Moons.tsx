@@ -4,11 +4,11 @@ import { useId } from 'react'
  * The moons around Couch mode's orb: one per mission the player has divisions on. Each fills with
  * the look's liquid as that mission's next division heads home and shows its own timer; it glows
  * when a division there is back. Size is what the mission brings back (its TLM reward × the
- * divisions on it), so the missions that matter most are the biggest. They run clockwise from the
- * soonest back, down the right side from the kitten and up the left; the top stays clear for the
- * kitten (or the horns) and the bottom for the bell. More than eight: the smallest merge into one.
- * The orb itself is the biggest mission, so it is not among these. A tap loops a moon's mission when
- * its divisions are back, and otherwise shows that mission's divisions (the merged moon: all of them).
+ * divisions on it), so the missions that matter most are the biggest. Each mission keeps its place
+ * (they run clockwise by mission, down the right side from the kitten and up the left); the top
+ * stays clear for the kitten and the bottom for the bell. More than eight: the smallest merge into one.
+ * The orb itself is the biggest mission, so it is not among these. A tap on a moon that is back loops
+ * everything that is back; otherwise it shows that mission's divisions (the merged moon: all of them).
  */
 
 export interface MoonMission {
@@ -152,7 +152,8 @@ export function Moons({
   const list = fit(missions)
   if (!list.length) return null
   // Soonest back first: those already back, then by their next return.
-  const order = [...list].sort((a, b) => (b.back > 0 ? 1 : 0) - (a.back > 0 ? 1 : 0) || (a.next?.unlockAt ?? Infinity) - (b.next?.unlockAt ?? Infinity))
+  // A fixed place per mission (by its id; the merged moon last), so moons do not move as their timers run.
+  const order = [...list].sort((a, b) => (a.missionId < 0 ? 1 : 0) - (b.missionId < 0 ? 1 : 0) || a.missionId - b.missionId)
   const values = list.map((m) => Math.sqrt(Math.max(0, m.value)))
   const lo = Math.min(...values)
   const hi = Math.max(...values)

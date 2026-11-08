@@ -5071,3 +5071,16 @@ code {
     display: none;
   }
 }
+
+/* The TLM withdrawal fee and what actually arrives, under the amount. */
+.sw__fee {
+  display: block;
+  margin-top: 4px;
+  color: var(--dim);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.sw__fee b {
+  color: var(--ink);
+  font-weight: 600;
+}
