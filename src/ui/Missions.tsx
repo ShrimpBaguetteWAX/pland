@@ -5,7 +5,7 @@ import { formatDuration, formatNumber } from '@/lib/format'
 import { costParts, cycleSeconds, isTokenLoop, meetsRequirements, rewardParts, tlmPerHour, type MissionEconomics } from '@/lib/loop'
 import { chainDate, shortDuration } from '@/lib/time'
 import { useField } from '@/lib/useField'
-import { useMarket } from '@/data/game'
+import { useMarket, useRewardPool } from '@/data/game'
 
 import { Portrait, rarityColor } from './Art'
 import { Icon } from './icons'
@@ -184,6 +184,19 @@ export function Missions({ account, spectating }: { account: string; spectating:
   }, [open, entries.data, now])
   // Until every entry is read the figures wait, rather than show a guess.
   const flowReady = !!entries.data || !flowIds.length
+  // How long the TLM left for player rewards lasts: entry fees flow back into the pool, so only the
+  // payout above them drains it.
+  const pool = useRewardPool()
+  const drain = flow.tlmOut - flow.tlmIn
+  const lasts = (() => {
+    if (!flowReady || pool.data === undefined) return '…'
+    if (drain <= 0) return 'not draining'
+    const h = pool.data / drain
+    if (h >= 24 * 365) return 'over a year'
+    const d = Math.floor(h / 24)
+    const rest = Math.floor(h % 24)
+    return d ? `${d} d ${rest} h` : `${Math.max(0, Math.floor(h))} h ${Math.floor((h % 1) * 60)} m`
+  })()
 
   if (army.isError) return <p className="wrap page-msg c-bad">The army could not be read: {String(army.error)}</p>
   if (!f.loaded) return <p className="wrap page-msg muted">Contacting the field…</p>
@@ -248,6 +261,17 @@ export function Missions({ account, spectating }: { account: string; spectating:
             <b>{flowReady ? formatNumber(value, 0) : '…'}</b>
           </div>
         ))}
+        <div
+          className="mis__fig"
+          title={
+            pool.data === undefined
+              ? 'Reading the reward pool…'
+              : `${formatNumber(pool.data, 0)} TLM left for player rewards (miss.pdef). The payout per hour minus the entry fees per hour that flow back in drains it by ${formatNumber(Math.max(0, drain), 0)} TLM an hour${drain > 0 ? ', so it lasts this long at today\'s pace.' : '; at today\'s pace it is not shrinking.'}`
+          }
+        >
+          <small className={drain > 0 && pool.data !== undefined && pool.data / drain < 72 ? 'c-bad' : ''}>Rewards last</small>
+          <b>{lasts}</b>
+        </div>
       </section>
       <aside className="mis__field">
         <div className="box panel">
