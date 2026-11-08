@@ -77,6 +77,8 @@ export function Missions({ account, spectating }: { account: string; spectating:
 
   const [picked, setPicked] = useState<Set<number>>(() => new Set())
   const [filter, setFilter] = useState<Filter>('fits')
+  /** The list sorted by when each mission ends (the Ends header). */
+  const [byEnd, setByEnd] = useState(false)
   const [dropAt, setDropAt] = useState<number | null>(null)
   const dragRef = useRef<Division[] | null>(null)
 
@@ -241,6 +243,132 @@ export function Missions({ account, spectating }: { account: string; spectating:
 
   const busy = !!f.pending
   const rankLabel = chosen.length === 1 ? `ranked for #${chosen[0].id} ${chosen[0].leader?.name ?? ''}` : chosen.length ? `ranked for the ${chosen.length} picked divisions together` : home.length ? 'ranked for whichever home division fits best · pick divisions on the left' : 'no division at home to rank for'
+
+  // ---- How long each mission stays open: an Ends column, sortable, and this week's endings first ----
+  const DAY = 86_400_000
+  const ends = (e: (typeof rows)[number]['e']) => (e.state === 'upcoming' ? Infinity : e.endAt - f.now)
+  const endsText = (ms: number) => {
+    const d = ms / DAY
+    return d < 1 ? `${Math.max(0, Math.round(ms / 3_600_000))} h` : d < 3 ? `${Math.floor(d)} d ${Math.round((d % 1) * 24)} h` : `${Math.round(d)} d`
+  }
+  const endsCell = (e: (typeof rows)[number]['e']) => {
+    if (e.state === 'upcoming')
+      return (
+        <>
+          <span className="muted">starts</span>
+          <small>{new Date(e.startAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</small>
+        </>
+      )
+    if (!Number.isFinite(e.endAt)) return <span className="muted">—</span>
+    const left = e.endAt - f.now
+    return (
+      <span title={`Open until ${new Date(e.endAt).toLocaleString()}. A division already out when it ends keeps its lock and reward.`}>
+        <b className={left < 3 * DAY ? 'c-bad' : left < 7 * DAY ? 'mt__soon' : ''}>{left <= 0 ? 'ended' : endsText(left)}</b>
+        <small>{new Date(e.endAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</small>
+      </span>
+    )
+  }
+  const ordered = byEnd ? [...rows].sort((a, b) => ends(a.e) - ends(b.e)) : rows
+  const soon = ordered.filter((x) => ends(x.e) < 7 * DAY)
+  const later = ordered.filter((x) => ends(x.e) >= 7 * DAY)
+  const renderRow = ({ e, fitting, fits, perHour, efficiency, out, back, short }: (typeof rows)[number]) => {
+            const open = e.state === 'active'
+            const sendList = chosen.length ? chosen : fitting
+            const canSend = !!sendList.length && fits && open && !spectating
+            const fund = canSend ? f.sendShort(e, sendList) : ''
+            const costs = costParts(e)
+            const slowest = fitting.reduce((m, d) => Math.max(m, d.move), 0)
+            return (
+              <tr key={e.id} className={`${fits ? '' : 'is-off'}${dropAt === e.id ? ' is-target' : ''}`} {...dropProps(e)}>
+                <td className="mt__title">
+                  <b>
+                    {e.title}
+                    {(() => {
+                      const c = flow.crowd.get(e.id)
+                      return c ? (
+                        <span
+                          className="mt__crowd"
+                          title={`${c.players} player${c.players === 1 ? ' has' : 's have'} ${c.divisions} division${c.divisions === 1 ? '' : 's'} out on this mission right now, your own counted too. Divisions back and waiting for the claim are not counted.`}
+                        >
+                          <Icon name="users" size={12} />
+                          {formatNumber(c.players, 0)}
+                        </span>
+                      ) : null
+                    })()}
+                  </b>
+                  <small>
+                    {e.planet}
+                    {!open ? ` · ${e.state}` : ''}
+                    {costs.length ? ` · entry ${costs.join(' + ')}` : ' · free entry'}
+                  </small>
+                </td>
+                <td className="num">
+                  {e.minAtk > 0 && <span className="c-atk">{formatNumber(e.minAtk, 0)} atk</span>}
+                  {e.minAtk > 0 && e.minDef > 0 ? ' · ' : ''}
+                  {e.minDef > 0 && <span className="c-def">{formatNumber(e.minDef, 0)} def</span>}
+                  {short && <small className="mt__short">short {short}</small>}
+                </td>
+                <td className="num">
+                  {formatDuration(e.cooldownBase)}
+                  {fits && slowest > 0 && (
+                    <small className="muted">
+                      {' '}
+                      · {formatDuration(cycleSeconds(e, slowest))} at {slowest} move
+                    </small>
+                  )}
+                </td>
+                <td>{rewardParts(e).join(' + ') || '—'}</td>
+                <td className="num mt__rate">
+                  {perHour === null ? (
+                    <span className="muted">—</span>
+                  ) : (
+                    <>
+                      <b className={perHour < 0 ? 'c-bad' : ''}>{formatNumber(perHour, 1)}</b>
+                      {fitting.length > 1 && <small className="muted"> · {fitting.length} divisions</small>}
+                    </>
+                  )}
+                </td>
+                <td>{efficiency === null ? <span className="muted">—</span> : <EffRing score={efficiency} share={bestEfficiency > 0 ? efficiency / bestEfficiency : 0} />}</td>
+                <td className="num mt__ends">{endsCell(e)}</td>
+                <td className="num">
+                  {out ? (
+                    <>
+                      {out} out{back ? <span className="c-good"> · {back} back</span> : ''}
+                    </>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
+                <td className="mt__act">
+                  {dropAt === e.id ? (
+                    <span className="mt__drop">drop to send</span>
+                  ) : canSend ? (
+                    <button type="button" className="btn btn--sm" disabled={busy || !!fund} title={fund || (sendList.length > 1 ? `${sendList.length} transactions, one join each` : undefined)} onClick={() => f.send(e, sendList)}>
+                      <Icon name="rocket" size={14} /> {sendList.length === 1 ? `Send #${sendList[0].id}` : `Send ${sendList.length}`}
+                    </button>
+                  ) : null}
+                </td>
+              </tr>
+            )
+  }
+  const tbody = soon.length ? (
+    <>
+      <tr className="mt__group">
+        <td colSpan={9}>
+          <em>Ending this week</em> · {soon.length} mission{soon.length === 1 ? '' : 's'}
+        </td>
+      </tr>
+      {soon.map(renderRow)}
+      {later.length > 0 && (
+        <tr className="mt__group">
+          <td colSpan={9}>Later</td>
+        </tr>
+      )}
+      {later.map(renderRow)}
+    </>
+  ) : (
+    ordered.map(renderRow)
+  )
 
   return (
     <main className="mis wrap">
@@ -410,93 +538,20 @@ export function Missions({ account, spectating }: { account: string; spectating:
                 <th title={`Net TLM per hour for every 100 points of strength the mission asks for, for a division carrying ${movePer100} move per 100 strength (this army's ratio). The ring is its share of the best in the list.`}>
                   Efficiency
                 </th>
+                <th className="num">
+                  <button type="button" className={`mt__sort${byEnd ? ' is-on' : ''}`} aria-pressed={byEnd} title={byEnd ? 'Sorted by when the mission ends; click for the usual order' : 'Sort by when the mission ends'} onClick={() => setByEnd((v) => !v)}>
+                    Ends {byEnd ? '▴' : '▾'}
+                  </button>
+                </th>
                 <th>Yours</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ e, fitting, fits, perHour, efficiency, out, back, short }) => {
-                const open = e.state === 'active'
-                const sendList = chosen.length ? chosen : fitting
-                const canSend = !!sendList.length && fits && open && !spectating
-                const fund = canSend ? f.sendShort(e, sendList) : ''
-                const costs = costParts(e)
-                const slowest = fitting.reduce((m, d) => Math.max(m, d.move), 0)
-                return (
-                  <tr key={e.id} className={`${fits ? '' : 'is-off'}${dropAt === e.id ? ' is-target' : ''}`} {...dropProps(e)}>
-                    <td className="mt__title">
-                      <b>
-                        {e.title}
-                        {(() => {
-                          const c = flow.crowd.get(e.id)
-                          return c ? (
-                            <span
-                              className="mt__crowd"
-                              title={`${c.players} player${c.players === 1 ? ' has' : 's have'} ${c.divisions} division${c.divisions === 1 ? '' : 's'} out on this mission right now, your own counted too. Divisions back and waiting for the claim are not counted.`}
-                            >
-                              <Icon name="users" size={12} />
-                              {formatNumber(c.players, 0)}
-                            </span>
-                          ) : null
-                        })()}
-                      </b>
-                      <small>
-                        {e.planet}
-                        {!open ? ` · ${e.state}` : ''}
-                        {costs.length ? ` · entry ${costs.join(' + ')}` : ' · free entry'}
-                      </small>
-                    </td>
-                    <td className="num">
-                      {e.minAtk > 0 && <span className="c-atk">{formatNumber(e.minAtk, 0)} atk</span>}
-                      {e.minAtk > 0 && e.minDef > 0 ? ' · ' : ''}
-                      {e.minDef > 0 && <span className="c-def">{formatNumber(e.minDef, 0)} def</span>}
-                      {short && <small className="mt__short">short {short}</small>}
-                    </td>
-                    <td className="num">
-                      {formatDuration(e.cooldownBase)}
-                      {fits && slowest > 0 && (
-                        <small className="muted">
-                          {' '}
-                          · {formatDuration(cycleSeconds(e, slowest))} at {slowest} move
-                        </small>
-                      )}
-                    </td>
-                    <td>{rewardParts(e).join(' + ') || '—'}</td>
-                    <td className="num mt__rate">
-                      {perHour === null ? (
-                        <span className="muted">—</span>
-                      ) : (
-                        <>
-                          <b className={perHour < 0 ? 'c-bad' : ''}>{formatNumber(perHour, 1)}</b>
-                          {fitting.length > 1 && <small className="muted"> · {fitting.length} divisions</small>}
-                        </>
-                      )}
-                    </td>
-                    <td>{efficiency === null ? <span className="muted">—</span> : <EffRing score={efficiency} share={bestEfficiency > 0 ? efficiency / bestEfficiency : 0} />}</td>
-                    <td className="num">
-                      {out ? (
-                        <>
-                          {out} out{back ? <span className="c-good"> · {back} back</span> : ''}
-                        </>
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
-                    </td>
-                    <td className="mt__act">
-                      {dropAt === e.id ? (
-                        <span className="mt__drop">drop to send</span>
-                      ) : canSend ? (
-                        <button type="button" className="btn btn--sm" disabled={busy || !!fund} title={fund || (sendList.length > 1 ? `${sendList.length} transactions, one join each` : undefined)} onClick={() => f.send(e, sendList)}>
-                          <Icon name="rocket" size={14} /> {sendList.length === 1 ? `Send #${sendList[0].id}` : `Send ${sendList.length}`}
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                )
-              })}
+              {tbody}
               {!rows.length && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <p className="none">{filter === 'fits' ? (chosen.length ? 'No open mission that all picked divisions meet. Pick fewer, or try All.' : home.length ? 'No open mission any home division meets.' : 'Nothing at home to send.') : 'No mission matches.'}</p>
                   </td>
                 </tr>
