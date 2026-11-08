@@ -718,221 +718,306 @@
   font-family: 'Fredoka', 'Nunito', system-ui, sans-serif;
 }
 
-/* ---- The themes, generated from Rose (darks take the theme's night hue; Snow day flips light and dark) ---- */
+/* ---- The themes: each with its stylesheet's colours (Rose is the default above) ---- */
 .couch.is-kitten[data-kt='rainbow'] {
-  --kt-1: #fff3f7;
-  --kt-2: #dcb3c3;
-  --kt-3: #a8849a;
-  --kt-4: #c98aa4;
-  --kt-5: #2c1c48;
-  --kt-6: #1a0f2e;
-  --kt-7: #e9628f;
-  --kt-8: #ff6f9e;
-  --kt-9: #f7c6d4;
-  --kt-10: #2a1a45;
-  --kt-11: #140a24;
-  --kt-12: rgba(255, 120, 175, 0.38);
-  --kt-13: rgba(255, 170, 190, 0.12);
-  --kt-14: #3c2761;
-  --kt-15: #1d1132;
-  --kt-16: #10081e;
-  --kt-17: #ffd9ea;
-  --kt-18: rgba(8, 4, 16, 0.7);
-  --kt-19: rgba(255, 255, 255, 0.06);
+  --kt-1: #fff6fb;
+  --kt-2: #c9b5dc;
+  --kt-3: #c9b5dc;
+  --kt-4: rgba(255, 200, 230, 0.25);
+  --kt-5: rgba(255, 255, 255, 0.07);
+  --kt-6: rgba(255, 255, 255, 0.07);
+  --kt-7: #ffd36b;
+  --kt-8: #ffd36b;
+  --kt-9: #ffd1ea;
+  --kt-10: #2a1f45;
+  --kt-11: #1d1430;
+  --kt-12: #2d243e;
+  --kt-13: #2d243e;
+  --kt-14: #2d243e;
+  --kt-15: rgba(255, 255, 255, 0.07);
+  --kt-16: #2d243e;
+  --kt-17: #fff3a8;
+  --kt-18: transparent;
+  --kt-19: transparent;
   --kt-20: #fff;
-  --kt-21: rgba(255, 90, 150, 0.8);
-  --kt-22: #1f0945;
-  --kt-23: #ffe3ee;
-  --kt-24: rgba(247, 198, 212, 0.25);
-  --kt-25: rgba(255, 92, 154, 0.2);
-  --kt-26: #3a265c;
-  --kt-27: #1e1135;
-  --kt-28: #ffd9e8;
-  --kt-29: rgba(255, 255, 255, 0.14);
-  --kt-30: #e07aae;
-  --kt-31: rgba(255, 255, 255, 0.22);
-  --kt-32: rgba(242, 140, 180, 0.7);
-  --kt-33: #f08cbc;
-  --kt-34: rgba(31, 9, 69, 0.7);
-  --kt-35: rgba(14, 6, 28, 0.7);
-  --kt-36: #281943;
-  --kt-37: #180e29;
-  --kt-38: rgba(201, 138, 164, 0.3);
-  --kt-39: rgba(255, 92, 154, 0.14);
-  --kt-40: #5200e0;
-  --kt-41: rgba(255, 92, 154, 0.5);
-  --kt-42: #d13a78;
+  --kt-21: rgba(40, 10, 60, 0.6);
+  --kt-22: rgba(40, 10, 60, 0.6);
+  --kt-23: #fff;
+  --kt-24: transparent;
+  --kt-25: rgba(255, 200, 120, 0.55);
+  --kt-26: rgba(255, 255, 255, 0.07);
+  --kt-27: rgba(255, 255, 255, 0.07);
+  --kt-28: #fff6fb;
+  --kt-29: rgba(255, 200, 230, 0.25);
+  --kt-30: linear-gradient(90deg, rgba(255, 143, 171, 0.45), rgba(255, 196, 107, 0.45), rgba(255, 242, 122, 0.45), rgba(142, 240, 176, 0.45), rgba(122, 215, 255, 0.45), rgba(182, 156, 255, 0.45));
+  --kt-31: transparent;
+  --kt-32: rgba(255, 200, 120, 0.55);
+  --kt-33: linear-gradient(90deg, rgba(255, 143, 171, 0.75), rgba(255, 196, 107, 0.75), rgba(255, 242, 122, 0.75), rgba(142, 240, 176, 0.75), rgba(122, 215, 255, 0.75), rgba(182, 156, 255, 0.75));
+  --kt-34: rgba(40, 10, 60, 0.6);
+  --kt-35: rgba(29, 20, 48, 0.7);
+  --kt-36: #2d243e;
+  --kt-37: #1d1430;
+  --kt-38: rgba(255, 200, 230, 0.25);
+  --kt-39: rgba(255, 200, 230, 0.25);
+  --kt-40: #b69cff;
+  --kt-41: rgba(255, 200, 120, 0.55);
+  --kt-42: #b69cff;
   --kt-43: rgba(255, 255, 255, 0.3);
-  --kt-44: rgba(255, 92, 154, 0.3);
-  --kt-45: rgba(43, 4, 110, 0.5);
-  --kt-46: rgba(31, 9, 69, 0.8);
-  --kt-47: #ff9ab0;
-  --kt-48: #ffd6e2;
-  --kt-49: rgba(255, 150, 180, 0.5);
-  --kt-50: #f59ab6;
+  --kt-44: rgba(255, 200, 120, 0.55);
+  --kt-45: rgba(40, 10, 60, 0.6);
+  --kt-46: rgba(40, 10, 60, 0.6);
+  --kt-47: #ff8fa3;
+  --kt-48: #ff8fab;
+  --kt-49: rgba(255, 200, 120, 0.55);
+  --kt-50: #b69cff;
+  --kt-glow: radial-gradient(420px 300px at 50% 42%, rgba(255, 160, 200, 0.18), transparent 70%), radial-gradient(300px 220px at 20% 100%, rgba(120, 220, 255, 0.16), transparent 70%), radial-gradient(260px 200px at 90% 5%, rgba(255, 240, 120, 0.14), transparent 70%);
+  --kt-bsh: 0 1px 5px rgba(40, 10, 60, 0.6);
 }
 
 .couch.is-kitten[data-kt='cotton'] {
-  --kt-1: #fff3f7;
-  --kt-2: #dcb3c3;
-  --kt-3: #a8849a;
-  --kt-4: #c98aa4;
-  --kt-5: #192a4b;
-  --kt-6: #0d1930;
-  --kt-7: #e9628f;
-  --kt-8: #ff6f9e;
-  --kt-9: #f7c6d4;
-  --kt-10: #172748;
-  --kt-11: #091225;
-  --kt-12: rgba(255, 120, 175, 0.38);
-  --kt-13: rgba(255, 170, 190, 0.12);
-  --kt-14: #243964;
-  --kt-15: #0f1b34;
-  --kt-16: #060f20;
-  --kt-17: #ffd9ea;
-  --kt-18: rgba(3, 8, 17, 0.7);
-  --kt-19: rgba(255, 255, 255, 0.06);
+  --kt-1: #f8f9ff;
+  --kt-2: #b3bfdc;
+  --kt-3: #b3bfdc;
+  --kt-4: rgba(200, 220, 255, 0.22);
+  --kt-5: rgba(255, 255, 255, 0.06);
+  --kt-6: rgba(255, 255, 255, 0.06);
+  --kt-7: #ffb8d9;
+  --kt-8: #ffb8d9;
+  --kt-9: #ffd1e8;
+  --kt-10: #1f2d4c;
+  --kt-11: #14203a;
+  --kt-12: #222d46;
+  --kt-13: #222d46;
+  --kt-14: #222d46;
+  --kt-15: rgba(255, 255, 255, 0.06);
+  --kt-16: #222d46;
+  --kt-17: #ffe0f0;
+  --kt-18: transparent;
+  --kt-19: transparent;
   --kt-20: #fff;
-  --kt-21: rgba(255, 90, 150, 0.8);
-  --kt-22: #051c49;
-  --kt-23: #ffe3ee;
-  --kt-24: rgba(247, 198, 212, 0.25);
-  --kt-25: rgba(255, 92, 154, 0.2);
-  --kt-26: #223760;
-  --kt-27: #0f1c37;
-  --kt-28: #ffd9e8;
-  --kt-29: rgba(255, 255, 255, 0.14);
-  --kt-30: #e07aae;
-  --kt-31: rgba(255, 255, 255, 0.22);
-  --kt-32: rgba(242, 140, 180, 0.7);
-  --kt-33: #f08cbc;
-  --kt-34: rgba(5, 28, 73, 0.7);
-  --kt-35: rgba(4, 13, 30, 0.7);
-  --kt-36: #172645;
-  --kt-37: #0c162b;
-  --kt-38: rgba(201, 138, 164, 0.3);
-  --kt-39: rgba(255, 92, 154, 0.14);
-  --kt-40: #004be0;
-  --kt-41: rgba(255, 92, 154, 0.5);
-  --kt-42: #d13a78;
+  --kt-21: rgba(10, 20, 50, 0.55);
+  --kt-22: rgba(10, 20, 50, 0.55);
+  --kt-23: #fff;
+  --kt-24: transparent;
+  --kt-25: rgba(255, 184, 217, 0.5);
+  --kt-26: rgba(255, 255, 255, 0.06);
+  --kt-27: rgba(255, 255, 255, 0.06);
+  --kt-28: #f8f9ff;
+  --kt-29: rgba(200, 220, 255, 0.22);
+  --kt-30: linear-gradient(90deg, rgba(255, 209, 232, 0.45), rgba(255, 184, 217, 0.45), rgba(159, 216, 255, 0.45));
+  --kt-31: transparent;
+  --kt-32: rgba(255, 184, 217, 0.5);
+  --kt-33: linear-gradient(90deg, rgba(255, 209, 232, 0.75), rgba(255, 184, 217, 0.75), rgba(159, 216, 255, 0.75));
+  --kt-34: rgba(10, 20, 50, 0.55);
+  --kt-35: rgba(20, 32, 58, 0.7);
+  --kt-36: #222d46;
+  --kt-37: #14203a;
+  --kt-38: rgba(200, 220, 255, 0.22);
+  --kt-39: rgba(200, 220, 255, 0.22);
+  --kt-40: #9fd8ff;
+  --kt-41: rgba(255, 184, 217, 0.5);
+  --kt-42: #9fd8ff;
   --kt-43: rgba(255, 255, 255, 0.3);
-  --kt-44: rgba(255, 92, 154, 0.3);
-  --kt-45: rgba(0, 38, 114, 0.5);
-  --kt-46: rgba(5, 28, 73, 0.8);
-  --kt-47: #ff9ab0;
-  --kt-48: #ffd6e2;
-  --kt-49: rgba(255, 150, 180, 0.5);
-  --kt-50: #f59ab6;
+  --kt-44: rgba(255, 184, 217, 0.5);
+  --kt-45: rgba(10, 20, 50, 0.55);
+  --kt-46: rgba(10, 20, 50, 0.55);
+  --kt-47: #ff8fa3;
+  --kt-48: #ffd1e8;
+  --kt-49: rgba(255, 184, 217, 0.5);
+  --kt-50: #9fd8ff;
+  --kt-glow: radial-gradient(420px 300px at 40% 38%, rgba(255, 170, 215, 0.2), transparent 70%), radial-gradient(320px 240px at 70% 100%, rgba(150, 210, 255, 0.2), transparent 70%);
+  --kt-bsh: 0 1px 5px rgba(10, 20, 50, 0.55);
 }
 
 .couch.is-kitten[data-kt='blueberry'] {
-  --kt-1: #f4f6fe;
-  --kt-2: #b5bcda;
-  --kt-3: #868ca6;
-  --kt-4: #8d98c6;
-  --kt-5: #171e4d;
-  --kt-6: #0c1131;
-  --kt-7: #6981e2;
-  --kt-8: #7690f8;
-  --kt-9: #c8d1f5;
-  --kt-10: #161d49;
-  --kt-11: #080c26;
-  --kt-12: rgba(127, 151, 248, 0.38);
-  --kt-13: rgba(174, 190, 251, 0.12);
-  --kt-14: #222b66;
-  --kt-15: #0e1335;
-  --kt-16: #060920;
-  --kt-17: #dbe2fd;
-  --kt-18: rgba(2, 4, 18, 0.7);
-  --kt-19: rgba(255, 255, 255, 0.06);
+  --kt-1: #eef1ff;
+  --kt-2: #a3add8;
+  --kt-3: #a3add8;
+  --kt-4: rgba(160, 180, 255, 0.22);
+  --kt-5: rgba(255, 255, 255, 0.05);
+  --kt-6: rgba(255, 255, 255, 0.05);
+  --kt-7: #a8b8ff;
+  --kt-8: #a8b8ff;
+  --kt-9: #c5d0ff;
+  --kt-10: #161c40;
+  --kt-11: #0c1028;
+  --kt-12: #181c33;
+  --kt-13: #181c33;
+  --kt-14: #181c33;
+  --kt-15: rgba(255, 255, 255, 0.05);
+  --kt-16: #181c33;
+  --kt-17: #dfe5ff;
+  --kt-18: transparent;
+  --kt-19: transparent;
   --kt-20: #fff;
-  --kt-21: rgba(98, 128, 247, 0.8);
-  --kt-22: #030d4b;
-  --kt-23: #e4e9fe;
-  --kt-24: rgba(200, 209, 245, 0.25);
-  --kt-25: rgba(100, 129, 247, 0.2);
-  --kt-26: #212961;
-  --kt-27: #0e1438;
-  --kt-28: #dbe2fd;
-  --kt-29: rgba(255, 255, 255, 0.14);
-  --kt-30: #7f91db;
-  --kt-31: rgba(255, 255, 255, 0.22);
-  --kt-32: rgba(145, 163, 237, 0.7);
-  --kt-33: #91a3eb;
-  --kt-34: rgba(3, 13, 75, 0.7);
-  --kt-35: rgba(4, 7, 30, 0.7);
-  --kt-36: #151c47;
-  --kt-37: #0b102c;
-  --kt-38: rgba(141, 152, 198, 0.3);
-  --kt-39: rgba(100, 129, 247, 0.14);
-  --kt-40: #001ee0;
-  --kt-41: rgba(100, 129, 247, 0.5);
-  --kt-42: #425dc9;
+  --kt-21: rgba(0, 0, 0, 0.5);
+  --kt-22: rgba(0, 0, 0, 0.5);
+  --kt-23: #fff;
+  --kt-24: transparent;
+  --kt-25: rgba(140, 160, 255, 0.5);
+  --kt-26: rgba(255, 255, 255, 0.05);
+  --kt-27: rgba(255, 255, 255, 0.05);
+  --kt-28: #eef1ff;
+  --kt-29: rgba(160, 180, 255, 0.22);
+  --kt-30: linear-gradient(90deg, rgba(214, 222, 255, 0.45), rgba(157, 180, 255, 0.45), rgba(74, 91, 214, 0.45));
+  --kt-31: transparent;
+  --kt-32: rgba(140, 160, 255, 0.5);
+  --kt-33: linear-gradient(90deg, rgba(214, 222, 255, 0.75), rgba(157, 180, 255, 0.75), rgba(74, 91, 214, 0.75));
+  --kt-34: rgba(0, 0, 0, 0.5);
+  --kt-35: rgba(12, 16, 40, 0.7);
+  --kt-36: #181c33;
+  --kt-37: #0c1028;
+  --kt-38: rgba(160, 180, 255, 0.22);
+  --kt-39: rgba(160, 180, 255, 0.22);
+  --kt-40: #4a5bd6;
+  --kt-41: rgba(140, 160, 255, 0.5);
+  --kt-42: #4a5bd6;
   --kt-43: rgba(255, 255, 255, 0.3);
-  --kt-44: rgba(100, 129, 247, 0.3);
-  --kt-45: rgba(0, 15, 114, 0.5);
-  --kt-46: rgba(3, 13, 75, 0.8);
-  --kt-47: #9fb1fa;
-  --kt-48: #d8dffd;
-  --kt-49: rgba(155, 174, 250, 0.5);
-  --kt-50: #9faff0;
+  --kt-44: rgba(140, 160, 255, 0.5);
+  --kt-45: rgba(0, 0, 0, 0.5);
+  --kt-46: rgba(0, 0, 0, 0.5);
+  --kt-47: #ff8fa3;
+  --kt-48: #d6deff;
+  --kt-49: rgba(140, 160, 255, 0.5);
+  --kt-50: #4a5bd6;
+  --kt-glow: radial-gradient(420px 300px at 50% 42%, rgba(120, 140, 255, 0.18), transparent 70%);
+  --kt-bsh: 0 1px 5px rgba(0, 0, 0, 0.5);
 }
 
 .couch.is-kitten[data-kt='snow'] {
-  --kt-1: #0e1a30;
-  --kt-2: #3a4558;
-  --kt-3: #69717f;
-  --kt-4: #4f5e77;
-  --kt-5: #c2c8d2;
-  --kt-6: #d4d9e1;
-  --kt-7: #3c5b91;
-  --kt-8: #274b88;
-  --kt-9: #1f304c;
-  --kt-10: #c4cad4;
-  --kt-11: #dbdfe7;
-  --kt-12: rgba(38, 71, 130, 0.38);
-  --kt-13: rgba(28, 53, 96, 0.12);
-  --kt-14: #b0b8c4;
-  --kt-15: #d1d6df;
-  --kt-16: #dfe3ea;
-  --kt-17: #132441;
-  --kt-18: rgba(232, 235, 240, 0.7);
-  --kt-19: rgba(36, 50, 77, 0.06);
+  --kt-1: #24324d;
+  --kt-2: #6f7f9c;
+  --kt-3: #6f7f9c;
+  --kt-4: rgba(90, 127, 214, 0.25);
+  --kt-5: rgba(255, 255, 255, 0.8);
+  --kt-6: rgba(255, 255, 255, 0.8);
+  --kt-7: #5a7fd6;
+  --kt-8: #5a7fd6;
+  --kt-9: #9fb9ec;
+  --kt-10: #fbfdff;
+  --kt-11: #eef4fb;
+  --kt-12: #fcfdfe;
+  --kt-13: #fcfdfe;
+  --kt-14: #fcfdfe;
+  --kt-15: rgba(255, 255, 255, 0.8);
+  --kt-16: #fcfdfe;
+  --kt-17: #a9c2ee;
+  --kt-18: transparent;
+  --kt-19: transparent;
   --kt-20: #24324d;
-  --kt-21: rgba(43, 82, 149, 0.8);
-  --kt-22: #c8d0df;
-  --kt-23: #11203a;
-  --kt-24: rgba(31, 48, 76, 0.25);
-  --kt-25: rgba(43, 82, 148, 0.2);
-  --kt-26: #b3bac6;
-  --kt-27: #d0d5de;
-  --kt-28: #132441;
-  --kt-29: rgba(36, 50, 77, 0.14);
-  --kt-30: #3f5781;
-  --kt-31: rgba(36, 50, 77, 0.22);
-  --kt-32: rgba(45, 71, 116, 0.7);
-  --kt-33: #2f4874;
-  --kt-34: rgba(200, 208, 223, 0.7);
-  --kt-35: rgba(225, 229, 236, 0.7);
-  --kt-36: #c6cbd5;
-  --kt-37: #d7dce3;
-  --kt-38: rgba(79, 94, 119, 0.3);
-  --kt-39: rgba(43, 82, 148, 0.14);
-  --kt-40: #6f8aba;
-  --kt-41: rgba(43, 82, 148, 0.5);
-  --kt-42: #5777ad;
-  --kt-43: rgba(36, 50, 77, 0.3);
-  --kt-44: rgba(43, 82, 148, 0.3);
-  --kt-45: rgba(177, 191, 215, 0.5);
-  --kt-46: rgba(200, 208, 223, 0.8);
-  --kt-47: #1f3b6b;
-  --kt-48: #132543;
-  --kt-49: rgba(32, 60, 110, 0.5);
-  --kt-50: #28406a;
+  --kt-21: rgba(255, 255, 255, 0.9);
+  --kt-22: rgba(255, 255, 255, 0.9);
+  --kt-23: #24324d;
+  --kt-24: transparent;
+  --kt-25: rgba(120, 150, 240, 0.4);
+  --kt-26: rgba(255, 255, 255, 0.8);
+  --kt-27: rgba(255, 255, 255, 0.8);
+  --kt-28: #24324d;
+  --kt-29: rgba(90, 127, 214, 0.25);
+  --kt-30: linear-gradient(90deg, rgba(226, 237, 255, 0.45), rgba(169, 200, 255, 0.45), rgba(154, 140, 240, 0.45));
+  --kt-31: transparent;
+  --kt-32: rgba(120, 150, 240, 0.4);
+  --kt-33: linear-gradient(90deg, rgba(226, 237, 255, 0.75), rgba(169, 200, 255, 0.75), rgba(154, 140, 240, 0.75));
+  --kt-34: rgba(255, 255, 255, 0.9);
+  --kt-35: rgba(238, 244, 251, 0.7);
+  --kt-36: #fcfdfe;
+  --kt-37: #eef4fb;
+  --kt-38: rgba(90, 127, 214, 0.25);
+  --kt-39: rgba(90, 127, 214, 0.25);
+  --kt-40: #9a8cf0;
+  --kt-41: rgba(120, 150, 240, 0.4);
+  --kt-42: #9a8cf0;
+  --kt-43: rgba(255, 255, 255, 0.3);
+  --kt-44: rgba(120, 150, 240, 0.4);
+  --kt-45: rgba(255, 255, 255, 0.9);
+  --kt-46: rgba(255, 255, 255, 0.9);
+  --kt-47: #c2415a;
+  --kt-48: #e2edff;
+  --kt-49: rgba(120, 150, 240, 0.4);
+  --kt-50: #9a8cf0;
+  --kt-glow: radial-gradient(420px 300px at 50% 40%, rgba(170, 200, 255, 0.4), transparent 70%), radial-gradient(260px 200px at 80% 100%, rgba(210, 190, 255, 0.35), transparent 70%);
+  --kt-bsh: 0 0 5px rgba(255, 255, 255, 0.9);
 }
 
-/* Snow day is light: the moons' timers turn dark. */
-.couch.is-kitten[data-kt='snow'] .couch__moon-txt {
-  color: #24324d;
-  text-shadow: 0 0 5px rgba(255, 255, 255, 0.9);
+/*
+ * Every theme but Rose is drawn as in its stylesheet: flat cushions with a thin line (no cat ears,
+ * no drop shadow, no dashed seam), no vignette, the night's own glow, Fredoka for every word, the
+ * plaques' numbers in the theme's accent, the potion's text in its own colour and shadow.
+ */
+.couch.is-kitten:not([data-kt='rose']) {
+  --ck-goth: 'Fredoka', 'Nunito', system-ui, sans-serif;
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__pit::before {
+  background: var(--kt-glow), var(--kt-11);
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__vignette {
+  box-shadow: none;
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__plaque,
+.couch.is-kitten:not([data-kt='rose']) .couch__tablet,
+.couch.is-kitten:not([data-kt='rose']) .couch__card {
+  background: var(--kt-5);
+  box-shadow: inset 0 0 0 1.5px var(--kt-4);
+  outline: none;
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__plaque::before,
+.couch.is-kitten:not([data-kt='rose']) .couch__plaque::after {
+  display: none;
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__plaque b,
+.couch.is-kitten:not([data-kt='rose']) .couch__plaque.is-mine b {
+  color: var(--kt-7);
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__mine {
+  border-radius: 18px;
+  background: var(--kt-5);
+  box-shadow: inset 0 0 0 1.5px var(--kt-4);
+  color: var(--cz-tx);
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__mine span {
+  color: var(--cz-dim);
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__mine b,
+.couch.is-kitten:not([data-kt='rose']) .couch__mine span {
+  text-shadow: none;
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__mine-fill {
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__label b,
+.couch.is-kitten:not([data-kt='rose']) .couch__label b.is-clock {
+  font-weight: 600;
+  text-shadow: var(--kt-bsh);
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__label small,
+.couch.is-kitten:not([data-kt='rose']) .couch__label em {
+  opacity: 0.85;
+  text-shadow: var(--kt-bsh);
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__moon-txt {
+  color: var(--kt-20);
+  text-shadow: var(--kt-bsh);
+}
+
+/* The moons' ears take their own potion's colour (each moon its own in the rainbow). */
+.couch.is-kitten:not([data-kt='rose']) .couch__moon-ear-in {
+  fill: var(--moon-l2);
+}
+
+.couch.is-kitten:not([data-kt='rose']) .couch__plaque small {
+  font-weight: 400;
+  letter-spacing: 0.1em;
 }

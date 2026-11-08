@@ -3,9 +3,9 @@ import type { OrbPalette } from './bloodOrb'
 /*
  * The kitten look's colour themes: the same couch and the same sleepy cloud kitten, in different
  * colours. Each theme gives the page its night colour, the kitten its fur, cap and cloud, the orb
- * its potion and the moons theirs; the rest of the screen (plaques, tablets, panels, text) follows
- * from Kitten.css, where every colour is a variable with the theme's values under
- * [data-kt='<id>'] (Rose is the default there). Rainbow candy also gives each moon its own colour.
+ * its potion and the moons theirs; the rest of the screen (plaques, tablets, panels, text) is in
+ * Kitten.css under [data-kt='<id>'], with the colours of the theme's stylesheet (Rose is the
+ * default there). Rainbow candy also gives each moon its own colour.
  */
 
 export interface KittenTheme {
@@ -36,7 +36,8 @@ export interface KittenTheme {
     tailTip: [string, string]
   }
   orb: OrbPalette
-  moon: { l1: string; l2: string; glass: string; rim: string; ready: string }
+  /** The moons' potion (top, middle when it has one, bottom), glass, rim and ready glow. */
+  moon: { l1: string; mid?: string; l2: string; glass: string; rim: string; ready: string }
   /** A potion per moon, in turn (the rainbow); otherwise every moon has the theme's. */
   moonEach?: [string, string][]
 }
@@ -110,27 +111,27 @@ export const KITTEN_THEMES: KittenTheme[] = [
       tailTip: ['#7ad7ff', '#3f8fc0']
     },
     orb: {
-      glass: ['#2a1f45', '#120b20'],
-      back: 'rgba(255,200,230,.5)',
+      glass: ['#2a1f45', '#2a1f45'],
+      back: 'rgba(255, 143, 171, 0.5)',
       body: [
         [0, '#ff8fab'],
         [0.2, '#ffc46b'],
         [0.4, '#fff27a'],
         [0.6, '#8ef0b0'],
         [0.8, '#7ad7ff'],
-        [1, '#8f6bff']
+        [1, '#b69cff']
       ],
-      churn: 'rgba(255,255,255,.08)',
+      churn: 'rgba(255,255,255,.07)',
       bubble: 'rgba(255,255,255,.55)',
       sheen: 'rgba(255,255,255,.3)',
-      rim: 'rgba(255,220,240,.3)',
-      surface: 'rgba(255,240,250,.9)',
-      glow: 'rgba(255,160,200,1)',
-      shade: 0.3,
-      hearts: '#fff6fb',
+      rim: 'rgba(255, 209, 234, 0.35)',
+      surface: 'rgba(255,255,255,.85)',
+      glow: 'rgba(182, 156, 255, 1)',
+      shade: 0.12,
+      hearts: '#ffffff',
       ...calm
     },
-    moon: { l1: '#ffc2d1', l2: '#ff6f9a', glass: '#2a1f45', rim: '#ffd1ea', ready: 'rgba(255,200,120,.55)' },
+    moon: { l1: '#ffc2d1', l2: '#ff6f9a', glass: '#2a1f45', rim: '#ffd1ea', ready: 'rgba(255, 200, 120, 0.55)' },
     moonEach: [
       ['#ffc2d1', '#ff6f9a'],
       ['#ffe2b0', '#ffa94d'],
@@ -163,25 +164,24 @@ export const KITTEN_THEMES: KittenTheme[] = [
       tailTip: ['#ffb8d9', '#d16a9c']
     },
     orb: {
-      glass: ['#22325a', '#0d1428'],
-      back: 'rgba(255,200,230,.5)',
+      glass: ['#1f2d4c', '#1f2d4c'],
+      back: 'rgba(255, 209, 232, 0.5)',
       body: [
-        [0, '#ffe0f0'],
-        [0.18, '#ffb8d9'],
-        [0.55, '#9fd8ff'],
-        [1, '#2b4a8a']
+        [0, '#ffd1e8'],
+        [0.5, '#ffb8d9'],
+        [1, '#9fd8ff']
       ],
-      churn: 'rgba(255,220,240,.1)',
-      bubble: 'rgba(255,245,252,.55)',
-      sheen: 'rgba(255,235,248,.3)',
-      rim: 'rgba(220,235,255,.3)',
-      surface: 'rgba(255,240,250,.9)',
-      glow: 'rgba(255,170,215,1)',
-      shade: 0.4,
-      hearts: '#fff0f8',
+      churn: 'rgba(255,255,255,.07)',
+      bubble: 'rgba(255,255,255,.55)',
+      sheen: 'rgba(255,255,255,.3)',
+      rim: 'rgba(255, 209, 232, 0.35)',
+      surface: 'rgba(255,255,255,.85)',
+      glow: 'rgba(159, 216, 255, 1)',
+      shade: 0.12,
+      hearts: '#ffffff',
       ...calm
     },
-    moon: { l1: '#ffd1e8', l2: '#7cc4ff', glass: '#1f2d4c', rim: '#ffd1e8', ready: 'rgba(255,184,217,.5)' }
+    moon: { l1: '#ffd1e8', mid: '#ffb8d9', l2: '#9fd8ff', glass: '#1f2d4c', rim: '#ffd1e8', ready: 'rgba(255, 184, 217, 0.5)' }
   },
   {
     id: 'blueberry',
@@ -206,25 +206,24 @@ export const KITTEN_THEMES: KittenTheme[] = [
       tailTip: ['#9db4ff', '#4a5bd6']
     },
     orb: {
-      glass: ['#1d2450', '#0a0d22'],
-      back: 'rgba(170,190,255,.5)',
+      glass: ['#161c40', '#161c40'],
+      back: 'rgba(214, 222, 255, 0.5)',
       body: [
-        [0, '#e0e6ff'],
-        [0.15, '#9db4ff'],
-        [0.5, '#4a5bd6'],
-        [1, '#141a4a']
+        [0, '#d6deff'],
+        [0.5, '#9db4ff'],
+        [1, '#4a5bd6']
       ],
-      churn: 'rgba(170,190,255,.1)',
-      bubble: 'rgba(235,240,255,.55)',
-      sheen: 'rgba(220,228,255,.3)',
-      rim: 'rgba(190,205,255,.28)',
-      surface: 'rgba(230,236,255,.9)',
-      glow: 'rgba(130,150,255,1)',
-      shade: 0.5,
-      hearts: '#e6ecff',
+      churn: 'rgba(255,255,255,.07)',
+      bubble: 'rgba(255,255,255,.55)',
+      sheen: 'rgba(255,255,255,.3)',
+      rim: 'rgba(197, 208, 255, 0.35)',
+      surface: 'rgba(255,255,255,.85)',
+      glow: 'rgba(74, 91, 214, 1)',
+      shade: 0.12,
+      hearts: '#ffffff',
       ...calm
     },
-    moon: { l1: '#d6deff', l2: '#4a5bd6', glass: '#161c40', rim: '#c5d0ff', ready: 'rgba(140,160,255,.5)' }
+    moon: { l1: '#d6deff', mid: '#9db4ff', l2: '#4a5bd6', glass: '#161c40', rim: '#c5d0ff', ready: 'rgba(140, 160, 255, 0.5)' }
   },
   {
     id: 'snow',
@@ -249,25 +248,24 @@ export const KITTEN_THEMES: KittenTheme[] = [
       tailTip: ['#a9c8ff', '#5a7fd6']
     },
     orb: {
-      glass: ['#f6f9ff', '#dbe6f7'],
-      back: 'rgba(170,200,255,.5)',
+      glass: ['#fbfdff', '#fbfdff'],
+      back: 'rgba(226, 237, 255, 0.5)',
       body: [
-        [0, '#f2f7ff'],
-        [0.15, '#c4d9ff'],
-        [0.55, '#9a8cf0'],
-        [1, '#5a5fc0']
+        [0, '#e2edff'],
+        [0.5, '#a9c8ff'],
+        [1, '#9a8cf0']
       ],
-      churn: 'rgba(160,180,240,.12)',
-      bubble: 'rgba(255,255,255,.7)',
-      sheen: 'rgba(255,255,255,.45)',
-      rim: 'rgba(150,175,230,.35)',
-      surface: 'rgba(255,255,255,.95)',
-      glow: 'rgba(150,170,255,1)',
-      shade: 0.25,
+      churn: 'rgba(255,255,255,.07)',
+      bubble: 'rgba(255,255,255,.55)',
+      sheen: 'rgba(255,255,255,.3)',
+      rim: 'rgba(159, 185, 236, 0.35)',
+      surface: 'rgba(255,255,255,.85)',
+      glow: 'rgba(154, 140, 240, 1)',
+      shade: 0.12,
       hearts: '#ffffff',
       ...calm
     },
-    moon: { l1: '#e2edff', l2: '#9a8cf0', glass: '#fbfdff', rim: '#9fb9ec', ready: 'rgba(120,150,240,.4)' }
+    moon: { l1: '#e2edff', mid: '#a9c8ff', l2: '#9a8cf0', glass: '#fbfdff', rim: '#9fb9ec', ready: 'rgba(120, 150, 240, 0.4)' }
   }
 ]
 

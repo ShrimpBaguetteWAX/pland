@@ -11,8 +11,7 @@ import { useMining } from '@/mining/useMining'
 import { useReportCount, useTabTitle } from '@/state/tabCount'
 import { useTransaction } from '@/wallet/useTransaction'
 
-import { BLOOD, useBloodOrb } from './couch/bloodOrb'
-import { InfernalFrame } from './couch/InfernalFrame'
+import { useBloodOrb } from './couch/bloodOrb'
 import { KittenFrame } from './couch/KittenFrame'
 import { Moons, type MoonMission } from './couch/Moons'
 import { KITTEN_THEMES, readTint, saveTint, type KittenTheme } from './couch/themes'
@@ -21,18 +20,17 @@ import './Couch.css'
 import './couch/Kitten.css'
 
 /*
- * Couch mode, Infernal: one screen for the phone lying next to you. Today's TLM on two plaques at
- * the top; in the middle a blood orb in a horned, rune-carved iron ring, which is the loop: it fills
- * as the next division heads home, brims when divisions are back, and a tap claims them and sends
- * them back out. Under it, two tablets (the divisions out, which open the full list, and the idle
- * ones, which open a panel to send them to their best TLM mission) and the mine as a bar of lava
- * that fills toward the next mine. It keeps the screen awake and buzzes when something becomes
- * ready; with the bell on it chimes too, also in a background tab.
+ * Couch mode: one screen for the phone lying next to you. Today's TLM on two plaques at the top; in
+ * the middle the orb, the mission that brings back the most, in a ring with a sleepy kitten napping
+ * on a cloud on top: it fills as that mission's next division heads home, and a tap loops it when
+ * it is back. Round it a moon per other mission, each with its own timer. Under them two tablets
+ * (the divisions out, the idle ones, which open a panel to send them to their best TLM mission) and
+ * the mine as a bar that fills toward the next mine. It keeps the screen awake and buzzes when
+ * something becomes ready; with the bell on it chimes too, also in a background tab.
  *
- * It comes in two looks, switched at the top right and remembered in this browser: Infernal, and
- * Kitten (Cloud nap, in rose), where the same screen is rose and rose quartz, the blood is a slow
- * rose-milk potion and a fluffy kitten in a nightcap napping on a cloud on the ring shows the state
- * (asleep, eyes open, happy when the loop is ready). Round the orb, a moon per mission the divisions are on, each with its own timer.
+ * The kitten shows the state: asleep while everything is out, eyes open when something is back,
+ * happy when the loop is ready. The colours come in themes (couch/themes.ts), switched with the
+ * small swatch at the top right and remembered in this browser.
  */
 
 const clock = (ms: number) => {
@@ -44,9 +42,9 @@ const clock = (ms: number) => {
 }
 const tlm = (n: number | undefined) => (n === undefined ? '–' : formatNumber(n, n >= 100 ? 0 : 2))
 
-/** Couch mode's typefaces (both looks), loaded only when it opens. */
+/** Couch mode's typefaces (Fredoka; Grenze Gotisch for Rose's big words), loaded only when it opens. */
 const FONT_HREF =
-  'https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cinzel+Decorative:wght@900&family=EB+Garamond:ital,wght@0,500;1,400&family=Fredoka:wght@400;500;600&family=Grenze+Gotisch:wght@600;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Grenze+Gotisch:wght@600;700&display=swap'
 function useCouchFonts() {
   useEffect(() => {
     if (document.querySelector(`link[href="${FONT_HREF}"]`)) return
@@ -55,30 +53,6 @@ function useCouchFonts() {
     link.href = FONT_HREF
     document.head.appendChild(link)
   }, [])
-}
-
-type Look = 'kitten' | 'infernal'
-const LOOK_KEY = 'pd:couch-look'
-/** Which look the couch wears, remembered in this browser; the kitten unless Infernal was picked. */
-function useLook(): [Look, () => void] {
-  const [look, setLook] = useState<Look>(() => {
-    try {
-      return localStorage.getItem(LOOK_KEY) === 'infernal' ? 'infernal' : 'kitten'
-    } catch {
-      return 'kitten'
-    }
-  })
-  const toggle = () =>
-    setLook((l) => {
-      const next = l === 'kitten' ? 'infernal' : 'kitten'
-      try {
-        localStorage.setItem(LOOK_KEY, next)
-      } catch {
-        // Private mode: it holds for this visit.
-      }
-      return next
-    })
-  return [look, toggle]
 }
 
 /**
@@ -98,7 +72,7 @@ function usePinnedPage(night: string) {
   }, [night])
 }
 
-/** The kitten look's colour theme, remembered in this browser; a tap moves on to the next one. */
+/** The colour theme, remembered in this browser; a tap on the swatch moves on to the next one. */
 function useTint(): [KittenTheme, () => void] {
   const [tint, setTint] = useState<KittenTheme>(readTint)
   const next = () =>
@@ -129,49 +103,6 @@ function useWakeLock() {
       void lock?.release().catch(() => {})
     }
   }, [])
-}
-
-/** Smoke, cracks of fire and rising embers behind everything; drawn once. */
-const EMBERS = Array.from({ length: 24 }, (_, i) => ({
-  left: `${(i * 41) % 100}%`,
-  bottom: `${-2 + ((i * 7) % 12)}%`,
-  size: 1 + (i % 3) * 0.8,
-  sx: `${((i * 29) % 60) - 30}px`,
-  duration: `${7 + (i % 6) * 1.7}s`,
-  delay: `${-((i * 1.3) % 11)}s`
-}))
-function Pit() {
-  return (
-    <div className="couch__pit" aria-hidden="true">
-      <div className="couch__smoke" />
-      <div className="couch__smoke is-low" />
-      <svg className="couch__cracks" viewBox="0 0 380 120" preserveAspectRatio="none">
-        <path d="M0 90 L40 80 L62 88 L95 70 L120 76 L150 62" />
-        <path d="M380 100 L340 88 L318 94 L290 76 L262 82 L240 66" />
-        <path d="M95 70 L104 46 L98 30" />
-        <path d="M290 76 L298 52 L286 36" />
-        <path d="M150 62 L190 72 L240 66" />
-      </svg>
-      <div className="couch__grain" />
-      {EMBERS.map((e, i) => (
-        <span
-          key={i}
-          className="couch__ember"
-          style={
-            {
-              left: e.left,
-              bottom: e.bottom,
-              width: e.size,
-              height: e.size,
-              '--sx': e.sx,
-              animationDuration: e.duration,
-              animationDelay: e.delay
-            } as React.CSSProperties
-          }
-        />
-      ))}
-    </div>
-  )
 }
 
 /** The kitten's night: twinkling stars, a pink glow below, hearts and little flames drifting up; drawn once. */
@@ -316,12 +247,10 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   /** The Deployed list for one mission only (a moon or the orb opened it), or every mission. */
   const [only, setOnly] = useState<number | null>(null)
   const card = useDockedToast()
-  const [look, toggleLook] = useLook()
-  const kitten = look === 'kitten'
   const [tint, nextTint] = useTint()
   useCouchFonts()
   useWakeLock()
-  usePinnedPage(kitten ? tint.night : '#070303')
+  usePinnedPage(tint.night)
   useTabTitle()
 
   const back = loop.ready
@@ -427,7 +356,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const canLoopBig = !!bigPlan && bigPlan.funding.affordable && !looping && !spectating
   // The orb brims while the big mission's divisions are back, and otherwise fills with its next return.
   const level = looping ? 0.05 : big?.back ? 0.94 : big?.next ? 0.04 + share(big.next) * 0.86 : 0.03
-  const orb = useBloodOrb(level, kitten ? tint.orb : BLOOD)
+  const orb = useBloodOrb(level, tint.orb)
 
   const openList = (missionId: number | null) => {
     setOnly(missionId)
@@ -451,21 +380,20 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className={`couch${kitten ? ' is-kitten' : ''}`}
-      data-kt={kitten ? tint.id : undefined}
+      className="couch is-kitten"
+      data-kt={tint.id}
       style={
-        kitten
-          ? ({
-              '--moon-l1': tint.moon.l1,
-              '--moon-l2': tint.moon.l2,
-              '--moon-glass': tint.moon.glass,
-              '--moon-rim': tint.moon.rim,
-              '--moon-ready': tint.moon.ready
-            } as React.CSSProperties)
-          : undefined
+        {
+          '--moon-l1': tint.moon.l1,
+          ...(tint.moon.mid ? { '--moon-lm': tint.moon.mid } : {}),
+          '--moon-l2': tint.moon.l2,
+          '--moon-glass': tint.moon.glass,
+          '--moon-rim': tint.moon.rim,
+          '--moon-ready': tint.moon.ready
+        } as React.CSSProperties
       }
     >
-      {kitten ? <Night /> : <Pit />}
+      <Night />
       <div className="couch__vignette" aria-hidden="true" />
 
       <button type="button" className="couch__close" onClick={close} aria-label="Close couch mode">
@@ -476,49 +404,12 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
       <button
         type="button"
-        className="couch__look"
-        onClick={toggleLook}
-        aria-label={kitten ? 'Look: Kitten. Switch to Infernal' : 'Look: Infernal. Switch to Kitten'}
-        title={kitten ? 'Switch to Infernal' : 'Switch to Kitten'}
-      >
-        {kitten ? (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M12 3c3 4 6 6.5 6 10.5a6 6 0 0 1-12 0C6 10 8.5 8 9 5c1.5 1.5 2.4 3 3-2z" />
-          </svg>
-        ) : (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M5 4l3.5 4.5h7L19 4l1 9a8 8 0 0 1-16 0z" />
-            <path d="M9.5 13.5h.01M14.5 13.5h.01M11 16.5l1 .8 1-.8" />
-          </svg>
-        )}
-      </button>
-
-      {kitten && (
-        <button
-          type="button"
-          className="couch__tint"
-          onClick={nextTint}
-          style={{ '--t1': tint.swatch[0], '--t2': tint.swatch[1], '--t3': tint.swatch[2] } as React.CSSProperties}
-          aria-label={`Colours: ${tint.name}. Switch to ${KITTEN_THEMES[(KITTEN_THEMES.indexOf(tint) + 1) % KITTEN_THEMES.length].name}`}
-          title={`${tint.name} · tap for ${KITTEN_THEMES[(KITTEN_THEMES.indexOf(tint) + 1) % KITTEN_THEMES.length].name}`}
-        />
-      )}
+        className="couch__tint"
+        onClick={nextTint}
+        style={{ '--t1': tint.swatch[0], '--t2': tint.swatch[1], '--t3': tint.swatch[2] } as React.CSSProperties}
+        aria-label={`Colours: ${tint.name}. Switch to ${KITTEN_THEMES[(KITTEN_THEMES.indexOf(tint) + 1) % KITTEN_THEMES.length].name}`}
+        title={`${tint.name} · tap for ${KITTEN_THEMES[(KITTEN_THEMES.indexOf(tint) + 1) % KITTEN_THEMES.length].name}`}
+      />
 
       <header className="couch__top" aria-label="Earned today">
         <div className="couch__orn">
@@ -573,7 +464,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         <div
           className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${canLoopBig ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
-          {kitten ? <KittenFrame theme={tint} /> : <InfernalFrame />}
+          <KittenFrame theme={tint} />
           <canvas ref={orb.ref} className="couch__blood" />
           <div className="couch__label" aria-live="polite">
             {looping || big?.back ? (
@@ -615,7 +506,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
                   : `${big.title}: show its divisions`
             }
           />
-          <Moons missions={orbit} now={now} each={kitten ? tint.moonEach : undefined} onTap={(id) => void tapMission(id)} />
+          <Moons missions={orbit} now={now} each={tint.moonEach} onTap={(id) => void tapMission(id)} />
         </div>
       </main>
 

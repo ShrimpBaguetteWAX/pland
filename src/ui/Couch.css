@@ -1316,6 +1316,10 @@
   stop-color: var(--moon-l2);
 }
 
+.couch__moon-lm {
+  stop-color: var(--moon-lm, color-mix(in srgb, var(--moon-l1) 50%, var(--moon-l2)));
+}
+
 /* Calm liquid: slow, low swells drifting against each other, a soft band of light on top. */
 .couch__moon-wave {
   animation: couch-moon-wave 8s linear infinite;
@@ -1413,11 +1417,11 @@ html.is-couch .couch {
   z-index: 50;
 }
 
-/* ---- The kitten look's colour switch: a small, faint swatch beside the look's mark ---- */
+/* ---- The colour switch: a small, faint swatch at the top right ---- */
 .couch__tint {
   position: absolute;
-  top: max(12px, calc(env(safe-area-inset-top, 0px) + 6px));
-  right: max(50px, calc(env(safe-area-inset-right, 0px) + 40px));
+  top: max(13px, calc(env(safe-area-inset-top, 0px) + 7px));
+  right: max(18px, calc(env(safe-area-inset-right, 0px) + 8px));
   z-index: 3;
   width: 18px;
   height: 18px;
