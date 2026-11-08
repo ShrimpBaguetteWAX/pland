@@ -4282,3 +4282,559 @@ code {
   color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---- Ledger: a balance sheet. Spent and Earned face each other, the net between them ---- */
+.lg {
+  display: grid;
+  gap: 14px;
+  padding-block: 22px 40px;
+}
+.lg__hd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+.lg__hd h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lg__hd h2 small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--faint);
+}
+.lg__unit {
+  margin-left: auto;
+  min-width: 170px;
+}
+.lg__refresh.is-spinning {
+  cursor: progress;
+}
+.lg__warn {
+  margin: 0;
+  color: var(--bad);
+  font-size: 13px;
+}
+.lg__lab {
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 600;
+}
+.lg__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+@media (max-width: 900px) {
+  .lg__top {
+    grid-template-columns: 1fr;
+  }
+  /* On a phone the net leads, then Spent and Earned. */
+  .lg__mid {
+    order: -1;
+  }
+}
+.lg__side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 16px 18px;
+}
+.lg__side > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.lg__side > header b {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lg__stack {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--sunk);
+}
+.lg__stack i {
+  flex-basis: 0;
+  min-width: 3px;
+}
+.lg__legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+.lg__legend button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  width: calc(100% + 16px);
+  border-radius: 9px;
+  font-size: 13px;
+}
+.lg__legend button:hover {
+  background: var(--panel-2);
+}
+.lg__legend button.is-on {
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+.lg__legend button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.lg__legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.lg__catname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lg__legend small {
+  color: var(--faint);
+  font-size: 11.5px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.lg__legend b {
+  font-weight: 600;
+  min-width: 80px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lg__mid {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  padding: 18px 24px;
+  min-width: 210px;
+  text-align: center;
+}
+.lg__mid > span[title] {
+  cursor: help;
+}
+.lg__net {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.lg__mid > small {
+  color: var(--faint);
+  font-size: 12px;
+}
+.lg__mid hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px dashed var(--line-2);
+  margin: 10px 0 8px;
+}
+.lg__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: 100%;
+}
+.lg__pair > span {
+  display: grid;
+  gap: 2px;
+  cursor: help;
+}
+.lg__pair b {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lg__chart {
+  padding: 16px 18px 10px;
+  display: grid;
+  gap: 8px;
+}
+.lg__chart .h {
+  flex-wrap: wrap;
+}
+.lg__change {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lg__chart svg {
+  width: 100%;
+  height: 190px;
+  display: block;
+  overflow: visible;
+}
+.lg__chart text {
+  font: 11px var(--font);
+  fill: var(--faint);
+}
+.lg__grid {
+  stroke: var(--line-2);
+}
+.lg__zero {
+  stroke: var(--dim);
+  stroke-dasharray: 3 3;
+}
+.lg__list {
+  padding: 16px 18px;
+  display: grid;
+  gap: 10px;
+}
+.lg__listhd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.lg__scroll {
+  overflow-x: auto;
+}
+.lg__tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 620px;
+}
+.lg__tbl th {
+  text-align: left;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line-2);
+}
+.lg__tbl td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.lg__tbl tr:last-child td {
+  border-bottom: 0;
+}
+.lg__tbl .r {
+  text-align: right;
+}
+.lg__date {
+  color: var(--dim);
+  white-space: nowrap;
+}
+.lg__cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.lg__cat i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.lg__note {
+  color: var(--faint);
+}
+.lg__amt {
+  color: var(--dim);
+  white-space: nowrap;
+}
+.lg__val {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lg__more {
+  all: unset;
+  cursor: pointer;
+  justify-self: center;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 6px;
+}
+
+/* Ledger: whose wallet, and the DEF it holds now */
+.lg__who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.lg__who .input {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+.lg__bal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lg__bal > span {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 7px 14px 7px 10px;
+  box-shadow: 0 2px 0 var(--ledge);
+}
+.lg__bal > span > .lg__lab {
+  grid-column: -2;
+}
+.lg__bal > span > b {
+  grid-column: -2;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lg__bal img {
+  grid-row: span 2;
+  width: 26px;
+  height: 26px;
+}
+.lg__bal > span:not(:has(img)) {
+  grid-template-columns: auto;
+  padding-left: 14px;
+}
+.lg__range {
+  min-width: 230px;
+  margin-left: auto;
+}
+.lg__range button {
+  padding: 5px 4px;
+  font-size: 12px;
+}
+.lg__chart .lg__change {
+  margin-left: 0;
+}
+
+/* ---- The Ledger menu item's two tabs ---- */
+.lgp__tabs {
+  padding-top: 20px;
+}
+.lgp__seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 2px 0 var(--ledge);
+}
+.lgp__seg button {
+  all: unset;
+  cursor: pointer;
+  padding: 7px 14px;
+  border-radius: 9px;
+  font-weight: 500;
+  font-size: 13.5px;
+  color: var(--dim);
+}
+.lgp__seg button.is-on {
+  background: var(--ink);
+  color: var(--panel);
+}
+.lgp__seg button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.lgp__tabs + div > .lg,
+.lgp__tabs ~ div > .tf {
+  padding-top: 14px;
+}
+
+/* ---- Token flow: the flow map and the treasury's moves ---- */
+.tf {
+  display: grid;
+  gap: 14px;
+  padding-block: 14px 40px;
+}
+.tf__hd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+.tf__hd h2 {
+  margin: 0 auto 0 0;
+  font-size: 22px;
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tf__hd h2 small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--faint);
+}
+.tf__seg button {
+  padding: 6px 12px;
+}
+.tf__load {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--dim);
+}
+.tf__load small {
+  color: var(--faint);
+}
+.tf__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--sunk);
+  overflow: hidden;
+}
+.tf__bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+.tf__warn {
+  margin: 0;
+  color: var(--bad);
+  font-size: 13px;
+}
+.tf__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .tf__grid {
+    grid-template-columns: 1fr;
+  }
+}
+.tf__map {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+}
+.tf__scroll {
+  overflow-x: auto;
+}
+.tf__scroll svg {
+  width: 100%;
+  min-width: 760px;
+  height: auto;
+  display: block;
+}
+.tf__lnk {
+  fill-opacity: 0.3;
+  transition: fill-opacity 0.15s;
+}
+.tf__lnk:hover {
+  fill-opacity: 0.55;
+}
+.tf__nl {
+  font: 500 12.5px var(--font);
+  fill: var(--ink);
+}
+.tf__nv {
+  font: 11.5px var(--font);
+  fill: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.tf__key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.tf__key i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+.tf__foot {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.tf__moves {
+  padding: 16px 18px;
+  display: grid;
+  gap: 8px;
+}
+.tf__moves ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tf__moves li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.tf__moves li:last-child {
+  border-bottom: 0;
+}
+.tf__moves li > i {
+  width: 8px;
+  height: 26px;
+  border-radius: 3px;
+}
+.tf__moves b {
+  display: block;
+  font-weight: 500;
+  font-size: 13px;
+}
+.tf__moves small {
+  display: block;
+  color: var(--faint);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tf__amt {
+  text-align: right;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tf__amt small {
+  font-weight: 400;
+  text-align: right;
+}

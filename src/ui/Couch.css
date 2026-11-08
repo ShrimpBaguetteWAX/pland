@@ -1254,3 +1254,145 @@
     display: none;
   }
 }
+
+/* ---- The moons: one per mission, round the orb (see couch/Moons.tsx) ---------------------------------- */
+
+.couch {
+  --moon-l1: #ffb070;
+  --moon-l2: #b8261a;
+  --moon-glass: #1a0806;
+  --moon-rim: rgba(199, 179, 119, 0.55);
+  --moon-ready: rgba(255, 90, 50, 0.5);
+}
+
+/* With moons the orb steps back a little, so they fit round it on a phone. */
+.couch__orb.has-moons {
+  width: min(78%, 380px, 42vh);
+  width: min(78%, 380px, 42dvh);
+}
+
+.couch__moons {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.couch__moon {
+  all: unset;
+  position: absolute;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch__moon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.couch__moon-glass {
+  fill: var(--moon-glass);
+  stroke: var(--moon-rim);
+  stroke-width: 2.4;
+}
+
+/* Cat ears are the kitten's; Infernal moons are plain. */
+.couch__moon-ear,
+.couch__moon-ear-in {
+  display: none;
+}
+
+.couch__moon-l1 {
+  stop-color: var(--moon-l1);
+}
+
+.couch__moon-l2 {
+  stop-color: var(--moon-l2);
+}
+
+/* Calm liquid: slow, low swells drifting against each other, a soft band of light on top. */
+.couch__moon-wave {
+  animation: couch-moon-wave 8s linear infinite;
+}
+
+.couch__moon-wave.is-back {
+  opacity: 0.4;
+  animation-duration: 12s;
+  animation-direction: reverse;
+}
+
+.couch__moon-wave.is-sheen {
+  fill: #fff;
+  opacity: 0.3;
+  animation-duration: 10s;
+}
+
+@keyframes couch-moon-wave {
+  to {
+    transform: translateX(-100px);
+  }
+}
+
+.couch__moon-gloss {
+  fill: #fff;
+  opacity: 0.16;
+}
+
+.couch__moon-txt {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  line-height: 1.05;
+  pointer-events: none;
+  color: #fff;
+  font-family: var(--cz-cap);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.55);
+}
+
+.couch__moon-txt b {
+  font-size: 3.3cqw;
+  font-weight: 600;
+}
+
+.couch__moon-txt small {
+  font-size: 2.3cqw;
+  opacity: 0.85;
+}
+
+.couch__moon.is-ready {
+  animation: couch-moon-breathe 3.6s ease-in-out infinite;
+}
+
+@keyframes couch-moon-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 10px 1px var(--moon-ready);
+  }
+  50% {
+    box-shadow: 0 0 26px 8px var(--moon-ready);
+  }
+}
+
+.couch__moon:focus-visible {
+  outline: 2px solid var(--cz-gold);
+  outline-offset: 3px;
+}
+
+.couch__moon:active {
+  transform: translate(-50%, -50%) scale(0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch__moon-wave,
+  .couch__moon.is-ready {
+    animation: none;
+  }
+}

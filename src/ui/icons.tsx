@@ -83,6 +83,13 @@ const P: Record<string, ReactNode> = {
       <path d="M3.5 10h17M16 14.5h1" />
     </>
   ),
+  // An open book with a ruled page: the ledger.
+  ledger: (
+    <>
+      <path d="M12 6.5c-1.8-1.3-4.3-2-7.5-2v13c3.2 0 5.7.7 7.5 2 1.8-1.3 4.3-2 7.5-2v-13c-3.2 0-5.7.7-7.5 2zM12 6.5v13" />
+      <path d="M7 9.5h2.5M7 12.5h2.5M14.5 9.5H17M14.5 12.5H17" />
+    </>
+  ),
   users: (
     <>
       <circle cx="9" cy="9" r="3.2" />

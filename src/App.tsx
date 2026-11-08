@@ -14,6 +14,7 @@ import { BarActions } from './ui/BarActions'
 import { Forge } from './ui/Forge'
 import { Market } from './ui/Market'
 import { Settings } from './ui/Settings'
+import { LedgerPage } from './ui/LedgerPage'
 import { Missions } from './ui/Missions'
 import { Swap } from './ui/Swap'
 import { Toaster } from './ui/Toaster'
@@ -24,10 +25,10 @@ import { Toaster } from './ui/Toaster'
  * bar reads as the finished game will, and say they are still to come.
  */
 
-type Page = 'divisions' | 'missions' | 'campaigns' | 'forge' | 'market' | 'blend' | 'swap' | 'settings' | 'couch'
-const PAGES: Record<string, Page> = { Divisions: 'divisions', Missions: 'missions', Campaigns: 'campaigns', Forge: 'forge', Market: 'market', Blend: 'blend', Swap: 'swap' }
+type Page = 'divisions' | 'missions' | 'campaigns' | 'forge' | 'market' | 'blend' | 'swap' | 'ledger' | 'settings' | 'couch'
+const PAGES: Record<string, Page> = { Divisions: 'divisions', Missions: 'missions', Campaigns: 'campaigns', Forge: 'forge', Market: 'market', Blend: 'blend', Swap: 'swap', Ledger: 'ledger' }
 
-const ALL_PAGES: Page[] = ['divisions', 'missions', 'campaigns', 'forge', 'market', 'blend', 'swap', 'settings', 'couch']
+const ALL_PAGES: Page[] = ['divisions', 'missions', 'campaigns', 'forge', 'market', 'blend', 'swap', 'ledger', 'settings', 'couch']
 /** Couch mode, the old deck's full-screen phone view: loaded (with its fonts and art) only when opened. */
 const Couch = lazy(() => import('./ui/Couch'))
 /** The page named in the address (#missions); Divisions when there is none or it is unknown. */
@@ -43,7 +44,8 @@ const MENU: [string, IconName][] = [
   ['Forge', 'flame'],
   ['Market', 'cart'],
   ['Blend', 'spark'],
-  ['Swap', 'wallet']
+  ['Swap', 'wallet'],
+  ['Ledger', 'ledger']
 ]
 
 /**
@@ -320,6 +322,11 @@ export function App() {
           {seen.has('swap') && (
             <div className="page" hidden={page !== 'swap'}>
               <Swap account={account} spectating={spectating} />
+            </div>
+          )}
+          {seen.has('ledger') && (
+            <div className="page" hidden={page !== 'ledger'}>
+              <LedgerPage account={account} />
             </div>
           )}
           {seen.has('settings') && (

@@ -77,13 +77,13 @@ const [tailX, tailY] = pt(38, TAIL_R)
 const TAIL = `M174 60C186 56 194 60 ${pt(-62, TAIL_R).map(f1).join(' ')}A${TAIL_R} ${TAIL_R} 0 0 1 ${f1(tailX)} ${f1(tailY)}c-3 6-9 9-14 8`
 const BELL_Y = CY + R_OUT
 
-const FUR = '#2b1230'
-const ROSE = '#f2a7c3'
+const FUR = '#2a1d42'
+const ROSE = '#f5c2e0'
 
 function Kitten() {
   return (
     <g className="couch__kit" transform="translate(150 72) scale(1.4) translate(-150 -72)">
-      <g className="couch__kit-wings" fill="#3b1638" stroke={ROSE} strokeWidth="1.4" strokeLinejoin="round">
+      <g className="couch__kit-wings" fill="#34285a" stroke={ROSE} strokeWidth="1.4" strokeLinejoin="round">
         <path className="is-l" d="M136 58C122 46 108 44 100 50c6 2 8 6 7 10c4-3 8-2 10 2c3-4 8-4 11-1c2-2 5-3 8-3Z" />
         <path className="is-r" d="M164 58C178 46 192 44 200 50c-6 2-8 6-7 10c-4-3-8-2-10 2c-3-4-8-4-11-1c-2-2-5-3-8-3Z" />
       </g>
@@ -96,8 +96,8 @@ function Kitten() {
       <ellipse cx="150" cy="34" rx="22" ry="18.5" fill={FUR} stroke={ROSE} strokeWidth="1.6" />
       <path
         d="M141 17c-2-6 0-10 3-12c-1 4 0 7 2 10Z M159 17c2-6 0-10-3-12c1 4 0 7-2 10Z"
-        fill="#ff3d7f"
-        stroke="#a8124a"
+        fill="#ff5c9a"
+        stroke="#b8285f"
         strokeWidth=".8"
       />
       <path
@@ -155,13 +155,13 @@ function Frame() {
     <svg className="couch__frame" viewBox="0 0 300 300" aria-hidden="true">
       <defs>
         <linearGradient id="ck-band" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#3a1840" />
-          <stop offset="1" stopColor="#1c0a20" />
+          <stop offset="0" stopColor="#34285a" />
+          <stop offset="1" stopColor="#1b1430" />
         </linearGradient>
         <radialGradient id="ck-aura" cx="50%" cy="50%" r="50%">
-          <stop offset=".6" stopColor="#ff3d7f" stopOpacity="0" />
-          <stop offset=".78" stopColor="#ff3d7f" stopOpacity=".35" />
-          <stop offset="1" stopColor="#ff3d7f" stopOpacity="0" />
+          <stop offset=".6" stopColor="#ff5c9a" stopOpacity="0" />
+          <stop offset=".78" stopColor="#ff5c9a" stopOpacity=".35" />
+          <stop offset="1" stopColor="#ff5c9a" stopOpacity="0" />
         </radialGradient>
       </defs>
       <g transform={`translate(150 160) scale(${(80 / R_IN).toFixed(4)}) translate(-${CX} -${CY})`}>
@@ -174,7 +174,7 @@ function Frame() {
           cy={CY}
           r={R_OUT + 4}
           fill="none"
-          stroke="#9c5a78"
+          stroke="#a582b8"
           strokeWidth="1"
           strokeDasharray="1 5"
           strokeLinecap="round"
@@ -197,8 +197,8 @@ function Frame() {
           <path
             transform={`translate(${f1(tailX - 14)} ${f1(tailY + 8)}) rotate(110)`}
             d="M0-9C5-4 7 0 0 5C-7 0-5-4 0-9Z"
-            fill="#ff3d7f"
-            stroke="#a8124a"
+            fill="#ff5c9a"
+            stroke="#b8285f"
             strokeWidth="1"
           />
         </g>

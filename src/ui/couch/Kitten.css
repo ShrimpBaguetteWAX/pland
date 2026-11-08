@@ -1,37 +1,37 @@
 /*
- * Couch mode, Kitten: the Infernal screen redressed. Same layout and the same meaning for every
- * colour (cherry for the loop, candy-flame peach for the mine, butter for idle divisions, mint for
- * done), now on a plum night with rose-gold frames, rounded cushions and a little horned kitten on
+ * Couch mode, Kitten (Candy night): the Infernal screen redressed. Same layout and the same meaning
+ * for every colour (blush-to-raspberry for the loop, candy-flame peach for the mine, butter for idle divisions, mint for
+ * done), now on a violet night with blush frames, rounded cushions and a little horned kitten on
  * the ring. A soft blackletter (Grenze Gotisch) for the big words, a round face (Fredoka) for every
  * number and the small print. Everything here is scoped to .couch.is-kitten.
  */
 .couch.is-kitten {
-  --cz-tx: #fbe9f2;
-  --cz-dim: #c9a9bf;
-  --cz-faint: #8a6a83;
-  --cz-fr: #9c5a78;
-  --cz-fr-dk: #9c5a78;
-  --cz-pl1: #2c1432;
-  --cz-pl2: #1a0b1f;
-  --cz-blood: #ff3d7f;
+  --cz-tx: #fff3f7;
+  --cz-dim: #d3b6d6;
+  --cz-faint: #9a83a8;
+  --cz-fr: #a582b8;
+  --cz-fr-dk: #a582b8;
+  --cz-pl1: #2d2147;
+  --cz-pl2: #1a1230;
+  --cz-blood: #ff5c9a;
   --cz-lava: #ff9a5c;
   --cz-gold: #ffd27a;
   --cz-legend: #ff6f9e;
   --cz-cap: 'Fredoka', 'Nunito', system-ui, sans-serif;
   --cz-book: 'Fredoka', 'Nunito', system-ui, sans-serif;
   --ck-goth: 'Grenze Gotisch', 'Cinzel', Georgia, serif;
-  --ck-rose: #f2a7c3;
-  --ck-plum: #2a1430;
+  --ck-rose: #f5c2e0;
+  --ck-plum: #2b1f45;
   --ck-mint: #7fe3c4;
-  background: #0f0712;
+  background: #120c20;
 }
 
 /* ---- The night ------------------------------------------------------------------------------------- */
 
 .is-kitten .couch__pit::before {
   background:
-    radial-gradient(110% 45% at 50% 108%, rgba(255, 90, 138, 0.4), rgba(255, 122, 74, 0.13) 40%, transparent 70%),
-    radial-gradient(80% 50% at 50% 36%, #3a1640 0%, #1d0b22 55%, #0d050f 100%);
+    radial-gradient(110% 45% at 50% 108%, rgba(255, 120, 175, 0.38), rgba(170, 130, 255, 0.12) 40%, transparent 70%),
+    radial-gradient(80% 50% at 50% 36%, #3a2c60 0%, #1d1434 55%, #0e0919 100%);
 }
 
 .couch__star {
@@ -72,7 +72,7 @@
 }
 
 .is-kitten .couch__vignette {
-  box-shadow: inset 0 0 80px 20px rgba(8, 2, 10, 0.7);
+  box-shadow: inset 0 0 80px 20px rgba(8, 5, 16, 0.7);
 }
 
 /* ---- Top ------------------------------------------------------------------------------------------- */
@@ -144,7 +144,7 @@
   letter-spacing: 0.01em;
   text-shadow:
     0 0 18px rgba(255, 90, 150, 0.8),
-    0 2px 6px #2a0618;
+    0 2px 6px #2a1238;
 }
 
 .is-kitten .couch__label b.is-clock {
@@ -154,8 +154,8 @@
   font-weight: 600;
   letter-spacing: -0.01em;
   text-shadow:
-    0 2px 10px #2a0618,
-    0 0 2px #2a0618;
+    0 2px 10px #2a1238,
+    0 0 2px #2a1238;
 }
 
 .is-kitten .couch__label small {
@@ -164,14 +164,14 @@
   font-weight: 500;
   letter-spacing: 0.02em;
   text-transform: none;
-  text-shadow: 0 1px 6px #2a0618;
+  text-shadow: 0 1px 6px #2a1238;
 }
 
 .is-kitten .couch__label em {
   color: #ffe3ee;
   font-size: max(12px, 3.8cqw);
   font-style: normal;
-  text-shadow: 0 1px 6px #2a0618;
+  text-shadow: 0 1px 6px #2a1238;
 }
 
 .is-kitten .couch__hit:focus-visible {
@@ -297,7 +297,7 @@
   box-shadow:
     inset 0 0 0 1.5px var(--cz-fr),
     0 6px 14px rgba(0, 0, 0, 0.45);
-  outline: 1.5px dashed rgba(242, 167, 195, 0.25);
+  outline: 1.5px dashed rgba(245, 194, 224, 0.25);
   outline-offset: -6px;
 }
 
@@ -351,11 +351,11 @@
 /* The docked toast: a cushion with a cherry edge; paw prints count the transactions. */
 .is-kitten .couch__card {
   --tone: var(--cz-blood);
-  --glow: rgba(255, 61, 127, 0.2);
+  --glow: rgba(255, 92, 154, 0.2);
   gap: 3px;
   padding: 11px 14px 12px;
   border-radius: 20px;
-  background: linear-gradient(180deg, #3a1434, #1f0b22);
+  background: linear-gradient(180deg, #382a5c, #1f1636);
   box-shadow:
     inset 0 0 0 1.5px var(--tone),
     0 0 30px -8px color-mix(in srgb, var(--tone) 55%, transparent),
@@ -444,7 +444,7 @@
 /* The mine: a rounded bar that fills in solid rose, and glows when it brims. */
 .is-kitten .couch__mine {
   border-radius: 999px;
-  background: #1d0b20;
+  background: #1d1434;
   box-shadow:
     inset 0 0 0 1.5px var(--cz-fr),
     0 6px 14px rgba(0, 0, 0, 0.45);
@@ -457,7 +457,7 @@
   inset: 1.5px;
   width: auto;
   border-radius: 999px;
-  background: #cf6f97;
+  background: #e07aae;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
   -webkit-mask: linear-gradient(90deg, #000 calc(var(--f, 0) * 100%), transparent calc(var(--f, 0) * 100% + 4px));
   mask: linear-gradient(90deg, #000 calc(var(--f, 0) * 100%), transparent calc(var(--f, 0) * 100% + 4px));
@@ -478,7 +478,7 @@
 }
 
 .is-kitten .couch__mine.is-ready .couch__mine-fill {
-  background: #e07fa8;
+  background: #f08cbc;
 }
 
 .is-kitten .couch__mine svg {
@@ -490,25 +490,25 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: none;
-  text-shadow: 0 1px 3px rgba(42, 6, 24, 0.7);
+  text-shadow: 0 1px 3px rgba(42, 18, 56, 0.7);
 }
 
 .is-kitten .couch__mine span {
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  text-shadow: 0 1px 3px rgba(42, 6, 24, 0.7);
+  text-shadow: 0 1px 3px rgba(42, 18, 56, 0.7);
 }
 
 /* ---- Panels ---------------------------------------------------------------------------------------- */
 
 .is-kitten .couch__scrim {
-  background: rgba(15, 4, 18, 0.7);
+  background: rgba(14, 9, 26, 0.7);
 }
 
 .is-kitten .couch__tip {
   border-radius: 24px;
-  background: linear-gradient(180deg, #2a1230, #160819);
+  background: linear-gradient(180deg, #2a1d42, #17102a);
   box-shadow:
     inset 0 0 0 1.5px var(--cz-fr),
     0 20px 50px rgba(0, 0, 0, 0.8);
@@ -554,7 +554,7 @@
 }
 
 .is-kitten .couch__tip li + li {
-  border-top-color: rgba(156, 90, 120, 0.3);
+  border-top-color: rgba(165, 130, 184, 0.3);
 }
 
 .is-kitten .couch__tip li b {
@@ -579,14 +579,14 @@
 .is-kitten .couch__tip .p {
   height: 4px;
   border-radius: 99px;
-  background: rgba(255, 61, 127, 0.14);
+  background: rgba(255, 92, 154, 0.14);
   box-shadow: none;
 }
 
 .is-kitten .couch__tip .p i {
   border-radius: inherit;
-  background: linear-gradient(90deg, #a8124a, var(--cz-blood));
-  box-shadow: 0 0 6px rgba(255, 61, 127, 0.5);
+  background: linear-gradient(90deg, #b8285f, var(--cz-blood));
+  box-shadow: 0 0 6px rgba(255, 92, 154, 0.5);
 }
 
 .is-kitten .couch__tip li.is-home .p i {
@@ -596,20 +596,20 @@
 
 .is-kitten .couch__send {
   border-radius: 999px;
-  background: linear-gradient(180deg, #ff4f8b, #c2185b);
+  background: linear-gradient(180deg, #ff5c9a, #d13a78);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 3px 10px rgba(255, 61, 127, 0.3);
+    0 3px 10px rgba(255, 92, 154, 0.3);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: none;
-  text-shadow: 0 1px 2px rgba(80, 0, 30, 0.5);
+  text-shadow: 0 1px 2px rgba(70, 20, 80, 0.5);
 }
 
 .is-kitten .couch__hold {
   border-radius: 999px;
-  background: #1d0b20;
+  background: #1d1434;
   box-shadow: inset 0 0 0 1.5px var(--ck-rose);
   font-size: 15px;
   font-weight: 600;
@@ -620,12 +620,12 @@
 .is-kitten .couch__hold i {
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, #c2185b, var(--cz-blood) 70%, var(--cz-lava));
-  box-shadow: 0 0 20px rgba(255, 61, 127, 0.5);
+  background: linear-gradient(90deg, #d13a78, var(--cz-blood) 70%, var(--cz-lava));
+  box-shadow: 0 0 20px rgba(255, 92, 154, 0.5);
 }
 
 .is-kitten .couch__hold span {
-  text-shadow: 0 1px 3px rgba(42, 6, 24, 0.8);
+  text-shadow: 0 1px 3px rgba(42, 18, 56, 0.8);
 }
 
 .is-kitten .couch__warn {
@@ -646,4 +646,31 @@
   .couch__floaty {
     display: none;
   }
+}
+
+/* ---- Candy night moons: violet glass, a blush ring with cat ears, a blush-to-raspberry potion ---- */
+.couch.is-kitten {
+  --moon-l1: #ffc4dc;
+  --moon-l2: #ff5c9a;
+  --moon-glass: #251a3a;
+  --moon-rim: #f5c2e0;
+  --moon-ready: rgba(255, 140, 190, 0.5);
+}
+
+.is-kitten .couch__moon-ear {
+  display: inline;
+  fill: var(--moon-glass);
+  stroke: var(--moon-rim);
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+}
+
+.is-kitten .couch__moon-ear-in {
+  display: inline;
+  fill: #ff8ab8;
+  opacity: 0.75;
+}
+
+.is-kitten .couch__moon-txt {
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif;
 }

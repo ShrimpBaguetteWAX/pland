@@ -437,17 +437,18 @@ export const atomic = {
    * spread over the healthy nodes (at most MAX_IN_FLIGHT requests at once across the whole app).
    * A last page that comes back full means listings were added meanwhile: reading continues.
    */
-  async getSales(params: Params): Promise<AtomicSale[]> {
+  /** Sales matching `params`, up to `maxPages` pages of 100 (the ledger reads a whole history, so it asks for more). */
+  async getSales(params: Params, maxPages = MAX_SALE_PAGES): Promise<AtomicSale[]> {
     const path = (page: number) =>
       `/atomicmarket/v2/sales${toQuery({ state: 1, limit: 100, page, sort: 'price', order: 'asc', ...params })}`
     const count = await limited(() => get<string | number>(`/atomicmarket/v2/sales/_count${toQuery({ state: 1, ...params })}`))
       .then(Number)
       .catch(() => NaN)
     // Without a count, fall back to reading page after page from one node.
-    if (!Number.isFinite(count)) return getPaged(path, MAX_SALE_PAGES, 100)
-    const pages = Math.min(MAX_SALE_PAGES, Math.ceil(count / 100))
+    if (!Number.isFinite(count)) return getPaged(path, maxPages, 100)
+    const pages = Math.min(maxPages, Math.ceil(count / 100))
     const batches = await Promise.all(Array.from({ length: pages }, (_, i) => limited(() => get<AtomicSale[]>(path(i + 1)))))
-    for (let page = pages + 1; page <= MAX_SALE_PAGES && (batches[batches.length - 1]?.length ?? 0) === 100; page++)
+    for (let page = pages + 1; page <= maxPages && (batches[batches.length - 1]?.length ?? 0) === 100; page++)
       batches.push(await limited(() => get<AtomicSale[]>(path(page))))
     // Pages can come from different nodes, so a sale may show up twice at a page boundary.
     const seen = new Set<string>()

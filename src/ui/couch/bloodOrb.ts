@@ -22,6 +22,10 @@ export interface OrbPalette {
   shade: number
   hearts?: string
   gloss?: boolean
+  /** How fast everything moves (1 = as drawn); below 1 is calmer. */
+  pace?: number
+  /** How high the waves stand (1 = as drawn). */
+  calm?: number
 }
 
 export const BLOOD: OrbPalette = {
@@ -60,6 +64,29 @@ export const CHERRY: OrbPalette = {
   shade: 0.55,
   hearts: '#ffc2d8',
   gloss: true
+}
+
+/** Candy night, the kitten's look: a blush-to-raspberry potion that moves slowly, with low swells. */
+export const CANDY: OrbPalette = {
+  glass: ['#2c2046', '#110b1e'],
+  back: 'rgba(255,175,210,.55)',
+  body: [
+    [0, '#ffc4dc'],
+    [0.14, '#ff8ab8'],
+    [0.5, '#e8417e'],
+    [1, '#4f0f33']
+  ],
+  churn: 'rgba(255,180,215,.1)',
+  bubble: 'rgba(255,232,242,.55)',
+  sheen: 'rgba(255,220,236,.3)',
+  rim: 'rgba(255,195,225,.28)',
+  surface: 'rgba(255,228,240,.9)',
+  glow: 'rgba(255,125,180,1)',
+  shade: 0.5,
+  hearts: '#ffe0ec',
+  gloss: true,
+  pace: 0.5,
+  calm: 0.65
 }
 
 const heart = (g: CanvasRenderingContext2D, x: number, y: number, s: number) => {
@@ -110,9 +137,10 @@ function createLiquid(canvas: HTMLCanvasElement, pal: OrbPalette): Liquid {
       if (px <= 0 || px === W) return
       canvas.width = canvas.height = W = px
     },
-    draw(t) {
+    draw(time) {
       const P = o.pal
-      o.level += (o.target - o.level) * 0.06
+      const t = time * (P.pace ?? 1)
+      o.level += (o.target - o.level) * 0.06 * (P.pace ?? 1)
       o.slosh *= 0.97
       const R = W / 2
       const step = Math.max(4, W / 70)
@@ -131,7 +159,7 @@ function createLiquid(canvas: HTMLCanvasElement, pal: OrbPalette): Liquid {
 
       const lv = Math.max(0, Math.min(1, o.level))
       const base = W * (1.02 - lv * 1.04)
-      const amp = W * (0.012 + o.slosh * 0.05) * (lv > 0.97 ? 0.5 : 1)
+      const amp = W * (0.012 * (P.calm ?? 1) + o.slosh * 0.05) * (lv > 0.97 ? 0.5 : 1)
       const wave = (k1: number, k2: number, s1: number, s2: number, ph: number, dy: number, a: number) => {
         g.beginPath()
         g.moveTo(0, W)

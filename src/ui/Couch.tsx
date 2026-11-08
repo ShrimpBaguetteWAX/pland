@@ -11,9 +11,10 @@ import { useMining } from '@/mining/useMining'
 import { useReportCount, useTabTitle } from '@/state/tabCount'
 import { useTransaction } from '@/wallet/useTransaction'
 
-import { BLOOD, CHERRY, useBloodOrb } from './couch/bloodOrb'
+import { BLOOD, CANDY, useBloodOrb } from './couch/bloodOrb'
 import { InfernalFrame } from './couch/InfernalFrame'
 import { KittenFrame } from './couch/KittenFrame'
+import { Moons, type MoonMission } from './couch/Moons'
 
 import './Couch.css'
 import './couch/Kitten.css'
@@ -28,8 +29,9 @@ import './couch/Kitten.css'
  * ready; with the bell on it chimes too, also in a background tab.
  *
  * It comes in two looks, switched at the top right and remembered in this browser: Infernal, and
- * Kitten, where the same screen is candy and rose gold, the blood is a cherry potion and a little
- * horned kitten on the ring shows the state (asleep, awake, wings out when the loop is ready).
+ * Kitten (Candy night), where the same screen is violet and blush, the blood is a slow pink potion
+ * and a little horned kitten on the ring shows the state (asleep, awake, wings out when the loop is
+ * ready). Round the orb, a moon per mission the divisions are on, each with its own timer.
  */
 
 const clock = (ms: number) => {
@@ -333,7 +335,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const mineProgress = !mineOn ? 0 : mineReady ? 1 : Math.max(START, m.progress)
   // The orb brims while divisions are back, drains as they march, and otherwise fills with the next return.
   const level = looping ? 0.05 : back.length ? 0.94 : nextOut ? 0.04 + share(nextOut) * 0.86 : 0.03
-  const orb = useBloodOrb(level, kitten ? CHERRY : BLOOD)
+  const orb = useBloodOrb(level, kitten ? CANDY : BLOOD)
 
   // Back to the page it was opened from; to Missions when it was opened on its own (a home screen icon).
   const close = onClose
@@ -373,6 +375,22 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     ]
       .filter(Boolean)
       .join(' · ')
+  }
+  // One moon per mission with divisions on it: how many, how many back, the next return, what they bring.
+  const moons: MoonMission[] = []
+  {
+    const by = new Map<number, MoonMission>()
+    for (const d of [...back, ...out]) {
+      const e = loop.econ.get(d.missionId)
+      let m = by.get(d.missionId)
+      if (!m) by.set(d.missionId, (m = { missionId: d.missionId, title: e?.title ?? `Mission #${d.missionId}`, divs: 0, back: 0, next: null, value: 0 }))
+      m.divs++
+      // DEF rewards count at the pool price, so a DEF mission is not drawn as nothing.
+      m.value += (e?.rewardTlm ?? 0) + (e?.rewardDef ?? 0) * loop.market.rate
+      if (d.unlockAt <= now) m.back++
+      else if (!m.next || d.unlockAt < m.next.unlockAt) m.next = { joinedAt: d.joinedAt, unlockAt: d.unlockAt }
+    }
+    moons.push(...by.values())
   }
   const comingTlm = [...back, ...out].reduce((n, d) => n + (loop.econ.get(d.missionId)?.rewardTlm ?? 0), 0)
   const mineText = !mineOn ? 'Off' : m.busy ? 'Mining…' : mineReady ? 'Ready' : mineLeft !== null ? clock(mineLeft) : '…'
@@ -474,7 +492,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
       <main className="couch__stage">
         <div
-          className={`couch__orb${back.length && !looping ? ' is-ready' : ''} is-${canLoop ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
+          className={`couch__orb${moons.length ? ' has-moons' : ''}${back.length && !looping ? ' is-ready' : ''} is-${canLoop ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
           {kitten ? <KittenFrame /> : <InfernalFrame />}
           <canvas ref={orb.ref} className="couch__blood" />
@@ -513,6 +531,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
               canLoop ? `Loop ${back.length} returned division${back.length === 1 ? '' : 's'}` : 'Loop: nothing back yet'
             }
           />
+          <Moons missions={moons} now={now} onOpen={() => setPanel('out')} />
         </div>
       </main>
 
