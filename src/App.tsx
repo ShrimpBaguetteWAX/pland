@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { usePlayer, useRewardPool } from '@/data/game'
+import { useMarket, usePlayer, useRewardPool } from '@/data/game'
 import { formatNumber } from '@/lib/format'
 import { useSession } from '@/state/session'
 import { useTheme } from '@/state/theme'
@@ -84,6 +84,10 @@ function AccountMenu({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const pool = useRewardPool()
+  // What 1 DEF fetches in TLM on the TLM/DEF pool after its fee (as the Swap page's rates show it), for
+  // the swap button; shown once the pool has been read.
+  const market = useMarket()
+  const tlmPerDef = market.rate * (1 - market.fee)
   const [theme, setTheme] = useTheme()
   useEffect(() => {
     if (!open) return
@@ -131,13 +135,15 @@ function AccountMenu({
           )}
           <button
             type="button"
-            className="btn btn--sm"
+            className="btn btn--sm me__swap"
+            title={market.live ? `After the ${formatNumber(market.fee * 100, 2)}% pool fee · ${formatNumber(market.rate, 2)} TLM per DEF at the mid price` : undefined}
             onClick={() => {
               setOpen(false)
               onSwap()
             }}
           >
             Swap · deposit · withdraw
+            {market.live && <small>1 DEF = {formatNumber(tlmPerDef, 2)} TLM</small>}
           </button>
           <button
             type="button"

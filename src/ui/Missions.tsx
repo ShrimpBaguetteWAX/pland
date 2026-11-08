@@ -160,9 +160,12 @@ export function Missions({ account, spectating }: { account: string; spectating:
   const entries = useMissionEntries(flowIds)
   const flow = useMemo(() => {
     const t = { divisions: 0, atk: 0, def: 0, tlmIn: 0, defIn: 0, tlmOut: 0, defOut: 0 }
+    /** Per mission: the players with a division still out on it, and those divisions. */
+    const crowd = new Map<number, { players: number; divisions: number }>()
     for (const e of open) {
       const list = (entries.data?.get(e.id) ?? []).filter((r) => +chainDate(r.unlock_time) > now)
       if (!list.length) continue
+      crowd.set(e.id, { players: new Set(list.map((r) => r.owner)).size, divisions: list.length })
       const cycles = list.reduce((n, r) => {
         const ms = +chainDate(r.unlock_time) - +chainDate(r.join_time)
         return ms > 0 ? n + 3_600_000 / ms : n
@@ -177,7 +180,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
       t.tlmOut += cycles * e.rewardTlm
       t.defOut += cycles * e.rewardDef
     }
-    return t
+    return { ...t, crowd }
   }, [open, entries.data, now])
   // Until every entry is read the figures wait, rather than show a guess.
   const flowReady = !!entries.data || !flowIds.length
@@ -398,7 +401,21 @@ export function Missions({ account, spectating }: { account: string; spectating:
                 return (
                   <tr key={e.id} className={`${fits ? '' : 'is-off'}${dropAt === e.id ? ' is-target' : ''}`} {...dropProps(e)}>
                     <td className="mt__title">
-                      <b>{e.title}</b>
+                      <b>
+                        {e.title}
+                        {(() => {
+                          const c = flow.crowd.get(e.id)
+                          return c ? (
+                            <span
+                              className="mt__crowd"
+                              title={`${c.players} player${c.players === 1 ? ' has' : 's have'} ${c.divisions} division${c.divisions === 1 ? '' : 's'} out on this mission right now, your own counted too. Divisions back and waiting for the claim are not counted.`}
+                            >
+                              <Icon name="users" size={12} />
+                              {formatNumber(c.players, 0)}
+                            </span>
+                          ) : null
+                        })()}
+                      </b>
                       <small>
                         {e.planet}
                         {!open ? ` · ${e.state}` : ''}

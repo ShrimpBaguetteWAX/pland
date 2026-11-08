@@ -2720,9 +2720,28 @@ code {
   border-radius: 0 10px 10px 0;
 }
 .mt__title b {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 600;
   white-space: nowrap;
+}
+/* Players on the mission right now: a small quiet pill after the name. */
+.mt__crowd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px 1px 6px;
+  border-radius: 99px;
+  background: var(--sunk);
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+.mt__crowd svg {
+  opacity: 0.7;
 }
 .mt__title small {
   color: var(--faint);
@@ -4247,4 +4266,19 @@ code {
   .bact__n {
     display: none;
   }
+}
+
+/* The swap entry in the wallet menu, with the TLM to DEF rate under it. */
+.me__swap {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  height: auto;
+  padding-block: 7px;
+}
+.me__swap small {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
 }
