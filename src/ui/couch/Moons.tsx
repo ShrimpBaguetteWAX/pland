@@ -7,6 +7,8 @@ import { useId } from 'react'
  * divisions on it), so the missions that matter most are the biggest. They run clockwise from the
  * soonest back, down the right side from the kitten and up the left; the top stays clear for the
  * kitten (or the horns) and the bottom for the bell. More than eight: the smallest merge into one.
+ * The orb itself is the biggest mission, so it is not among these. A tap loops a moon's mission when
+ * its divisions are back, and otherwise shows that mission's divisions (the merged moon: all of them).
  */
 
 export interface MoonMission {
@@ -71,7 +73,7 @@ function fit(list: MoonMission[]): (MoonMission & { more?: number })[] {
   ]
 }
 
-function Moon({ m, x, y, d, now, onOpen }: { m: MoonMission & { more?: number }; x: number; y: number; d: number; now: number; onOpen: () => void }) {
+function Moon({ m, x, y, d, now, onTap }: { m: MoonMission & { more?: number }; x: number; y: number; d: number; now: number; onTap: (missionId: number) => void }) {
   const id = useId().replace(/:/g, '')
   const ready = m.back > 0
   const fill = ready ? 1 : m.next ? Math.min(1, Math.max(0.04, (now - m.next.joinedAt) / Math.max(1, m.next.unlockAt - m.next.joinedAt))) : 0.04
@@ -83,8 +85,8 @@ function Moon({ m, x, y, d, now, onOpen }: { m: MoonMission & { more?: number };
       type="button"
       className={`couch__moon${ready ? ' is-ready' : ''}`}
       style={{ left: `${x}%`, top: `${y}%`, width: `${d}cqw` }}
-      onClick={onOpen}
-      aria-label={`${m.title}: ${m.divs} division${m.divs === 1 ? '' : 's'}, ${ready ? `${m.back} back` : m.next ? `next back in ${clock(m.next.unlockAt - now)}` : 'none out'}. Opens the list.`}
+      onClick={() => onTap(m.missionId)}
+      aria-label={`${m.title}: ${m.divs} division${m.divs === 1 ? '' : 's'}, ${ready ? `${m.back} back` : m.next ? `next back in ${clock(m.next.unlockAt - now)}` : 'none out'}. ${ready && !m.more ? 'Loops it.' : 'Shows its divisions.'}`}
       title={`${m.title} · ${m.divs} division${m.divs === 1 ? '' : 's'} · worth ≈ ${Math.round(m.value).toLocaleString('en-US')} TLM`}
     >
       <svg viewBox="0 0 100 100" aria-hidden="true">
@@ -117,7 +119,7 @@ function Moon({ m, x, y, d, now, onOpen }: { m: MoonMission & { more?: number };
   )
 }
 
-export function Moons({ missions, now, onOpen }: { missions: MoonMission[]; now: number; onOpen: () => void }) {
+export function Moons({ missions, now, onTap }: { missions: MoonMission[]; now: number; onTap: (missionId: number) => void }) {
   const list = fit(missions)
   if (!list.length) return null
   // Soonest back first: those already back, then by their next return.
@@ -132,7 +134,7 @@ export function Moons({ missions, now, onOpen }: { missions: MoonMission[]; now:
       {order.map((m, i) => {
         // Evenly spread, each in the middle of its share: one moon sits at 3 o'clock, two face each other.
         const a = ((order.length === 1 ? 0 : angleAt((i + 0.5) / order.length)) * Math.PI) / 180
-        return <Moon key={m.missionId} m={m} x={50 + Math.cos(a) * ORBIT} y={53.33 + Math.sin(a) * ORBIT} d={size(m)} now={now} onOpen={onOpen} />
+        return <Moon key={m.missionId} m={m} x={50 + Math.cos(a) * ORBIT} y={53.33 + Math.sin(a) * ORBIT} d={size(m)} now={now} onTap={onTap} />
       })}
     </div>
   )

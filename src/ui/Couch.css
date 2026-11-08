@@ -1396,3 +1396,19 @@
     animation: none;
   }
 }
+
+/* ---- Couch mode pins the page: the couch fills the screen and nothing under it scrolls or bounces ---- */
+html.is-couch,
+html.is-couch body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--couch-night, #070303);
+}
+
+html.is-couch .couch {
+  position: fixed;
+  inset: 0;
+  min-height: 0;
+  z-index: 50;
+}

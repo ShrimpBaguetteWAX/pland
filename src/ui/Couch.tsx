@@ -80,6 +80,23 @@ function useLook(): [Look, () => void] {
   return [look, toggle]
 }
 
+/**
+ * While couch mode is open the page under it cannot scroll or bounce (a phone would otherwise drag
+ * it and show the site's own background below the couch), and that background takes the couch's
+ * night colour, so an overscroll shows the same sky.
+ */
+function usePinnedPage(night: string) {
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.add('is-couch')
+    root.style.setProperty('--couch-night', night)
+    return () => {
+      root.classList.remove('is-couch')
+      root.style.removeProperty('--couch-night')
+    }
+  }, [night])
+}
+
 /** Keeps the screen on while the page is open and visible; the browser drops the lock when hidden. */
 function useWakeLock() {
   useEffect(() => {
@@ -283,11 +300,14 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const m = useMining(now)
   const today = useTodayEarnings(account)
   const [panel, setPanel] = useState<'out' | 'idle' | null>(null)
+  /** The Deployed list for one mission only (a moon or the orb opened it), or every mission. */
+  const [only, setOnly] = useState<number | null>(null)
   const card = useDockedToast()
   const [look, toggleLook] = useLook()
   const kitten = look === 'kitten'
   useCouchFonts()
   useWakeLock()
+  usePinnedPage(kitten ? '#120c20' : '#070303')
   useTabTitle()
 
   const back = loop.ready
@@ -333,20 +353,10 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const share = (d: { joinedAt: number; unlockAt: number }) =>
     Math.min(1, Math.max(START, (now - d.joinedAt) / Math.max(1, d.unlockAt - d.joinedAt)))
   const mineProgress = !mineOn ? 0 : mineReady ? 1 : Math.max(START, m.progress)
-  // The orb brims while divisions are back, drains as they march, and otherwise fills with the next return.
-  const level = looping ? 0.05 : back.length ? 0.94 : nextOut ? 0.04 + share(nextOut) * 0.86 : 0.03
-  const orb = useBloodOrb(level, kitten ? CANDY : BLOOD)
 
   // Back to the page it was opened from; to Missions when it was opened on its own (a home screen icon).
   const close = onClose
 
-  async function doLoop() {
-    orb.slosh(canLoop ? 1 : 0.5)
-    if (!canLoop || !plan) return
-    navigator.vibrate?.(30)
-    await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'}`)
-    refreshToday(account)
-  }
 
   async function doMine() {
     if (!mineReady) return
@@ -364,7 +374,6 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const deployFunding = sendable.length ? loop.deploy(sendable).funding : null
   const canSend = !!deployFunding?.affordable && !deploying && !spectating && !looping
 
-  const backTlm = plan ? plan.earnedTlm : 0
   // What a division comes back with: its mission's TLM (and DEF, if it pays any).
   const haul = (missionId: number) => {
     const e = loop.econ.get(missionId)
@@ -392,6 +401,37 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     }
     moons.push(...by.values())
   }
+  // The orb is the mission that brings back the most; the moons are the others.
+  const big = moons.reduce<MoonMission | null>((b, x) => (!b || x.value > b.value || (x.value === b.value && x.divs > b.divs) ? x : b), null)
+  const orbit = big ? moons.filter((x) => x.missionId !== big.missionId) : moons
+  /** The claim-and-redeploy of one mission's divisions that are back, or null when none is. */
+  const planFor = (missionId: number) => {
+    const claims = back.filter((d) => d.missionId === missionId)
+    return claims.length ? loop.cycle(claims, loop.loopable.filter((d) => d.missionId === missionId)) : null
+  }
+  const bigPlan = big ? planFor(big.missionId) : null
+  const canLoopBig = !!bigPlan && bigPlan.funding.affordable && !looping && !spectating
+  // The orb brims while the big mission's divisions are back, and otherwise fills with its next return.
+  const level = looping ? 0.05 : big?.back ? 0.94 : big?.next ? 0.04 + share(big.next) * 0.86 : 0.03
+  const orb = useBloodOrb(level, kitten ? CANDY : BLOOD)
+
+  const openList = (missionId: number | null) => {
+    setOnly(missionId)
+    setPanel('out')
+  }
+  /** A mission's orb or moon tapped: loops it when its divisions are back and it can, else lists that mission. */
+  async function tapMission(missionId: number, isOrb = false) {
+    const p = missionId >= 0 ? planFor(missionId) : null
+    const ok = !!p && p.funding.affordable && !looping && !spectating
+    if (isOrb) orb.slosh(ok ? 1 : 0.5)
+    if (!ok || !p) return openList(missionId >= 0 ? missionId : null)
+    navigator.vibrate?.(30)
+    const title = loop.econ.get(missionId)?.title ?? `mission #${missionId}`
+    const n = back.filter((d) => d.missionId === missionId).length
+    await runSequence(p.parts, 'loop-all', `Looping ${n} division${n === 1 ? '' : 's'} · ${title}`)
+    refreshToday(account)
+  }
+
   const comingTlm = [...back, ...out].reduce((n, d) => n + (loop.econ.get(d.missionId)?.rewardTlm ?? 0), 0)
   const mineText = !mineOn ? 'Off' : m.busy ? 'Mining…' : mineReady ? 'Ready' : mineLeft !== null ? clock(mineLeft) : '…'
 
@@ -492,12 +532,12 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
       <main className="couch__stage">
         <div
-          className={`couch__orb${moons.length ? ' has-moons' : ''}${back.length && !looping ? ' is-ready' : ''} is-${canLoop ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
+          className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${canLoopBig ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
           {kitten ? <KittenFrame /> : <InfernalFrame />}
           <canvas ref={orb.ref} className="couch__blood" />
           <div className="couch__label" aria-live="polite">
-            {back.length || looping ? (
+            {looping || big?.back ? (
               <>
                 <b>LOOP</b>
                 <small>
@@ -505,15 +545,16 @@ export default function Couch({ onClose }: { onClose: () => void }) {
                     ? 'The warband marches…'
                     : spectating
                       ? 'Read-only'
-                      : !plan?.funding.affordable
+                      : !bigPlan?.funding.affordable
                         ? 'Not enough TLM'
-                        : `${back.length} returned${backTlm > 0 ? ` · +${formatNumber(backTlm, 0)} TLM` : ''}`}
+                        : `${big!.back} back${(bigPlan?.earnedTlm ?? 0) > 0 ? ` · +${formatNumber(bigPlan!.earnedTlm, 0)} TLM` : ''}`}
                 </small>
+                {!looping && big && <em>{big.title}</em>}
               </>
-            ) : nextOut ? (
+            ) : big?.next ? (
               <>
-                <b className="num is-clock">{clock(nextOut.unlockAt - now)}</b>
-                <em>until Division {nextOut.divisionId} returns</em>
+                <b className="num is-clock">{clock(big.next.unlockAt - now)}</b>
+                <em>until {big.title} returns</em>
               </>
             ) : (
               <>
@@ -525,20 +566,24 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             className="couch__hit"
-            onClick={() => void doLoop()}
-            aria-disabled={!canLoop}
+            onClick={() => big && void tapMission(big.missionId, true)}
+            aria-disabled={!big}
             aria-label={
-              canLoop ? `Loop ${back.length} returned division${back.length === 1 ? '' : 's'}` : 'Loop: nothing back yet'
+              !big
+                ? 'No division is out'
+                : canLoopBig
+                  ? `Loop ${big.back} division${big.back === 1 ? '' : 's'} back from ${big.title}`
+                  : `${big.title}: show its divisions`
             }
           />
-          <Moons missions={moons} now={now} onOpen={() => setPanel('out')} />
+          <Moons missions={orbit} now={now} onTap={(id) => void tapMission(id)} />
         </div>
       </main>
 
       <section className="couch__lower">
         <div className={`couch__dock${card ? ' is-carding' : ''}`}>
           <div className="couch__tablets" aria-hidden={!!card}>
-            <button type="button" className="couch__tablet" onClick={() => setPanel('out')}>
+            <button type="button" className="couch__tablet" onClick={() => openList(null)}>
               <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M6 26L24 8M24 4v4h4M26 26L8 8M8 4v4H4" />
                 <path d="M4 22l6 6M28 22l-6 6" opacity=".7" />
@@ -637,14 +682,18 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           ✕
         </button>
         <header>
-          <h3>Deployed · {out.length + back.length}</h3>
+          <h3>
+            {only !== null
+              ? `${loop.econ.get(only)?.title ?? `Mission #${only}`} · ${[...back, ...out].filter((d) => d.missionId === only).length}`
+              : `Deployed · ${out.length + back.length}`}
+          </h3>
           <small>{comingTlm > 0 ? `+${formatNumber(comingTlm, 0)} TLM on its way` : 'Marching through the burning world'}</small>
         </header>
         <div className="couch__div">
           <i />
         </div>
         <ul>
-          {back.map((d) => (
+          {back.filter((d) => only === null || d.missionId === only).map((d) => (
             <li key={`b-${d.missionId}-${d.divisionId}`} className="is-home">
               <span>
                 <b>{loop.econ.get(d.missionId)?.title ?? `Mission #${d.missionId}`}</b>
@@ -659,7 +708,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
               </span>
             </li>
           ))}
-          {out.map((d) => (
+          {out.filter((d) => only === null || d.missionId === only).map((d) => (
             <li key={`${d.missionId}-${d.divisionId}`}>
               <span>
                 <b>{loop.econ.get(d.missionId)?.title ?? `Mission #${d.missionId}`}</b>

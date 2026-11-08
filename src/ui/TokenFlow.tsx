@@ -43,6 +43,10 @@ const compact = (n: number) => {
 
 interface Flows {
   players: number
+  /** Reward pool top-ups from wallets other than the treasury (pdef, magordefense, team wallets…). */
+  otherTopups: number
+  /** Who sent them, and how much each. */
+  otherBy: Map<string, number>
   mintToGame: number
   mintToTreasury: number
   fund: number
@@ -59,7 +63,7 @@ interface Flows {
 }
 
 function flows(game: FlowTransfer[], moves: TreasuryMove[], from: number): Flows {
-  const f: Flows = { players: 0, mintToGame: 0, mintToTreasury: 0, fund: 0, alcorIn: 0, treasuryToGame: 0, rewards: 0, withdrawals: 0, otherOut: 0, gameToTreasury: 0, wallets: 0, alcorOut: 0, playersBy: new Map() }
+  const f: Flows = { players: 0, otherTopups: 0, otherBy: new Map(), mintToGame: 0, mintToTreasury: 0, fund: 0, alcorIn: 0, treasuryToGame: 0, rewards: 0, withdrawals: 0, otherOut: 0, gameToTreasury: 0, wallets: 0, alcorOut: 0, playersBy: new Map() }
   for (const x of game) {
     if (x.t < from) continue
     // Transfers with the treasury are counted from its side.
@@ -68,7 +72,11 @@ function flows(game: FlowTransfer[], moves: TreasuryMove[], from: number): Flows
     if (!c || c.dir === 'internal') continue
     if (c.dir === 'in') {
       if (c.category === 'mint') f.mintToGame += x.amount
-      else {
+      // A reward-pool top-up is the project's money, not a player's, whoever of its wallets sent it.
+      else if (c.category === 'fund') {
+        f.otherTopups += x.amount
+        f.otherBy.set(x.from, (f.otherBy.get(x.from) ?? 0) + x.amount)
+      } else {
         f.players += x.amount
         f.playersBy.set(c.category, (f.playersBy.get(c.category) ?? 0) + x.amount)
       }
@@ -115,6 +123,7 @@ function FlowMap({ f, token }: { f: Flows; token: FlowToken }) {
   node('players', 'Players paying in', COL.play, 0)
   node('mint', 'Newly minted', COL.mint, 0)
   node('fund', 'Funding received', COL.fund, 0)
+  node('others', 'Other project wallets', COL.wallets, 0)
   node('alcorIn', 'Alcor (swaps, liquidity back)', COL.dex, 0)
   node('treasury', `Treasury · ${TREASURY}`, COL.treasury, 1)
   node('game', 'Game contracts · reward pool', COL.game, 1)
@@ -125,6 +134,7 @@ function FlowMap({ f, token }: { f: Flows; token: FlowToken }) {
   node('wallets', 'Paid to wallets', COL.wallets, 2)
   node('alcorOut', 'Alcor (liquidity, sells)', COL.dex, 2)
   link('players', 'game', f.players, COL.play)
+  link('others', 'game', f.otherTopups, COL.pool)
   link('mint', 'game', f.mintToGame, COL.mint)
   link('mint', 'treasury', f.mintToTreasury, COL.mint)
   link('fund', 'treasury', f.fund, COL.fund)
@@ -186,7 +196,15 @@ function FlowMap({ f, token }: { f: Flows; token: FlowToken }) {
     }
     return (
       <path key={l.s + l.t} className="tf__lnk" fill={l.col} d={d}>
-        <title>{`${s.label} → ${t.label}: ${formatNumber(l.v, FLOW_TOKENS[token].digits)} ${token}`}</title>
+        <title>
+          {`${s.label} → ${t.label}: ${formatNumber(l.v, FLOW_TOKENS[token].digits)} ${token}` +
+            (l.s === 'others'
+              ? ` (${[...f.otherBy]
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([w, v]) => `${w} ${compact(v)}`)
+                  .join(', ')})`
+              : '')}
+        </title>
       </path>
     )
   })
@@ -407,6 +425,5 @@ const CATEGORY_NAME: Record<string, string> = {
   slot: 'Forge slots',
   'siege-fund': 'campaign funding',
   'siege-in': 'campaign entries',
-  fund: 'top-ups',
   'other-in': 'other'
 }
