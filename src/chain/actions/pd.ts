@@ -80,13 +80,19 @@ export interface EntryCost {
   quantity: string
 }
 
-/** Pays one division's entry: a token transfer to miss.pdef with memo "entry:<mission>". */
-export const payEntry = (a: string, p: string, missionId: number, cost: EntryCost) =>
+/**
+ * Pays the part of one division's entry the game balance does not cover. Since the contracts'
+ * update of 7 Nov 2026 miss.pdef takes entries only from the game balance ("Entry is paid from
+ * your mission balance. Deposit on core.pdef with memo 'deposit'."): the amount is deposited on
+ * core.pdef in the same transaction, before the join, and the join takes it from there. A
+ * transfer to miss.pdef with memo "entry:<mission>" is refused.
+ */
+export const payEntry = (a: string, p: string, _missionId: number, cost: EntryCost) =>
   action(cost.contract, 'transfer', a, p, {
     from: a,
-    to: CONTRACTS.MISSIONS,
+    to: CONTRACTS.CORE,
     quantity: cost.quantity,
-    memo: `entry:${missionId}`
+    memo: 'deposit'
   })
 
 export const joinMission = (a: string, p: string, missionId: number, divisionIds: number[]) =>
@@ -96,7 +102,8 @@ export const claimMission = (a: string, p: string, missionId: number, divisionId
   action(CONTRACTS.MISSIONS, 'claim', a, p, { owner: a, mission_id: missionId, division_id: divisionId })
 
 /**
- * Everything one division's deployment needs, in order: its entry fee, a recalculation when its
+ * Everything one division's deployment needs, in order: its entry fee (deposited on core.pdef when the
+ * game balance falls short), a recalculation when its
  * stats cache is stale, then the join. The contract takes one division per join ("You need to
  * deploy one division at a time"), and a transaction may hold only one join, so a deployment of
  * several divisions is one of these per division, signed one after another (see deployParts).
