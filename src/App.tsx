@@ -16,6 +16,7 @@ import { Market } from './ui/Market'
 import { Settings } from './ui/Settings'
 import { LedgerPage } from './ui/LedgerPage'
 import { Missions } from './ui/Missions'
+import { MobileNav } from './ui/MobileNav'
 import { Swap } from './ui/Swap'
 import { Toaster } from './ui/Toaster'
 
@@ -111,7 +112,10 @@ function AccountMenu({
     : []
   return (
     <div className={`me${open ? ' is-open' : ''}`} ref={ref}>
-      <button type="button" className="me__chip" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button type="button" className="me__chip" aria-haspopup="menu" aria-expanded={open} aria-label={`Account: ${account}`} onClick={() => setOpen((v) => !v)}>
+        <span className="me__ava" aria-hidden="true">
+          <Icon name="user" size={16} />
+        </span>
         <span className="me__text">
           <b>{account}</b>
           <small>{spectating ? 'Viewing read-only' : balances ? `Forge level ${balances.forge}` : '…'}</small>
@@ -206,9 +210,6 @@ function TopBar({ page, onPage }: { page: Page; onPage: (p: Page) => void }) {
     <header className="bar">
       <div className="bar__in wrap">
         <div className="brand">
-          <span className="brand__mark">
-            <Icon name="logo" size={20} width={1.8} />
-          </span>
           <span className="brand__name">
             Planetary Defense
             <small>Command deck</small>
@@ -360,6 +361,8 @@ export function App() {
           <Couch onClose={() => setPage(before.current)} />
         </Suspense>
       )}
+      {/* Phones: the menu is a tab bar at the bottom (hidden on wider screens, in CSS). */}
+      {restored && account && !couch && <MobileNav page={page} account={account} onPage={setPage} />}
       <Toaster />
     </div>
   )

@@ -347,13 +347,8 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   // The orb is the mission that brings back the most; the moons are the others.
   const big = moons.reduce<MoonMission | null>((b, x) => (!b || x.value > b.value || (x.value === b.value && x.divs > b.divs) ? x : b), null)
   const orbit = big ? moons.filter((x) => x.missionId !== big.missionId) : moons
-  /** The claim-and-redeploy of one mission's divisions that are back, or null when none is. */
-  const planFor = (missionId: number) => {
-    const claims = back.filter((d) => d.missionId === missionId)
-    return claims.length ? loop.cycle(claims, loop.loopable.filter((d) => d.missionId === missionId)) : null
-  }
-  const bigPlan = big ? planFor(big.missionId) : null
-  const canLoopBig = !!bigPlan && bigPlan.funding.affordable && !looping && !spectating
+  // The orb is ready when its mission is back; a tap then loops everything that is back.
+  const canLoopBig = !!big?.back && canLoop
   // The orb brims while the big mission's divisions are back, and otherwise fills with its next return.
   const level = looping ? 0.05 : big?.back ? 0.94 : big?.next ? 0.04 + share(big.next) * 0.86 : 0.03
   const orb = useBloodOrb(level, tint.orb)
@@ -362,16 +357,17 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     setOnly(missionId)
     setPanel('out')
   }
-  /** A mission's orb or moon tapped: loops it when its divisions are back and it can, else lists that mission. */
+  /**
+   * A mission's orb or moon tapped: when that mission's divisions are back, every mission that is
+   * back is looped together (one tap, all of it); otherwise it lists that mission's divisions.
+   */
   async function tapMission(missionId: number, isOrb = false) {
-    const p = missionId >= 0 ? planFor(missionId) : null
-    const ok = !!p && p.funding.affordable && !looping && !spectating
-    if (isOrb) orb.slosh(ok ? 1 : 0.5)
-    if (!ok || !p) return openList(missionId >= 0 ? missionId : null)
+    const isBack = missionId >= 0 && back.some((d) => d.missionId === missionId)
+    if (isOrb) orb.slosh(isBack && canLoop ? 1 : 0.5)
+    if (!isBack || !canLoop || !plan) return openList(missionId >= 0 ? missionId : null)
     navigator.vibrate?.(30)
-    const title = loop.econ.get(missionId)?.title ?? `mission #${missionId}`
-    const n = back.filter((d) => d.missionId === missionId).length
-    await runSequence(p.parts, 'loop-all', `Looping ${n} division${n === 1 ? '' : 's'} · ${title}`)
+    const missions = new Set(back.map((d) => d.missionId)).size
+    await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'} on ${missions} mission${missions === 1 ? '' : 's'}`)
     refreshToday(account)
   }
 
@@ -475,9 +471,9 @@ export default function Couch({ onClose }: { onClose: () => void }) {
                     ? 'The warband marches…'
                     : spectating
                       ? 'Read-only'
-                      : !bigPlan?.funding.affordable
+                      : !plan?.funding.affordable
                         ? 'Not enough TLM'
-                        : `${big!.back} back${(bigPlan?.earnedTlm ?? 0) > 0 ? ` · +${formatNumber(bigPlan!.earnedTlm, 0)} TLM` : ''}`}
+                        : `${back.length} back${(plan?.earnedTlm ?? 0) > 0 ? ` · +${formatNumber(plan!.earnedTlm, 0)} TLM` : ''}`}
                 </small>
                 {!looping && big && <em>{big.title}</em>}
               </>
@@ -502,7 +498,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
               !big
                 ? 'No division is out'
                 : canLoopBig
-                  ? `Loop ${big.back} division${big.back === 1 ? '' : 's'} back from ${big.title}`
+                  ? `Loop all ${back.length} division${back.length === 1 ? '' : 's'} that are back`
                   : `${big.title}: show its divisions`
             }
           />
