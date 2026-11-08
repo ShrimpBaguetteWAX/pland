@@ -480,8 +480,10 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         <div
           className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${centreLoops || centreMines ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
+          <div className="couch__halo" aria-hidden="true" />
           <KittenFrame theme={tint} />
           <canvas ref={orb.ref} className="couch__blood" />
+          <div className="couch__foil" aria-hidden="true" />
           <div className="couch__label" aria-live="polite">
             {looping || big?.back ? (
               <>

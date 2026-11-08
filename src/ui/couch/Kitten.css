@@ -1021,3 +1021,82 @@
   font-weight: 400;
   letter-spacing: 0.1em;
 }
+
+/* ---- The ring's light: silver rims and a halo when anything is ready, rainbow foil when the orb's own mission is back ----
+ * Both layers sit on the frame's ring: its hole is centred at (50%, 53.33%) of the orb with radius 26.67cqw,
+ * the band runs out to about 31.8cqw. The top under the kitten is left clear. */
+@property --couch-foil {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.couch__halo,
+.couch__foil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.couch__halo {
+  background: radial-gradient(circle at 50% 53.33%, transparent 31cqw, rgba(255, 255, 255, 0.42) 33cqw, rgba(255, 255, 255, 0.12) 38cqw, transparent 44cqw);
+}
+
+.couch__foil {
+  /* The two rim lines only. */
+  --foil-band: radial-gradient(circle at 50% 53.33%, transparent 26cqw, #000 26.3cqw, #000 27.3cqw, transparent 27.8cqw, transparent 31.1cqw, #000 31.5cqw, #000 32.5cqw, transparent 32.9cqw);
+  --foil-gap: conic-gradient(from -26deg at 50% 53.33%, transparent 0 52deg, #000 52deg);
+  -webkit-mask: var(--foil-band), var(--foil-gap);
+  -webkit-mask-composite: source-in;
+  mask: var(--foil-band), var(--foil-gap);
+  mask-composite: intersect;
+  background: #fff;
+}
+
+.couch__orb.is-eager .couch__halo,
+.couch__orb.is-eager .couch__foil,
+.couch__orb.is-ready .couch__halo,
+.couch__orb.is-ready .couch__foil {
+  opacity: 1;
+}
+
+/* Its own mission back: the whole band turns rainbow foil, turning slowly, rims still lit, and the halo goes rainbow. */
+.couch__orb.is-ready .couch__foil {
+  --foil-band: radial-gradient(circle at 50% 53.33%, transparent 26cqw, #000 26.3cqw, #000 32.5cqw, transparent 32.9cqw);
+  background:
+    radial-gradient(circle at 50% 53.33%, #fff 26.9cqw, transparent 27.6cqw, transparent 31.2cqw, #fff 31.8cqw),
+    conic-gradient(from var(--couch-foil) at 50% 53.33%, #ff8fab, #ffc46b, #fff27a, #8ef0b0, #7ad7ff, #b69cff, #ff8fab);
+  opacity: 0.9;
+  animation: couch-foil 3s linear infinite;
+}
+
+.couch__orb.is-ready .couch__halo {
+  background: radial-gradient(circle at 50% 53.33%, transparent 31cqw, rgba(255, 170, 210, 0.38) 33cqw, rgba(150, 200, 255, 0.15) 39cqw, transparent 46cqw);
+}
+
+@keyframes couch-foil {
+  to {
+    --couch-foil: 360deg;
+  }
+}
+
+/* Snow day is light: the halo is a soft blue, the rims keep a thin blue edge so they read on the pale ring. */
+.couch[data-kt='snow'] .couch__halo {
+  background: radial-gradient(circle at 50% 53.33%, transparent 31cqw, rgba(110, 140, 210, 0.4) 33cqw, rgba(110, 140, 210, 0.12) 38cqw, transparent 44cqw);
+}
+
+.couch[data-kt='snow'] .couch__foil {
+  filter: drop-shadow(0 0 1px #6f88c4);
+}
+
+.couch[data-kt='snow'] .couch__orb.is-ready .couch__foil {
+  opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch__orb.is-ready .couch__foil {
+    animation: none;
+  }
+}
