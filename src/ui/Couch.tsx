@@ -347,8 +347,6 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   // The orb is the mission that brings back the most; the moons are the others.
   const big = moons.reduce<MoonMission | null>((b, x) => (!b || x.value > b.value || (x.value === b.value && x.divs > b.divs) ? x : b), null)
   const orbit = big ? moons.filter((x) => x.missionId !== big.missionId) : moons
-  // The orb is ready when its mission is back; a tap then loops everything that is back.
-  const canLoopBig = !!big?.back && canLoop
   // The orb brims while the big mission's divisions are back, and otherwise fills with its next return.
   const level = looping ? 0.05 : big?.back ? 0.94 : big?.next ? 0.04 + share(big.next) * 0.86 : 0.03
   const orb = useBloodOrb(level, tint.orb)
@@ -358,16 +356,38 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     setPanel('out')
   }
   /**
-   * A mission's orb or moon tapped: when that mission's divisions are back, every mission that is
+   * A moon tapped: when that mission's divisions are back, every mission that is
    * back is looped together (one tap, all of it); otherwise it lists that mission's divisions.
    */
-  async function tapMission(missionId: number, isOrb = false) {
+  async function tapMission(missionId: number) {
     const isBack = missionId >= 0 && back.some((d) => d.missionId === missionId)
-    if (isOrb) orb.slosh(isBack && canLoop ? 1 : 0.5)
     if (!isBack || !canLoop || !plan) return openList(missionId >= 0 ? missionId : null)
     navigator.vibrate?.(30)
     const missions = new Set(back.map((d) => d.missionId)).size
     await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'} on ${missions} mission${missions === 1 ? '' : 's'}`)
+    refreshToday(account)
+  }
+
+  /**
+   * The centre does everything that is ready: it loops every mission that is back and mines when
+   * the tools are ready, whatever its own mission is doing. Only with nothing to do does it list
+   * the big mission's divisions.
+   */
+  const centreLoops = back.length > 0 && canLoop && !!plan
+  const centreMines = mineReady
+  async function tapCentre() {
+    if (!centreLoops && !centreMines) {
+      orb.slosh(0.5)
+      if (big) openList(big.missionId)
+      return
+    }
+    orb.slosh(1)
+    navigator.vibrate?.(30)
+    if (centreLoops && plan) {
+      const missions = new Set(back.map((d) => d.missionId)).size
+      await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'} on ${missions} mission${missions === 1 ? '' : 's'}`)
+    }
+    if (centreMines) await m.mine()
     refreshToday(account)
   }
 
@@ -458,7 +478,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
       <main className="couch__stage">
         <div
-          className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${canLoopBig ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
+          className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${centreLoops || centreMines ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
           <KittenFrame theme={tint} />
           <canvas ref={orb.ref} className="couch__blood" />
@@ -492,14 +512,17 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             className="couch__hit"
-            onClick={() => big && void tapMission(big.missionId, true)}
-            aria-disabled={!big}
+            onClick={() => void tapCentre()}
+            aria-disabled={!centreLoops && !centreMines && !big}
             aria-label={
-              !big
-                ? 'No division is out'
-                : canLoopBig
-                  ? `Loop all ${back.length} division${back.length === 1 ? '' : 's'} that are back`
-                  : `${big.title}: show its divisions`
+              centreLoops || centreMines
+                ? [centreLoops ? `loop all ${back.length} division${back.length === 1 ? '' : 's'} that are back` : '', centreMines ? 'mine' : '']
+                    .filter(Boolean)
+                    .join(' and ')
+                    .replace(/^./, (c) => c.toUpperCase())
+                : big
+                  ? `${big.title}: show its divisions`
+                  : 'No division is out'
             }
           />
           <Moons missions={orbit} now={now} each={tint.moonEach} onTap={(id) => void tapMission(id)} />
