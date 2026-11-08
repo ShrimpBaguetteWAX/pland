@@ -298,19 +298,28 @@
   }
 }
 
-.couch__kit-tail {
+/* The tail's tip flicks up now and then; quicker when the loop is ready. */
+.couch__kit-tip {
   transform-box: fill-box;
-  transform-origin: 0 0;
-  animation: ck-swish 3.2s ease-in-out infinite;
+  transform-origin: 50% 100%;
+  animation: ck-flick 3s ease-in-out infinite;
 }
 
-.couch__orb.is-eager .couch__kit-tail {
-  animation-duration: 1.1s;
+.couch__orb.is-eager .couch__kit-tip {
+  animation-duration: 1.2s;
 }
 
-@keyframes ck-swish {
-  50% {
-    transform: rotate(-4deg);
+@keyframes ck-flick {
+  0%,
+  70%,
+  100% {
+    transform: translateY(0);
+  }
+  80% {
+    transform: translateY(-3px);
+  }
+  90% {
+    transform: translateY(0);
   }
 }
 
@@ -680,7 +689,7 @@
   .couch__kit-zzz text,
   .couch__kit-pom,
   .couch__kit-sparkle,
-  .couch__kit-tail,
+  .couch__kit-tip,
   .couch__kit-bell,
   .is-kitten .couch__tablet.is-alert {
     animation: none;
@@ -1097,6 +1106,29 @@
 
 @media (prefers-reduced-motion: reduce) {
   .couch__orb.is-ready .couch__foil {
+    animation: none;
+  }
+}
+
+/* The fox's and wolf's big brush of a tail sways a little; quicker when the loop is ready. */
+.couch__kit-brush {
+  transform-box: fill-box;
+  transform-origin: 100% 0;
+  animation: ck-brush 3.4s ease-in-out infinite;
+}
+
+.couch__orb.is-eager .couch__kit-brush {
+  animation-duration: 1.3s;
+}
+
+@keyframes ck-brush {
+  50% {
+    transform: rotate(-2.5deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch__kit-brush {
     animation: none;
   }
 }

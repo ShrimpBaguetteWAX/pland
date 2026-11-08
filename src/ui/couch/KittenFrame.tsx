@@ -1,11 +1,13 @@
 import { memo } from 'react'
 
+import { furOf, type Animal } from './animals'
 import type { KittenTheme } from './themes'
 
 /*
  * The kitten's frame around Couch mode's orb, in the theme's colours (see themes.ts): a ring carved with tiny sigils (hearts, paw prints,
  * inverted pentagrams, moons, fish bones), a fluffy white kitten in a striped nightcap napping on a
- * cloud on top, its tail wrapped down the side, and a collar bell at the bottom. The kitten is the
+ * cloud on top, its tail wrapped round the front of the cloud, and a collar bell at the bottom. The
+ * napper can also be a fox, a wolf or an owl (see animals.ts), in the same place and pose. The kitten is the
  * status light; its moods are classes on the orb (in CSS): asleep while every division is out, eyes
  * open when one is back or the warband marches, happy with sparkles and a bouncing pompom when the
  * loop is ready.
@@ -75,9 +77,6 @@ const SIGILS = Array.from({ length: SIGIL_COUNT }, (_, i) => -90 + (i * 360) / S
   .map((deg, i) => ({ deg, i }))
   .filter(({ deg }) => Math.abs(deg + 90) >= 20)
 
-const TAIL_R = R_OUT + 9
-const [tailX, tailY] = pt(38, TAIL_R)
-const TAIL = `M174 60C186 56 194 60 ${pt(-62, TAIL_R).map(f1).join(' ')}A${TAIL_R} ${TAIL_R} 0 0 1 ${f1(tailX)} ${f1(tailY)}c-3 6-9 9-14 8`
 const BELL_Y = CY + R_OUT
 
 /** Cloud nap: a fluffy kitten in a striped nightcap, curled on a cloud on the ring, in the theme's colours. */
@@ -86,7 +85,13 @@ type Colours = KittenTheme['kitten']
 /** The kitten's head sits at (150, 40), its paws on the ring at y 72; the whole is scaled 1.4 round (150, 72). */
 const HY = 40
 
-function Kitten({ t }: { t: Colours }) {
+/** Animal parts are SVG markup built in animals.ts from fixed numbers and theme colours. */
+const Svg = ({ html, clip }: { html: string; clip?: string }) => (
+  <g clipPath={clip ? `url(#${clip})` : undefined} dangerouslySetInnerHTML={{ __html: html }} />
+)
+
+function Kitten({ t, animal }: { t: Colours; animal: Animal }) {
+  const a = furOf(animal, t)
   return (
     <g className="couch__kit" transform="translate(150 72) scale(1.4) translate(-150 -72)">
       {/* The cloud it naps on. */}
@@ -102,13 +107,19 @@ function Kitten({ t }: { t: Colours }) {
         ))}
       </g>
       <ellipse cx="150" cy="73" rx="34" ry="7" fill={t.cloud} />
-      <g fill={t.fur} stroke={t.line} strokeWidth="1.6" strokeLinejoin="round">
-        <ellipse cx="150" cy="61" rx="26" ry="13" />
-        <path d={`M131 ${HY - 12}L127 ${HY - 30}L142 ${HY - 21}Z`} />
-        <path d={`M169 ${HY - 12}L173 ${HY - 30}L158 ${HY - 21}Z`} />
-      </g>
-      <path d={`M131.7 ${HY - 18}L129.8 ${HY - 26}L137 ${HY - 21.5}Z M168.3 ${HY - 18}L170.2 ${HY - 26}L163 ${HY - 21.5}Z`} fill={t.inner} />
-      <ellipse cx="150" cy={HY} rx="23" ry="19" fill={t.fur} stroke={t.line} strokeWidth="1.6" />
+      <ellipse cx="150" cy="61" rx="26" ry="13" fill={a.fur} stroke={a.line} strokeWidth="1.6" />
+      <Svg html={animal.back(a, t)} />
+      <ellipse cx="150" cy={HY} rx="23" ry="19" fill={a.fur} stroke={a.line} strokeWidth="1.6" />
+      {animal.face && (
+        <>
+          <clipPath id="ck-head">
+            <ellipse cx="150" cy={HY} rx="23" ry="19" />
+          </clipPath>
+          <Svg html={animal.face(a)} clip="ck-head" />
+          <ellipse cx="150" cy={HY} rx="23" ry="19" fill="none" stroke={a.line} strokeWidth="1.6" />
+        </>
+      )}
+      {animal.front && <Svg html={animal.front(a)} />}
       {/* Eyes: shut asleep, big and shiny awake, happy ^^ when the loop is ready. */}
       <path
         className="couch__kit-shut"
@@ -135,19 +146,24 @@ function Kitten({ t }: { t: Colours }) {
       />
       <ellipse cx="134.5" cy={HY + 6} rx="3.8" ry="2.1" fill={t.cheek} opacity=".55" />
       <ellipse cx="165.5" cy={HY + 6} rx="3.8" ry="2.1" fill={t.cheek} opacity=".55" />
-      <path d={`M148.3 ${HY + 4.4}h3.4l-1.7 1.9Z`} fill={t.cheek} />
-      <path d={`M145.5 ${HY + 7.2}q2.2 2.2 4.5 0q2.3 2.2 4.5 0`} fill="none" stroke={t.line} strokeWidth="1.2" strokeLinecap="round" />
-      <path
-        d={`M128 ${HY + 3}l-9-2M128 ${HY + 6.5}l-9 1M172 ${HY + 3}l9-2M172 ${HY + 6.5}l9 1`}
-        stroke={t.line}
-        strokeWidth=".9"
-        strokeLinecap="round"
-        opacity=".7"
-      />
-      <g fill={t.fur} stroke={t.line} strokeWidth="1.4">
-        <ellipse cx="139" cy="71" rx="6" ry="4.4" />
-        <ellipse cx="161" cy="71" rx="6" ry="4.4" />
-      </g>
+      <Svg html={animal.nose(a, t)} />
+      {animal.wings ? (
+        <>
+          <g fill={a.fur2} stroke={a.line} strokeWidth="1.4">
+            <ellipse cx="127" cy="62" rx="7" ry="11" transform="rotate(25 127 62)" />
+            <ellipse cx="173" cy="62" rx="7" ry="11" transform="rotate(-25 173 62)" />
+          </g>
+          <g fill="#ffb45c" stroke="#d08a3a" strokeWidth="1">
+            <ellipse cx="142" cy="72" rx="4" ry="2.4" />
+            <ellipse cx="158" cy="72" rx="4" ry="2.4" />
+          </g>
+        </>
+      ) : (
+        <g fill={a.fur} stroke={a.line} strokeWidth="1.4">
+          <ellipse cx="139" cy="71" rx="6" ry="4.4" />
+          <ellipse cx="161" cy="71" rx="6" ry="4.4" />
+        </g>
+      )}
       {/* The nightcap, flopping to the side, with stripes and a pompom. */}
       <path
         d="M128.5 26C131 10 160 5 170 19C178 29 184 41 186 52L178 50C176 41 170 32 164 26C152 21 140 22 128.5 26Z"
@@ -176,7 +192,7 @@ function Kitten({ t }: { t: Colours }) {
   )
 }
 
-function Frame({ theme }: { theme: KittenTheme }) {
+function Frame({ theme, animal }: { theme: KittenTheme; animal: Animal }) {
   const t = theme.kitten
   return (
     <svg className="couch__frame" viewBox="0 0 300 300" aria-hidden="true">
@@ -218,18 +234,6 @@ function Frame({ theme }: { theme: KittenTheme }) {
           })}
         </g>
 
-        <g className="couch__kit-tail">
-          <path d={TAIL} fill="none" stroke={t.fur} strokeWidth="7" strokeLinecap="round" />
-          <path d={TAIL} fill="none" stroke={t.line} strokeWidth="1.4" strokeLinecap="round" opacity=".9" />
-          <path
-            transform={`translate(${f1(tailX - 14)} ${f1(tailY + 8)}) rotate(110)`}
-            d="M0-9C5-4 7 0 0 5C-7 0-5-4 0-9Z"
-            fill={t.tailTip[0]}
-            stroke={t.tailTip[1]}
-            strokeWidth="1"
-          />
-        </g>
-
         <g className="couch__kit-bell">
           <path d={`M150 ${BELL_Y}v6`} stroke={t.rim} strokeWidth="1.6" />
           <circle cx="150" cy={BELL_Y + 15} r="10" fill="#ffd27a" stroke="#b5832e" strokeWidth="1.4" />
@@ -244,7 +248,10 @@ function Frame({ theme }: { theme: KittenTheme }) {
           />
         </g>
 
-        <Kitten t={t} />
+        <Kitten t={t} animal={animal} />
+
+        {/* The tail, wrapped round the front of the cloud the way a cat sits with its tail round its feet. */}
+        <Svg html={animal.tail(furOf(animal, t), t)} />
       </g>
     </svg>
   )

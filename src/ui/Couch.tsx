@@ -11,6 +11,7 @@ import { useMining } from '@/mining/useMining'
 import { useReportCount, useTabTitle } from '@/state/tabCount'
 import { useTransaction } from '@/wallet/useTransaction'
 
+import { ANIMALS, furOf, readAnimal, saveAnimal, type Animal } from './couch/animals'
 import { useBloodOrb } from './couch/bloodOrb'
 import { KittenFrame } from './couch/KittenFrame'
 import { Moons, type MoonMission } from './couch/Moons'
@@ -82,6 +83,43 @@ function useTint(): [KittenTheme, () => void] {
       return n
     })
   return [tint, next]
+}
+
+/** Who naps on the cloud, remembered in this browser; a tap on the little face moves on to the next one. */
+function useAnimal(): [Animal, () => void] {
+  const [animal, setAnimal] = useState<Animal>(readAnimal)
+  const next = () =>
+    setAnimal((a) => {
+      const n = ANIMALS[(ANIMALS.indexOf(a) + 1) % ANIMALS.length]
+      saveAnimal(n)
+      return n
+    })
+  return [animal, next]
+}
+
+/** The switch's little face: the current napper's head and ears, in its own colours. */
+function PetFace({ animal, t }: { animal: Animal; t: KittenTheme['kitten'] }) {
+  const a = furOf(animal, t)
+  const owl = animal.id === 'owl'
+  const ears = owl ? 'M5 9L4 3.5L8.5 6.5ZM15 9L16 3.5L11.5 6.5Z' : 'M4.5 9.5L4 2L9.5 6ZM15.5 9.5L16 2L10.5 6Z'
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d={ears} fill={a.fur} stroke={a.line} strokeWidth="1.2" strokeLinejoin="round" />
+      <circle cx="10" cy="11.5" r="6.5" fill={a.fur} stroke={a.line} strokeWidth="1.2" />
+      {owl ? (
+        <>
+          <circle cx="7.6" cy="11" r="2.4" fill={a.fur2} />
+          <circle cx="12.4" cy="11" r="2.4" fill={a.fur2} />
+          <path d="M9.2 12.6h1.6L10 14.2Z" fill="#ffb45c" />
+        </>
+      ) : (
+        <>
+          {animal.id !== 'kitten' && <path d="M4 13.5C6.5 13.5 8.5 14.5 10 16.5C11.5 14.5 13.5 13.5 16 13.5C15 16.5 12.8 18 10 18C7.2 18 5 16.5 4 13.5Z" fill={a.fur2} />}
+          <circle cx="10" cy="13.6" r=".9" fill={animal.id === 'kitten' ? t.cheek : '#5b3a3a'} />
+        </>
+      )}
+    </svg>
+  )
 }
 
 /** Keeps the screen on while the page is open and visible; the browser drops the lock when hidden. */
@@ -248,6 +286,8 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const [only, setOnly] = useState<number | null>(null)
   const card = useDockedToast()
   const [tint, nextTint] = useTint()
+  const [animal, nextAnimal] = useAnimal()
+  const nextName = ANIMALS[(ANIMALS.indexOf(animal) + 1) % ANIMALS.length].name
   useCouchFonts()
   useWakeLock()
   usePinnedPage(tint.night)
@@ -427,6 +467,16 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         title={`${tint.name} · tap for ${KITTEN_THEMES[(KITTEN_THEMES.indexOf(tint) + 1) % KITTEN_THEMES.length].name}`}
       />
 
+      <button
+        type="button"
+        className="couch__pet"
+        onClick={nextAnimal}
+        aria-label={`Napping: ${animal.name}. Switch to ${nextName}`}
+        title={`${animal.name} · tap for ${nextName}`}
+      >
+        <PetFace animal={animal} t={tint.kitten} />
+      </button>
+
       <header className="couch__top" aria-label="Earned today">
         <div className="couch__orn">
           <svg viewBox="0 0 46 14" aria-hidden="true">
@@ -481,7 +531,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${centreLoops || centreMines ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
           <div className="couch__halo" aria-hidden="true" />
-          <KittenFrame theme={tint} />
+          <KittenFrame theme={tint} animal={animal} />
           <canvas ref={orb.ref} className="couch__blood" />
           <div className="couch__foil" aria-hidden="true" />
           <div className="couch__label" aria-live="polite">
