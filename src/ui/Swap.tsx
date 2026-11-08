@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { depositAction, withdrawBalanceAction } from '@/chain/actions/pd'
 import { CONTRACTS } from '@/chain/config'
@@ -7,6 +7,7 @@ import { useSwapPools, type SwapPools } from '@/data/market'
 import { DECIMALS, quantityOf, type BalanceSymbol } from '@/lib/deposit'
 import { formatNumber, percent } from '@/lib/format'
 import { midPrice, quoteRoute, swapExactInAction, type Pool, type Route } from '@/lib/pool'
+import { useNow } from '@/lib/time'
 import { useTransaction } from '@/wallet/useTransaction'
 
 /*
@@ -63,16 +64,84 @@ function TokenPicker({ value, onChange }: { value: Token; onChange: (t: Token) =
   )
 }
 
+/**
+ * The Swap page: the rate first, then the swap and the game balance side by side. On a phone the
+ * two are tabs under the rate (only one shown at a time), each tab with a line of what is behind it,
+ * so neither needs a long scroll.
+ */
 export function Swap({ account, spectating }: { account: string; spectating: boolean }) {
+  const [tab, setTab] = useState<'swap' | 'balance'>('swap')
+  const [pair, setPair] = useState('TLM → WAX')
+  const game = useGameBalance(account)
   return (
     <main className="sw wrap">
-      <SwapCard account={account} spectating={spectating} />
-      <GameBalanceCard account={account} spectating={spectating} />
+      <RateHero />
+      <div className="sw__tabs" role="tablist" aria-label="Swap or game balance">
+        <button type="button" role="tab" aria-selected={tab === 'swap'} className={tab === 'swap' ? 'is-on' : ''} onClick={() => setTab('swap')}>
+          Swap
+          <small>{pair}</small>
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'balance'} className={tab === 'balance' ? 'is-on' : ''} onClick={() => setTab('balance')}>
+          Game balance
+          <small>{game.data ? `${formatNumber(game.data.tlm, 0)} TLM · ${formatNumber(game.data.def, 0)} DEF` : 'TLM · DEF'}</small>
+        </button>
+      </div>
+      <div className={`sw__pane${tab === 'swap' ? '' : ' is-off'}`}>
+        <SwapCard account={account} spectating={spectating} onPair={setPair} />
+      </div>
+      <div className={`sw__pane${tab === 'balance' ? '' : ' is-off'}`}>
+        <GameBalanceCard account={account} spectating={spectating} />
+      </div>
     </main>
   )
 }
 
-function SwapCard({ account, spectating }: { account: string; spectating: boolean }) {
+/**
+ * The first thing on the page: what 1 DEF fetches in TLM right now (the best route for one unit,
+ * after the pools' fees, as the rates under the swap card), the other way round beneath it, how
+ * fresh the read is, and a button that turns it around.
+ */
+function RateHero() {
+  const pools = useSwapPools()
+  const now = useNow(5000)
+  const [flip, setFlip] = useState(false)
+  const [a, b]: [Token, Token] = flip ? ['TLM', 'DEF'] : ['DEF', 'TLM']
+  const rate = (x: Token, y: Token) => (pools.data ? routesFor(pools.data, x, y, 1)[0]?.rate : undefined)
+  const ab = rate(a, b)
+  const ba = rate(b, a)
+  // A fixed number of decimals for the size, so a rate never reads as a round number (27.995 → 28.00).
+  const show = (n: number) => { const d = n >= 100 ? 1 : n >= 10 ? 2 : n >= 1 ? 3 : 4; return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) }
+  const ago = pools.dataUpdatedAt ? Math.max(0, Math.round((now - pools.dataUpdatedAt) / 1000)) : null
+  return (
+    <section className="box sw__hero" aria-live="polite">
+      <span className="sw__hero-coins" aria-hidden="true">
+        <img src={LOGO[a]} alt="" />
+        <img src={LOGO[b]} alt="" />
+      </span>
+      <span className="sw__hero-rate">
+        <b>
+          1 {a} <span>=</span> {ab === undefined ? '…' : show(ab)} {b}
+        </b>
+        <small>
+          {ba === undefined ? 'Reading the pools…' : `1 ${b} = ${show(ba)} ${a} · after the pool's fee`}
+        </small>
+      </span>
+      <span className="sw__hero-side">
+        <span className="sw__hero-fresh" title="Read from the Alcor pools; read again every minute or so">
+          <i className={pools.isError ? 'is-bad' : ''} />
+          Alcor{ago === null ? '' : ` · ${ago < 5 ? 'just now' : ago < 60 ? `${ago} s ago` : `${Math.round(ago / 60)} min ago`}`}
+        </span>
+        <button type="button" className="sw__hero-flip" onClick={() => setFlip((v) => !v)} aria-label={`Show 1 ${b} in ${a}`} title={`Show 1 ${b} in ${a}`}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 7h11l-3-3M17 17H6l3 3" />
+          </svg>
+        </button>
+      </span>
+    </section>
+  )
+}
+
+function SwapCard({ account, spectating, onPair }: { account: string; spectating: boolean; onPair: (pair: string) => void }) {
   const { run, pending } = useTransaction()
   const player = usePlayer(account)
   const pools = useSwapPools()
@@ -80,6 +149,9 @@ function SwapCard({ account, spectating }: { account: string; spectating: boolea
   const [to, setTo] = useState<Token>('WAX')
   const [text, setText] = useState('1000')
   const [slippage, setSlippage] = useState(0.01)
+  /** On a phone the details are folded into one row until opened. */
+  const [details, setDetails] = useState(false)
+  useEffect(() => onPair(`${from} → ${to}`), [from, to, onPair])
 
   const amount = parse(text)
   const routes = useMemo(() => (pools.data && from !== to && amount > 0 ? routesFor(pools.data, from, to, amount) : []), [pools.data, from, to, amount])
@@ -144,7 +216,15 @@ function SwapCard({ account, spectating }: { account: string; spectating: boolea
       </div>
 
       {best && (
-        <dl className="sw__details">
+        <button type="button" className="sw__more" aria-expanded={details} onClick={() => setDetails((v) => !v)}>
+          <span>
+            Details · {best.path.join(' → ')} · impact {percent(Math.max(0, impact), 2)}
+          </span>
+          <span aria-hidden="true">{details ? '▴' : '▾'}</span>
+        </button>
+      )}
+      {best && (
+        <dl className={`sw__details${details ? ' is-open' : ''}`}>
           <dt>Rate</dt>
           <dd>
             1 {from} = {formatNumber(best.rate, best.rate < 1 ? 6 : 4)} {to}

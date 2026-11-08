@@ -5130,3 +5130,198 @@ code {
   font-style: normal;
   color: var(--bad);
 }
+
+/* ---- Swap: the rate first, in a panel across the top of the page ---- */
+.sw__hero {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 22px;
+}
+.sw__hero-coins {
+  display: flex;
+}
+.sw__hero-coins img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+.sw__hero-coins img + img {
+  margin-left: -10px;
+  box-shadow: 0 0 0 3px var(--panel);
+}
+.sw__hero-rate {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.sw__hero-rate b {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.sw__hero-rate b span {
+  color: var(--faint);
+  font-weight: 400;
+}
+.sw__hero-rate small {
+  font-size: 12.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.sw__hero-side {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+.sw__hero-fresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.sw__hero-fresh i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 20%, transparent);
+}
+.sw__hero-fresh i.is-bad {
+  background: var(--bad);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 20%, transparent);
+}
+.sw__hero-flip {
+  all: unset;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  box-shadow: 0 2px 0 var(--ledge);
+  color: var(--dim);
+}
+.sw__hero-flip:hover {
+  color: var(--ink);
+}
+.sw__hero-flip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sw__hero-flip svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (max-width: 560px) {
+  .sw__hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 16px;
+  }
+  .sw__hero-side {
+    grid-column: 1 / -1;
+    grid-auto-flow: column;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sw__hero-rate b {
+    font-size: 24px;
+  }
+}
+
+/* ---- Swap on a phone: two tabs under the rate, one card at a time, details folded ---- */
+.sw__tabs,
+.sw__more {
+  display: none;
+}
+.sw__pane {
+  display: grid;
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  .sw__tabs {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 14px;
+    background: var(--panel);
+    box-shadow: 0 2px 0 var(--ledge);
+  }
+  .sw__tabs button {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: grid;
+    gap: 1px;
+    text-align: center;
+    padding: 8px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--dim);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sw__tabs button small {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sw__tabs button.is-on {
+    background: var(--ink);
+    color: var(--panel);
+  }
+  .sw__tabs button.is-on small {
+    color: color-mix(in srgb, var(--panel) 72%, transparent);
+  }
+  .sw__tabs button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .sw__pane.is-off {
+    display: none;
+  }
+
+  /* The details fold into one row; the rate strip gives way to the rate on top. */
+  .sw__more {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--panel-2);
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .sw__more:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .sw__details:not(.is-open) {
+    display: none;
+  }
+  .sw__rates {
+    display: none;
+  }
+}
