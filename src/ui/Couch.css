@@ -1412,3 +1412,35 @@ html.is-couch .couch {
   min-height: 0;
   z-index: 50;
 }
+
+/* ---- The kitten look's colour switch: a small, faint swatch beside the look's mark ---- */
+.couch__tint {
+  position: absolute;
+  top: max(12px, calc(env(safe-area-inset-top, 0px) + 6px));
+  right: max(50px, calc(env(safe-area-inset-right, 0px) + 40px));
+  z-index: 3;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1.5px solid var(--cz-faint);
+  border-radius: 50%;
+  background: conic-gradient(var(--t1) 0 33%, var(--t2) 0 66%, var(--t3) 0);
+  opacity: 0.55;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.couch__tint:hover,
+.couch__tint:focus-visible {
+  opacity: 1;
+}
+
+.couch__tint:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+
+.couch__tint:active {
+  transform: scale(0.9);
+}

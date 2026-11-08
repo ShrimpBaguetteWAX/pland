@@ -73,7 +73,24 @@ function fit(list: MoonMission[]): (MoonMission & { more?: number })[] {
   ]
 }
 
-function Moon({ m, x, y, d, now, onTap }: { m: MoonMission & { more?: number }; x: number; y: number; d: number; now: number; onTap: (missionId: number) => void }) {
+function Moon({
+  m,
+  x,
+  y,
+  d,
+  now,
+  potion,
+  onTap
+}: {
+  m: MoonMission & { more?: number }
+  x: number
+  y: number
+  d: number
+  now: number
+  /** Its own potion (top, bottom), when the theme gives every moon one. */
+  potion?: [string, string]
+  onTap: (missionId: number) => void
+}) {
   const id = useId().replace(/:/g, '')
   const ready = m.back > 0
   const fill = ready ? 1 : m.next ? Math.min(1, Math.max(0.04, (now - m.next.joinedAt) / Math.max(1, m.next.unlockAt - m.next.joinedAt))) : 0.04
@@ -84,7 +101,7 @@ function Moon({ m, x, y, d, now, onTap }: { m: MoonMission & { more?: number }; 
     <button
       type="button"
       className={`couch__moon${ready ? ' is-ready' : ''}`}
-      style={{ left: `${x}%`, top: `${y}%`, width: `${d}cqw` }}
+      style={{ left: `${x}%`, top: `${y}%`, width: `${d}cqw`, ...(potion ? { '--moon-l1': potion[0], '--moon-l2': potion[1] } : {}) } as React.CSSProperties}
       onClick={() => onTap(m.missionId)}
       aria-label={`${m.title}: ${m.divs} division${m.divs === 1 ? '' : 's'}, ${ready ? `${m.back} back` : m.next ? `next back in ${clock(m.next.unlockAt - now)}` : 'none out'}. ${ready && !m.more ? 'Loops it.' : 'Shows its divisions.'}`}
       title={`${m.title} · ${m.divs} division${m.divs === 1 ? '' : 's'} · worth ≈ ${Math.round(m.value).toLocaleString('en-US')} TLM`}
@@ -119,7 +136,18 @@ function Moon({ m, x, y, d, now, onTap }: { m: MoonMission & { more?: number }; 
   )
 }
 
-export function Moons({ missions, now, onTap }: { missions: MoonMission[]; now: number; onTap: (missionId: number) => void }) {
+export function Moons({
+  missions,
+  now,
+  each,
+  onTap
+}: {
+  missions: MoonMission[]
+  now: number
+  /** A potion per moon, in turn (the rainbow theme). */
+  each?: [string, string][]
+  onTap: (missionId: number) => void
+}) {
   const list = fit(missions)
   if (!list.length) return null
   // Soonest back first: those already back, then by their next return.
@@ -134,7 +162,7 @@ export function Moons({ missions, now, onTap }: { missions: MoonMission[]; now: 
       {order.map((m, i) => {
         // Evenly spread, each in the middle of its share: one moon sits at 3 o'clock, two face each other.
         const a = ((order.length === 1 ? 0 : angleAt((i + 0.5) / order.length)) * Math.PI) / 180
-        return <Moon key={m.missionId} m={m} x={50 + Math.cos(a) * ORBIT} y={53.33 + Math.sin(a) * ORBIT} d={size(m)} now={now} onTap={onTap} />
+        return <Moon key={m.missionId} m={m} x={50 + Math.cos(a) * ORBIT} y={53.33 + Math.sin(a) * ORBIT} d={size(m)} now={now} potion={each ? each[i % each.length] : undefined} onTap={onTap} />
       })}
     </div>
   )

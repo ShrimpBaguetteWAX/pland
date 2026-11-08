@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef } from 'react'
  * while the tab is visible (requestAnimationFrame stops in a background tab).
  */
 
-/** What the liquid is made of: blood for Infernal, cherry potion (with floating hearts and a gloss) for the kitten. */
+/** What the liquid is made of: blood for Infernal; the kitten's potions (with floating hearts and a gloss) are in themes.ts. */
 export interface OrbPalette {
   glass: [string, string]
   back: string
@@ -46,48 +46,6 @@ export const BLOOD: OrbPalette = {
   shade: 0.78
 }
 
-export const CHERRY: OrbPalette = {
-  glass: ['#3a1238', '#12060f'],
-  back: 'rgba(255,143,181,.6)',
-  body: [
-    [0, '#ff6f9e'],
-    [0.12, '#f0367a'],
-    [0.5, '#b0124f'],
-    [1, '#4a0623']
-  ],
-  churn: 'rgba(255,120,180,.1)',
-  bubble: 'rgba(255,214,230,.55)',
-  sheen: 'rgba(255,190,215,.25)',
-  rim: 'rgba(255,150,190,.25)',
-  surface: 'rgba(255,200,222,.85)',
-  glow: 'rgba(255,90,150,1)',
-  shade: 0.55,
-  hearts: '#ffc2d8',
-  gloss: true
-}
-
-/** Candy night, the kitten's look: a blush-to-raspberry potion that moves slowly, with low swells. */
-export const CANDY: OrbPalette = {
-  glass: ['#2c2046', '#110b1e'],
-  back: 'rgba(255,175,210,.55)',
-  body: [
-    [0, '#ffc4dc'],
-    [0.14, '#ff8ab8'],
-    [0.5, '#e8417e'],
-    [1, '#4f0f33']
-  ],
-  churn: 'rgba(255,180,215,.1)',
-  bubble: 'rgba(255,232,242,.55)',
-  sheen: 'rgba(255,220,236,.3)',
-  rim: 'rgba(255,195,225,.28)',
-  surface: 'rgba(255,228,240,.9)',
-  glow: 'rgba(255,125,180,1)',
-  shade: 0.5,
-  hearts: '#ffe0ec',
-  gloss: true,
-  pace: 0.5,
-  calm: 0.65
-}
 
 const heart = (g: CanvasRenderingContext2D, x: number, y: number, s: number) => {
   g.save()
