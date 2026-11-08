@@ -243,7 +243,7 @@ export function Ledger({ account: own }: { account: string }) {
         <section className="lg__mid box">
           <span
             className="lg__lab"
-            title="Earned minus spent. WAX and TLM are valued at their USD price on the day (CoinGecko, last 365 days; older entries use the oldest price). DEF has no price history, so it is valued at today's Alcor price. Token swaps are not counted: they only change what the money is held in."
+            title="Earned minus spent. WAX and TLM are valued at their USD price on the day (CoinGecko, last 365 days; older entries use the oldest price). DEF has no price history, so it is valued at today's Alcor price. Token swaps are not counted: they only change what the money is held in. Since 7 Nov, rewards credited to the game balance count as earned, and entry fees taken from it as spent, each at the mission's entry cost; deposits and withdrawals only move your own money."
           >
             Net so far
           </span>

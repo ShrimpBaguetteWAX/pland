@@ -3,6 +3,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { atomic } from '@/chain/atomic'
 import { CONTRACTS } from '@/chain/config'
 import { getActions, getTransactionActions, timesRun, type HistoryAction } from '@/chain/history'
+import { getRows } from '@/chain/rpc'
 
 /*
  * Everything an account spent on Planetary Defense and everything it got back, from the chain:
@@ -13,6 +14,13 @@ import { getActions, getTransactionActions, timesRun, type HistoryAction } from 
  *          sold on AtomicMarket or to a template buy offer (after fees)
  *
  * Token swaps are not counted: they only change what the money is held in.
+ *
+ * Since the contracts' update of 7 Nov 2026 the game balance on core.pdef sits in between: rewards
+ * are credited to it (miss.pdef → core.pdef, memo "credit:<player>") and entry fees taken from it
+ * (core.pdef → miss.pdef, which does not name the player). Credits are read and the player's kept;
+ * an entry fee taken from the balance is the player's own join valued at the mission's entry cost.
+ * Deposits to and withdrawals from the balance only move the player's own money, so they are not
+ * counted either.
  */
 
 export type Category = 'nft' | 'forge-level' | 'forge-slot' | 'forge-other' | 'entry' | 'mission' | 'v2' | 'sale'
@@ -50,6 +58,8 @@ const LEDGER_HISTORY_PAGES = 50
 /** Pages of 100 sales the ledger reads each way. */
 const LEDGER_SALE_PAGES = 100
 const TOKEN_FILTER = 'alien.worlds:transfer,defensetoken:transfer'
+/** When the game balance began paying entries and taking rewards (the contracts' update). */
+const BALANCE_SINCE = '2026-11-07T19:15:00Z'
 
 const chainTime = (iso: string) => Date.parse(iso.endsWith('Z') ? iso : `${iso}Z`)
 
@@ -74,6 +84,56 @@ function transferEntry(a: HistoryAction, category: Category, direction: 'in' | '
     amount: q.amount * times,
     note: times > 1 ? `${note} (${times} × ${q.amount} ${q.token})` : note
   }
+}
+
+interface EntryCostRow {
+  mission_id: number | string
+  cost: string
+}
+
+/**
+ * The game balance's part: rewards credited to it (everyone's credits are read, the history nodes
+ * cannot filter by memo, and the player's kept) and entry fees taken from it, one per join of the
+ * player's that did not pay from the wallet in the same transaction, at the mission's entry cost
+ * per division (the entry cost table as it is now: costs rarely change).
+ */
+async function balanceEntries(account: string, walletEntryTrx: Set<string>): Promise<LedgerEntry[]> {
+  const [credits, joins, costs] = await Promise.all([
+    getActions(CONTRACTS.CORE, { filter: TOKEN_FILTER, 'transfer.from': CONTRACTS.MISSIONS, 'transfer.to': CONTRACTS.CORE, after: BALANCE_SINCE }, LEDGER_HISTORY_PAGES),
+    getActions(account, { filter: `${CONTRACTS.MISSIONS}:join`, after: BALANCE_SINCE }, LEDGER_HISTORY_PAGES),
+    getRows<EntryCostRow>({ code: CONTRACTS.MISSIONS, table: 'entrycosts', limit: 1000 }).catch(() => [] as EntryCostRow[])
+  ])
+  const out: LedgerEntry[] = []
+  const memo = `credit:${account}`
+  for (const a of credits) {
+    if (String(a.act.data.memo ?? '') !== memo) continue
+    const e = transferEntry(a, 'mission', 'in', 'Mission reward, to the game balance')
+    if (e) out.push(e)
+  }
+  const costOf = new Map<number, { amount: number; token: Token }[]>()
+  for (const row of costs) {
+    const q = tokenOf(row.cost)
+    if (!q || !(q.amount > 0)) continue
+    const id = Number(row.mission_id)
+    costOf.set(id, [...(costOf.get(id) ?? []), q])
+  }
+  for (const a of joins) {
+    if (a.act.account !== CONTRACTS.MISSIONS || a.act.name !== 'join' || String(a.act.data.owner ?? '') !== account) continue
+    if (walletEntryTrx.has(a.trx_id)) continue
+    const mission = Number(a.act.data.mission_id)
+    const n = Array.isArray(a.act.data.division_ids) ? a.act.data.division_ids.length : 1
+    for (const c of costOf.get(mission) ?? [])
+      out.push({
+        id: `join:${a.trx_id}:${a.global_sequence ?? ''}:${c.token}`,
+        time: chainTime(a['@timestamp']),
+        category: 'entry',
+        direction: 'out',
+        token: c.token,
+        amount: c.amount * n,
+        note: `Entry, mission ${mission}, from the game balance${n > 1 ? ` (${n} divisions)` : ''}`
+      })
+  }
+  return out
 }
 
 async function tokenEntries(account: string): Promise<LedgerEntry[]> {
@@ -109,6 +169,9 @@ async function tokenEntries(account: string): Promise<LedgerEntry[]> {
       const e = transferEntry(a, 'v2', 'in', String(a.act.data.memo ?? 'Planetary Defense V2'))
       if (e) out.push(e)
     }
+  // The game balance: rewards credited to it and entry fees taken from it.
+  const walletEntryTrx = new Set(toMissions.map((a) => a.trx_id))
+  out.push(...(await balanceEntries(account, walletEntryTrx)))
   return out
 }
 
