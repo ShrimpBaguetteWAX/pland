@@ -193,12 +193,16 @@ code {
 }
 
 /* ---- Top bar and menu ---- */
-.bar {
+/* The bar and the menu scroll as one sticky block, so Loop and Mine in the bar are always in reach. */
+.top {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: var(--panel);
   box-shadow: 0 1px 0 var(--line), 0 6px 18px rgba(30, 42, 64, 0.05);
+}
+.bar {
+  position: relative;
+  background: var(--panel);
   padding-top: env(safe-area-inset-top, 0px);
 }
 .bar__in {
@@ -493,6 +497,32 @@ code {
   color: var(--faint);
   font-size: 12px;
   white-space: nowrap;
+}
+/* Attack, defense and move cost: a quiet second row under the name and the count, each figure in
+   its stat colour; the portrait spans both rows. */
+.div {
+  row-gap: 3px;
+}
+.div__pic {
+  grid-row: span 2;
+}
+.div__stats {
+  grid-column: 2 / -1;
+  display: flex;
+  gap: 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.div__stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.div__stats svg {
+  opacity: 0.75;
 }
 .div__count {
   font-size: 11.5px;
@@ -2757,163 +2787,6 @@ code {
   color: var(--bad);
 }
 
-/* ---- The console strip under the menu: Field and Mine lanes ---- */
-.console {
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--line);
-}
-.console__in {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-}
-.lane {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
-  padding: 7px 0 7px;
-  min-width: 0;
-}
-.lane + .lane {
-  border-left: 1px solid var(--line-2);
-  padding-left: 16px;
-}
-.lane--field {
-  padding-right: 16px;
-}
-/* Stacked on a phone: no divider, the lanes just follow each other. (After the rules above, so it wins.) */
-@media (max-width: 760px) {
-  .console__in {
-    grid-template-columns: 1fr;
-  }
-  .lane + .lane {
-    border-left: 0;
-    padding-left: 0;
-  }
-  .lane--field {
-    padding-right: 0;
-    padding-bottom: 2px;
-  }
-}
-.lane__lab {
-  font-size: 10.5px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--faint);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.lane__lab b {
-  display: block;
-  font-size: 12.5px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.lane__tl {
-  all: unset;
-  box-sizing: border-box;
-  cursor: pointer;
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  padding: 2px 6px 0;
-}
-.tl {
-  position: relative;
-  height: 10px;
-}
-.tl::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 4px;
-  height: 2px;
-  background: var(--line-2);
-  border-radius: 2px;
-}
-.tl__dot {
-  position: absolute;
-  top: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--faint);
-  transform: translateX(-50%);
-  box-shadow: 0 0 0 2px var(--panel-2);
-}
-.tl__dot.is-back {
-  background: var(--good);
-}
-.tl__dot.is-next {
-  background: var(--accent);
-}
-.tl__now {
-  position: absolute;
-  top: -1px;
-  width: 2px;
-  height: 12px;
-  border-radius: 1px;
-  background: var(--ink);
-  transform: translateX(-50%);
-}
-.tl__labs {
-  position: relative;
-  height: 14px;
-  font-size: 10.5px;
-  color: var(--dim);
-  font-variant-numeric: tabular-nums;
-}
-.tl__labs span {
-  position: absolute;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-.tl__labs span.is-back {
-  color: var(--good);
-  font-weight: 600;
-}
-/* Labels near either end hang inward, so none runs into the button or the lane name. */
-.tl__labs span.is-left {
-  transform: none;
-}
-.tl__labs span.is-right {
-  transform: translateX(-100%);
-}
-.lane__prog {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.prog {
-  position: relative;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--sunk);
-  overflow: hidden;
-}
-.prog i {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  background: var(--move);
-  border-radius: 2px;
-}
-.prog.is-ready i {
-  background: var(--good);
-}
-.lane__prog small {
-  font-size: 10.5px;
-  color: var(--dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
-}
-
 /* Picking several home divisions on Missions */
 .fp__check {
   width: 18px;
@@ -3622,74 +3495,73 @@ code {
   margin-left: auto;
 }
 
-/* ---- Dark mode: the couch mode's palette (warm black, parchment text, bronze edges, blood accent) on
-   the same tabletop pieces. Chosen in the wallet menu; html[data-theme="dark"]. ---- */
+/* ---- Dark mode: Discord's greys (cool charcoal panels, soft white text, blurple accent) on the
+   same tabletop pieces. Chosen in the wallet menu; html[data-theme="dark"]. ---- */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0b0605;
-  --panel: #1b120f;
-  --panel-2: #231813;
-  --sunk: #120b09;
-  --line: rgba(230, 216, 188, 0.08);
-  --line-2: rgba(230, 216, 188, 0.17);
-  --ledge: #050202;
-  --ink: #e6d8bc;
-  --dim: #a8977a;
-  --faint: #7a6a54;
-  --accent: #e0402a;
-  --accent-ink: #fff4ea;
-  --accent-ledge: #7e1d12;
-  --accent-soft: rgba(224, 64, 42, 0.16);
-  --good: #7fb38a;
-  --bad: #ff5a42;
-  --atk: #f0705a;
-  --def: #7fb38a;
-  --move: #f08a4a;
-  --r-common: #8f8576;
-  --r-legendary: #d0773a;
-  --r-mythic: #ff3d86;
-  --bronze: rgba(138, 109, 74, 0.35);
-  --piece: 0 4px 0 var(--ledge), 0 14px 30px rgba(0, 0, 0, 0.5);
+  --bg: #313338;
+  --panel: #2b2d31;
+  --panel-2: #232428;
+  --sunk: #1e1f22;
+  --line: rgba(255, 255, 255, 0.06);
+  --line-2: rgba(255, 255, 255, 0.12);
+  --ledge: #1a1b1e;
+  --ink: #f2f3f5;
+  --dim: #b5bac1;
+  --faint: #80848e;
+  --accent: #5865f2;
+  --accent-ink: #ffffff;
+  --accent-ledge: #3c45a5;
+  --accent-soft: rgba(88, 101, 242, 0.18);
+  --good: #23a55a;
+  --bad: #f23f43;
+  --atk: #f2676a;
+  --def: #3ec97a;
+  --move: #f0b232;
+  --r-common: #949ba4;
+  --r-legendary: #f0b232;
+  --r-mythic: #eb459e;
+  --edge: rgba(255, 255, 255, 0.05);
+  --piece: 0 3px 0 var(--ledge), 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 :root[data-theme='dark'] body {
-  background: radial-gradient(900px 520px at 80% -10%, rgba(90, 30, 22, 0.35), transparent 65%), radial-gradient(700px 400px at 0% 110%, rgba(240, 138, 74, 0.08), transparent 70%), var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
 }
-/* Panels get a thin bronze edge, the couch frames' colour. */
+:root[data-theme='dark'] .top {
+  box-shadow: 0 1px 0 var(--ledge), 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+/* Panels get a faint light edge, as Discord's cards do. */
 :root[data-theme='dark'] .box,
 :root[data-theme='dark'] .bar,
 :root[data-theme='dark'] .menu {
-  border-color: var(--bronze);
+  border-color: var(--edge);
 }
 :root[data-theme='dark'] .box {
-  border: 1px solid var(--bronze);
+  border: 1px solid var(--edge);
 }
 :root[data-theme='dark'] .bar {
-  background: #140d0a;
+  background: var(--sunk);
 }
-/* Pieces that sit dark-on-light in the light theme stay dark here: ink would now be parchment. */
+/* Pieces that sit dark-on-light in the light theme: the selected-item grey of Discord's channel list. */
 :root[data-theme='dark'] .menu button.is-on,
 :root[data-theme='dark'] .count,
 :root[data-theme='dark'] .toast,
 :root[data-theme='dark'] .level__badge {
-  background: #3b2c1e;
+  background: #404249;
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--bronze);
-}
-:root[data-theme='dark'] .tl__now {
-  background: var(--ink);
+  box-shadow: none;
 }
 :root[data-theme='dark'] .div:hover,
 :root[data-theme='dark'] .world:hover {
-  background: rgba(230, 216, 188, 0.04);
+  background: rgba(255, 255, 255, 0.03);
 }
 :root[data-theme='dark'] .pv__row.is-gear,
 :root[data-theme='dark'] .od__u.is-gear {
-  background: rgba(230, 216, 188, 0.06);
+  background: rgba(255, 255, 255, 0.05);
 }
 :root[data-theme='dark'] img {
   /* Card art is drawn for light pages; soften it a touch on the dark table. */
-  filter: brightness(0.94);
+  filter: brightness(0.95);
 }
 
 /* The theme switch in the wallet menu */
@@ -4236,4 +4108,143 @@ code {
 .sw__form {
   display: grid;
   gap: 6px;
+}
+
+/* The couch mode entry in the wallet menu: name and a line under it. */
+.me__couch {
+  display: grid;
+  justify-items: start;
+  gap: 1px;
+  text-align: left;
+  height: auto;
+  padding-block: 7px;
+}
+.me__couch small {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* ---- Loop and Mine in the top bar: each button is its own progress bar ---- */
+.bact {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.bact__b {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  box-shadow: 0 3px 0 var(--ledge);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* The fill: amber, growing left to right towards ready. */
+.bact__b::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--f, 0) * 100%);
+  background: color-mix(in srgb, var(--move) 16%, transparent);
+  border-right: 2px solid var(--move);
+  transition: width 0.9s linear;
+}
+.bact__b[style*='--f: 0;']::before {
+  border-right: 0;
+}
+.bact__b > * {
+  position: relative;
+}
+.bact__b em {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--dim);
+}
+.bact__n {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--panel);
+  font-size: 10.5px;
+  display: grid;
+  place-items: center;
+}
+.bact__b:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.bact__b:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+/* Ready: the fill goes, the button turns coral and pulses softly. */
+.bact__b.is-go {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 3px 0 var(--accent-ledge);
+}
+.bact__b.is-go::before,
+.bact__b.is-busy::before {
+  display: none;
+}
+.bact__b.is-go em {
+  color: var(--accent-ink);
+  opacity: 0.85;
+}
+.bact__b.is-go .bact__n {
+  background: var(--accent-ink);
+  color: var(--accent);
+}
+.bact__b.is-busy {
+  cursor: progress;
+  background: var(--accent-soft);
+  color: var(--accent-ledge);
+}
+.bact__b.is-busy em {
+  color: var(--accent-ledge);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bact__b.is-go {
+    animation: bact-nudge 2.4s ease-in-out infinite;
+  }
+}
+@keyframes bact-nudge {
+  0%,
+  100% {
+    box-shadow: 0 3px 0 var(--accent-ledge), 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 3px 0 var(--accent-ledge), 0 0 0 6px transparent;
+  }
+}
+/* A phone: the countdown alone while it fills, the label alone once ready. */
+@media (max-width: 640px) {
+  .bact {
+    gap: 6px;
+  }
+  .bact__b {
+    padding: 0 11px;
+    gap: 6px;
+  }
+  .bact__b:not(.is-go):not(.is-busy) .bact__lab,
+  .bact__b.is-go em,
+  .bact__n {
+    display: none;
+  }
 }

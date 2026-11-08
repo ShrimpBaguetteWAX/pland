@@ -556,6 +556,26 @@ export function Army({ account }: { account: string }) {
               <span className="div__count">
                 {d.units.length}/{d.slotsMax}
               </span>
+              {/* What the division fields: the roster as it stands now (live), the chain's cached figures until that is read. */}
+              {(() => {
+                const st = d.live ?? d
+                return (
+                  <span className="div__stats" aria-label={`Attack ${formatNumber(st.atk, 0)}, defense ${formatNumber(st.def, 0)}, move cost ${formatNumber(st.move, 0)}`}>
+                    <span className="c-atk" title="Attack">
+                      <Icon name="atk" size={12} />
+                      {formatNumber(st.atk, 0)}
+                    </span>
+                    <span className="c-def" title="Defense">
+                      <Icon name="def" size={12} />
+                      {formatNumber(st.def, 0)}
+                    </span>
+                    <span className="c-move" title="Move cost">
+                      <Icon name="move" size={12} />
+                      {formatNumber(st.move, 0)}
+                    </span>
+                  </span>
+                )
+              })()}
             </button>
           )
         })}

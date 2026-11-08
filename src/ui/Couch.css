@@ -1,0 +1,1256 @@
+/*
+ * Couch mode, Infernal: a pit of fire under a blood orb in a horned, rune-carved iron ring.
+ * Gothic capitals (Cinzel), a book face for the small print (EB Garamond), bronze frames, and
+ * colour only where it means something: blood for the loop, lava for the mine, gold for idle.
+ */
+.couch {
+  --cz-tx: #e6d8bc;
+  --cz-dim: #a8977a;
+  --cz-faint: #6e604c;
+  --cz-fr: #8a6d4a;
+  --cz-fr-dk: #3b2c1e;
+  --cz-pl1: rgba(30, 18, 13, 0.92);
+  --cz-pl2: rgba(10, 6, 5, 0.92);
+  --cz-blood: #e0402a;
+  --cz-lava: #f08a4a;
+  --cz-gold: #c7b377;
+  --cz-legend: #d0773a;
+  --cz-cap: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  --cz-book: 'EB Garamond', Georgia, serif;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  padding: max(10px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: #070303;
+  color: var(--cz-tx);
+  font-family: var(--cz-book);
+}
+
+/* ---- The pit ----------------------------------------------------------------------------------------- */
+
+.couch__pit {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.couch__pit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 50% at 50% 110%, rgba(255, 90, 20, 0.45), rgba(140, 20, 5, 0.25) 35%, transparent 65%),
+    radial-gradient(90% 60% at 50% 38%, #2a0a07 0%, #130504 50%, #060202 100%);
+}
+
+.couch__smoke {
+  position: absolute;
+  top: 18%;
+  left: -20%;
+  width: 140%;
+  height: 46%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(90, 30, 22, 0.45), transparent);
+  filter: blur(18px);
+  animation: couch-drift 26s ease-in-out infinite alternate;
+}
+
+.couch__smoke.is-low {
+  top: 55%;
+  opacity: 0.7;
+  animation-duration: 34s;
+}
+
+@keyframes couch-drift {
+  from {
+    transform: translateX(-12%) scale(1);
+  }
+  to {
+    transform: translateX(12%) scale(1.15);
+  }
+}
+
+.couch__cracks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 16%;
+  opacity: 0.7;
+}
+
+.couch__cracks path {
+  fill: none;
+  stroke: #ff6a1c;
+  stroke-width: 1.3;
+  animation: couch-flicker 3.2s ease-in-out infinite;
+}
+
+.couch__cracks path:nth-child(2n) {
+  animation-delay: -1.3s;
+}
+
+@keyframes couch-flicker {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  45% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.7;
+  }
+}
+
+.couch__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .45 0 0 0 0 .38 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+.couch__ember {
+  position: absolute;
+  border-radius: 50%;
+  background: #ffb070;
+  box-shadow: 0 0 6px 1px #ff5a10;
+  opacity: 0;
+  animation: couch-rise linear infinite;
+}
+
+@keyframes couch-rise {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--sx), -105vh);
+    opacity: 0;
+  }
+}
+
+.couch__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 90px 30px rgba(0, 0, 0, 0.85);
+}
+
+/* Closing it again: a faint mark at the top centre that brightens only when touched. */
+.couch__close {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 28px;
+  margin-left: -18px;
+  border: 0;
+  background: none;
+  color: var(--cz-faint);
+  cursor: pointer;
+}
+
+.couch__close:hover,
+.couch__close:focus-visible {
+  color: var(--cz-tx);
+}
+
+/* The other look, faint at the top right like the close mark. */
+.couch__look {
+  position: absolute;
+  top: max(6px, env(safe-area-inset-top, 0px));
+  right: max(10px, env(safe-area-inset-right, 0px));
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 32px;
+  border: 0;
+  background: none;
+  color: var(--cz-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch__look svg {
+  width: 18px;
+  height: 18px;
+}
+
+.couch__look:hover,
+.couch__look:focus-visible {
+  color: var(--cz-tx);
+}
+
+/* ---- Top: ornament, two plaques, the bell ------------------------------------------------------------ */
+
+.couch__top {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  padding-top: 30px;
+}
+
+.couch__orn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cz-fr);
+}
+
+.couch__orn::before,
+.couch__orn::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cz-fr));
+}
+
+.couch__orn::after {
+  transform: scaleX(-1);
+}
+
+.couch__orn svg {
+  width: 46px;
+  height: 14px;
+}
+
+.couch__plaques {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.couch__plaque {
+  position: relative;
+  padding: 8px 12px 7px;
+  background: linear-gradient(180deg, var(--cz-pl1), var(--cz-pl2));
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 0 0 2px var(--cz-fr-dk),
+    inset 0 1px 0 2px rgba(138, 109, 74, 0.25),
+    0 6px 14px rgba(0, 0, 0, 0.6);
+}
+
+.couch__plaque::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  background: #0a0606;
+  box-shadow: 0 0 0 1px var(--cz-fr);
+  transform: rotate(45deg);
+}
+
+.couch__plaque.is-mine {
+  text-align: right;
+}
+
+.couch__plaque.is-mine::before {
+  left: auto;
+  right: -4px;
+}
+
+.couch__plaque small {
+  display: block;
+  color: var(--cz-faint);
+  font-family: var(--cz-cap);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.couch__plaque b {
+  color: var(--cz-tx);
+  font-family: var(--cz-cap);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-shadow: 0 2px 2px #000;
+}
+
+.couch__plaque.is-mine b {
+  color: var(--cz-lava);
+}
+
+.couch__plaque b i {
+  margin-left: 4px;
+  color: var(--cz-faint);
+  font-family: var(--cz-book);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+/* The bell: centred under the plaques, faint and crossed out while off. */
+.couch__bell {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 32px;
+  margin: 4px auto 0;
+  border: 0;
+  background: none;
+  color: var(--cz-faint);
+  cursor: pointer;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch__bell svg {
+  width: 20px;
+  height: 20px;
+}
+
+.couch__bell[aria-pressed='true'] {
+  color: var(--cz-gold);
+}
+
+.couch__bell-off {
+  transition: opacity 0.2s;
+}
+
+.couch__bell[aria-pressed='true'] .couch__bell-off {
+  opacity: 0;
+}
+
+/* ---- The orb ----------------------------------------------------------------------------------------- */
+
+.couch__stage {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+.couch__orb {
+  position: relative;
+  width: min(100%, 440px, 50vh);
+  width: min(100%, 440px, 50dvh);
+  aspect-ratio: 1;
+  container-type: inline-size;
+}
+
+.couch__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.couch__aura {
+  opacity: 0.3;
+  transition: opacity 0.6s;
+}
+
+.couch__orb.is-ready .couch__aura {
+  animation: couch-aura 2.4s ease-in-out infinite;
+}
+
+@keyframes couch-aura {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.couch__runes {
+  animation: couch-runes 4s ease-in-out infinite;
+}
+
+.couch__orb.is-ready .couch__runes {
+  animation-duration: 1.6s;
+}
+
+@keyframes couch-runes {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* The liquid, the words over it and the tap target all sit in the ring's hole: (150, 160) r 80 of 300. */
+.couch__blood,
+.couch__label,
+.couch__hit {
+  position: absolute;
+  left: 23.33%;
+  top: 26.67%;
+  width: 53.33%;
+  height: 53.33%;
+  border-radius: 50%;
+}
+
+.couch__label {
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+  transition: transform 0.12s;
+}
+
+.couch__hit {
+  z-index: 3;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch__hit[aria-disabled='true'] {
+  cursor: default;
+}
+
+.couch__hit:focus-visible {
+  outline: 1px solid var(--cz-gold);
+  outline-offset: 4px;
+}
+
+.couch__hit:not([aria-disabled='true']):active ~ .couch__label,
+.couch__orb:has(.couch__hit:not([aria-disabled='true']):active) .couch__label {
+  transform: scale(0.97);
+}
+
+.couch__label b {
+  color: #fff1dc;
+  font-family: 'Cinzel Decorative', var(--cz-cap);
+  font-size: 12.5cqw;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 0 18px rgba(255, 80, 30, 0.85),
+    0 0 4px rgba(255, 140, 90, 0.6),
+    0 3px 3px #000;
+}
+
+.couch__label b.is-clock {
+  color: #f0e2cc;
+  font-family: var(--cz-cap);
+  font-size: 10.5cqw;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 0 12px rgba(0, 0, 0, 0.9),
+    0 2px 2px #000;
+}
+
+.couch__label small {
+  margin-top: 6px;
+  color: #f3e4cc;
+  font-family: var(--cz-cap);
+  font-size: max(10px, 2.9cqw);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow:
+    0 1px 3px #000,
+    0 0 8px #000;
+}
+
+.couch__label em {
+  margin-top: 2px;
+  color: #ecd8bc;
+  font-size: max(12px, 3.9cqw);
+  font-style: italic;
+  text-shadow:
+    0 1px 3px #000,
+    0 0 6px #000;
+}
+
+/* ---- Lower: two tablets and the mine --------------------------------------------------------------------- */
+
+.couch__lower {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  padding-bottom: 6px;
+}
+
+.couch__tablets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.couch__tablet {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  background: linear-gradient(180deg, var(--cz-pl1), var(--cz-pl2));
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 0 0 2px var(--cz-fr-dk),
+    0 6px 14px rgba(0, 0, 0, 0.55);
+  color: var(--cz-tx);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch__tablet:active {
+  transform: scale(0.98);
+}
+
+.couch__tablet:focus-visible {
+  outline: 1px solid var(--cz-gold);
+  outline-offset: 3px;
+}
+
+.couch__tablet svg {
+  grid-row: span 2;
+  width: 26px;
+  height: 26px;
+  color: var(--cz-dim);
+}
+
+.couch__tablet b {
+  color: var(--cz-tx);
+  font-family: var(--cz-cap);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.couch__tablet b small {
+  margin-left: 6px;
+  color: var(--cz-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  vertical-align: 3px;
+}
+
+.couch__tablet > span {
+  overflow: hidden;
+  color: var(--cz-faint);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.couch__tablet > span em {
+  color: var(--cz-dim);
+  font-style: normal;
+}
+
+.couch__tablet.is-alert {
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 0 0 2px var(--cz-gold),
+    0 0 18px rgba(199, 179, 119, 0.35),
+    0 6px 14px rgba(0, 0, 0, 0.55);
+  animation: couch-alert 2s ease-in-out infinite;
+}
+
+.couch__tablet.is-alert svg,
+.couch__tablet.is-alert b small {
+  color: var(--cz-gold);
+}
+
+@keyframes couch-alert {
+  50% {
+    box-shadow:
+      inset 0 0 0 1px #000,
+      inset 0 0 0 2px var(--cz-gold),
+      0 0 30px rgba(199, 179, 119, 0.6),
+      0 6px 14px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* The dock: the tablets and the toast card share one place; the card steps in while it is up. */
+.couch__dock {
+  display: grid;
+}
+
+.couch__dock > * {
+  grid-area: 1 / 1;
+}
+
+.couch__tablets {
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+
+.couch__dock.is-carding .couch__tablets {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.couch__card {
+  --tone: var(--cz-legend);
+  --glow: rgba(208, 119, 58, 0.22);
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 9px 14px 12px;
+  border: 0;
+  background: linear-gradient(180deg, #140d0a, #0a0605);
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 0 0 2px #5a4630,
+    inset 0 0 0 3px #000,
+    0 10px 24px rgba(0, 0, 0, 0.7);
+  color: var(--cz-tx);
+  text-align: left;
+  cursor: pointer;
+  animation: couch-card-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes couch-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.couch__card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(80% 110% at 50% 0%, var(--glow), transparent 70%);
+  pointer-events: none;
+}
+
+.couch__card.is-run {
+  cursor: default;
+}
+
+.couch__card.is-done {
+  --tone: var(--cz-gold);
+  --glow: rgba(199, 179, 119, 0.22);
+}
+
+.couch__card.is-bad {
+  --tone: #ff5a42;
+  --glow: rgba(224, 40, 20, 0.24);
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 0 0 2px #8a2a1a,
+    inset 0 0 0 3px #000,
+    0 0 24px rgba(200, 30, 10, 0.35);
+}
+
+.couch__card > span {
+  position: relative;
+  min-width: 0;
+}
+
+.couch__card-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.couch__card-hd b {
+  overflow: hidden;
+  color: var(--tone);
+  font-family: var(--cz-cap);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow:
+    0 0 10px color-mix(in srgb, var(--tone) 50%, transparent),
+    0 2px 2px #000;
+}
+
+.couch__card-hd span {
+  color: var(--cz-faint);
+  font-family: var(--cz-cap);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+.couch__card-line {
+  overflow: hidden;
+  color: var(--cz-dim);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.couch__card > .couch__card-hair {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  display: flex;
+  gap: 2px;
+  height: 3px;
+}
+
+.couch__card-hair i {
+  flex: 1;
+  background: #2a1e14;
+  transition:
+    background 0.3s,
+    box-shadow 0.3s;
+}
+
+.couch__card-hair i.is-busy {
+  background: var(--cz-lava);
+  animation: couch-breathe 0.9s ease-in-out infinite;
+}
+
+.couch__card-hair i.is-ok {
+  background: #ff5a32;
+  box-shadow: 0 0 6px #ff3a14;
+}
+
+.couch__card-hair i.is-bad {
+  background: #a01208;
+}
+
+.couch__card.is-done .couch__card-hair i {
+  background: var(--cz-gold);
+  box-shadow: 0 0 6px rgba(199, 179, 119, 0.7);
+}
+
+/* The mine: a bar of lava filling toward the next mine; tap it when it brims. */
+.couch__mine {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 16px;
+  overflow: hidden;
+  border: 0;
+  background: linear-gradient(180deg, var(--cz-pl1), var(--cz-pl2));
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 0 0 2px var(--cz-fr-dk),
+    inset 0 0 0 3px #000,
+    0 6px 14px rgba(0, 0, 0, 0.55);
+  color: #fff1dc;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch__mine:disabled {
+  cursor: default;
+}
+
+.couch__mine:not(:disabled):active {
+  transform: scale(0.985);
+}
+
+.couch__mine-fill {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  bottom: 3px;
+  width: calc((100% - 6px) * var(--f, 0));
+  background: linear-gradient(180deg, #ffb24a, #e0501a 45%, #7a1a06);
+  box-shadow: 0 0 14px rgba(255, 100, 30, 0.6);
+  transition: width 1s linear;
+}
+
+.couch__mine-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.25) 50%, transparent 70%) 0 0 / 200% 100%;
+  mix-blend-mode: overlay;
+  animation: couch-shimmer 3s linear infinite;
+}
+
+@keyframes couch-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.couch__mine svg,
+.couch__mine b,
+.couch__mine span {
+  position: relative;
+}
+
+.couch__mine svg {
+  width: 22px;
+  height: 22px;
+}
+
+.couch__mine b {
+  font-family: var(--cz-cap);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px #000;
+}
+
+.couch__mine span {
+  justify-self: end;
+  font-family: var(--cz-cap);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 1px 2px #000,
+    0 0 6px #000;
+}
+
+.couch__mine.is-ready {
+  animation: couch-brim 1.8s ease-in-out infinite;
+}
+
+@keyframes couch-brim {
+  50% {
+    filter: brightness(1.25);
+  }
+}
+
+.couch__mine.is-working .couch__mine-fill {
+  animation: couch-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes couch-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---- Tooltip panels -------------------------------------------------------------------------------------- */
+
+.couch__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.65);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s;
+}
+
+.couch__scrim.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.couch__tip {
+  --tc: var(--cz-legend);
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left, 0px));
+  right: max(10px, env(safe-area-inset-right, 0px));
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  max-width: 520px;
+  max-height: 78dvh;
+  margin: 0 auto;
+  background: linear-gradient(180deg, #140d0a, #0a0605);
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 0 0 2px #5a4630,
+    inset 0 0 0 3px #000,
+    0 20px 50px rgba(0, 0, 0, 0.9);
+  transform: translateY(115%);
+  visibility: hidden;
+  transition:
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s 0.5s;
+}
+
+.couch__tip.is-open {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.couch__tip.is-idle {
+  --tc: var(--cz-gold);
+}
+
+.couch__cn {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--cz-fr);
+  pointer-events: none;
+}
+
+.couch__cn.is-a {
+  top: 5px;
+  left: 5px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.couch__cn.is-b {
+  top: 5px;
+  right: 5px;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.couch__cn.is-c {
+  bottom: 5px;
+  left: 5px;
+  border-right: 0;
+  border-top: 0;
+}
+
+.couch__cn.is-d {
+  bottom: 5px;
+  right: 5px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.couch__tip header {
+  padding: 18px 44px 6px;
+  text-align: center;
+  background: radial-gradient(80% 120% at 50% 0%, color-mix(in srgb, var(--tc) 25%, transparent), transparent 70%);
+}
+
+.couch__tip h3 {
+  margin: 0;
+  color: var(--tc);
+  font-family: var(--cz-cap);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 0 14px color-mix(in srgb, var(--tc) 50%, transparent),
+    0 2px 2px #000;
+}
+
+.couch__tip header small {
+  display: block;
+  color: var(--cz-faint);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.couch__div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 18px 2px;
+  color: var(--tc);
+}
+
+.couch__div::before,
+.couch__div::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, currentColor);
+  opacity: 0.6;
+}
+
+.couch__div::after {
+  transform: scaleX(-1);
+}
+
+.couch__div i {
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+
+.couch__x {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: none;
+  color: var(--cz-faint);
+  cursor: pointer;
+}
+
+.couch__tip ul {
+  min-height: 0;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.couch__tip li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 10px 22px;
+}
+
+.couch__tip li + li {
+  border-top: 1px solid rgba(90, 70, 48, 0.35);
+}
+
+.couch__tip li > span:first-child {
+  display: grid;
+  min-width: 0;
+}
+
+.couch__tip li b {
+  overflow: hidden;
+  color: var(--cz-tx);
+  font-family: var(--cz-cap);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.couch__tip li small {
+  color: var(--cz-faint);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.couch__tip .t {
+  color: var(--cz-lava);
+  font-family: var(--cz-cap);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.couch__tip .p {
+  grid-column: 1 / -1;
+  height: 3px;
+  background: rgba(90, 10, 5, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+.couch__tip .p i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #5a0805, #e0341c);
+  box-shadow: 0 0 6px rgba(224, 52, 28, 0.7);
+}
+
+/* What the division comes back with, under its time. */
+.couch__tip .t .haul {
+  display: block;
+  margin-top: 1px;
+  color: var(--cz-legend);
+  font-family: var(--cz-cap);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.couch__tip li.is-home .t {
+  color: var(--cz-gold);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.couch__tip li.is-home .p i {
+  background: linear-gradient(90deg, #6a5420, var(--cz-gold));
+  box-shadow: 0 0 6px rgba(199, 179, 119, 0.6);
+}
+
+.couch__tip li.is-off {
+  opacity: 0.5;
+}
+
+.couch__tip li.is-empty {
+  display: block;
+  color: var(--cz-faint);
+  font-style: italic;
+}
+
+.couch__send {
+  padding: 9px 15px;
+  border: 0;
+  background: linear-gradient(180deg, #5e130c, #2a0604);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 150, 120, 0.25),
+    inset 0 0 0 1px #000,
+    0 0 0 1px #8a2a1a,
+    0 3px 8px rgba(0, 0, 0, 0.6);
+  color: var(--cz-tx);
+  font-family: var(--cz-cap);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 1px #000;
+  cursor: pointer;
+}
+
+.couch__send:disabled,
+.couch__hold:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.couch__tip-foot {
+  padding: 10px 18px 18px;
+}
+
+.couch__hold {
+  position: relative;
+  width: 100%;
+  height: 54px;
+  overflow: hidden;
+  border: 0;
+  background: linear-gradient(180deg, #1c120e, #0a0605);
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 0 0 2px var(--cz-fr),
+    inset 0 0 0 3px #000;
+  color: var(--cz-tx);
+  font-family: var(--cz-cap);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.couch__hold i {
+  position: absolute;
+  inset: 3px;
+  background: linear-gradient(90deg, #4a0604, #b8200f 70%, #ff6a2a);
+  box-shadow: 0 0 20px rgba(255, 80, 30, 0.6);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease-out;
+}
+
+.couch__hold.is-holding i {
+  transform: scaleX(1);
+  transition: transform 1s linear;
+}
+
+.couch__hold span {
+  position: relative;
+  text-shadow:
+    0 1px 2px #000,
+    0 0 6px #000;
+}
+
+.couch__warn {
+  margin: 8px 0 0;
+  color: #ff9a8a;
+  font-size: 13px;
+}
+
+/* Short screens: the top tightens so the orb keeps its room. */
+@media (max-height: 700px) {
+  .couch__top {
+    padding-top: 24px;
+  }
+
+  .couch__plaque b {
+    font-size: 20px;
+  }
+
+  .couch__bell {
+    height: 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch__smoke,
+  .couch__cracks path,
+  .couch__ember,
+  .couch__runes,
+  .couch__orb.is-ready .couch__aura,
+  .couch__tablet.is-alert,
+  .couch__mine.is-ready,
+  .couch__mine-fill::after,
+  .couch__mine.is-working .couch__mine-fill,
+  .couch__card,
+  .couch__card-hair i.is-busy {
+    animation: none;
+  }
+
+  .couch__ember {
+    display: none;
+  }
+}

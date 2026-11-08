@@ -1,0 +1,649 @@
+/*
+ * Couch mode, Kitten: the Infernal screen redressed. Same layout and the same meaning for every
+ * colour (cherry for the loop, candy-flame peach for the mine, butter for idle divisions, mint for
+ * done), now on a plum night with rose-gold frames, rounded cushions and a little horned kitten on
+ * the ring. A soft blackletter (Grenze Gotisch) for the big words, a round face (Fredoka) for every
+ * number and the small print. Everything here is scoped to .couch.is-kitten.
+ */
+.couch.is-kitten {
+  --cz-tx: #fbe9f2;
+  --cz-dim: #c9a9bf;
+  --cz-faint: #8a6a83;
+  --cz-fr: #9c5a78;
+  --cz-fr-dk: #9c5a78;
+  --cz-pl1: #2c1432;
+  --cz-pl2: #1a0b1f;
+  --cz-blood: #ff3d7f;
+  --cz-lava: #ff9a5c;
+  --cz-gold: #ffd27a;
+  --cz-legend: #ff6f9e;
+  --cz-cap: 'Fredoka', 'Nunito', system-ui, sans-serif;
+  --cz-book: 'Fredoka', 'Nunito', system-ui, sans-serif;
+  --ck-goth: 'Grenze Gotisch', 'Cinzel', Georgia, serif;
+  --ck-rose: #f2a7c3;
+  --ck-plum: #2a1430;
+  --ck-mint: #7fe3c4;
+  background: #0f0712;
+}
+
+/* ---- The night ------------------------------------------------------------------------------------- */
+
+.is-kitten .couch__pit::before {
+  background:
+    radial-gradient(110% 45% at 50% 108%, rgba(255, 90, 138, 0.4), rgba(255, 122, 74, 0.13) 40%, transparent 70%),
+    radial-gradient(80% 50% at 50% 36%, #3a1640 0%, #1d0b22 55%, #0d050f 100%);
+}
+
+.couch__star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #ffd9ea;
+  animation: ck-twinkle 3s ease-in-out infinite;
+}
+
+@keyframes ck-twinkle {
+  50% {
+    opacity: 0.15;
+    transform: scale(0.6);
+  }
+}
+
+.couch__floaty {
+  position: absolute;
+  bottom: -20px;
+  opacity: 0;
+  animation: ck-rise linear infinite;
+}
+
+@keyframes ck-rise {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--dx, 20px), -70vh) rotate(var(--rot, 40deg));
+    opacity: 0;
+  }
+}
+
+.is-kitten .couch__vignette {
+  box-shadow: inset 0 0 80px 20px rgba(8, 2, 10, 0.7);
+}
+
+/* ---- Top ------------------------------------------------------------------------------------------- */
+
+.is-kitten .couch__plaque {
+  padding: 8px 10px 7px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--cz-pl1), var(--cz-pl2));
+  box-shadow:
+    inset 0 0 0 1.5px var(--cz-fr),
+    inset 0 2px 0 rgba(255, 255, 255, 0.06),
+    0 6px 14px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+/* Two little cat ears on every plaque. */
+.is-kitten .couch__plaque::before,
+.is-kitten .couch__plaque::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 14px;
+  right: auto;
+  width: 12px;
+  height: 10px;
+  margin: 0;
+  background: var(--cz-fr);
+  box-shadow: none;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  transform: none;
+}
+
+.is-kitten .couch__plaque::after {
+  left: auto;
+  right: 14px;
+}
+
+.is-kitten .couch__plaque small {
+  color: var(--cz-dim);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.is-kitten .couch__plaque b {
+  color: var(--cz-blood);
+  font-size: 22px;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+.is-kitten .couch__plaque.is-mine b {
+  color: var(--cz-lava);
+}
+
+.is-kitten .couch__plaque b i {
+  color: var(--cz-dim);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* ---- The orb and the kitten ------------------------------------------------------------------------ */
+
+.is-kitten .couch__label b {
+  color: #fff;
+  font-family: var(--ck-goth);
+  font-size: 15cqw;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow:
+    0 0 18px rgba(255, 90, 150, 0.8),
+    0 2px 6px #2a0618;
+}
+
+.is-kitten .couch__label b.is-clock {
+  color: #fff;
+  font-family: var(--cz-book);
+  font-size: 12cqw;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-shadow:
+    0 2px 10px #2a0618,
+    0 0 2px #2a0618;
+}
+
+.is-kitten .couch__label small {
+  color: #ffe3ee;
+  font-size: max(11px, 3.4cqw);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  text-shadow: 0 1px 6px #2a0618;
+}
+
+.is-kitten .couch__label em {
+  color: #ffe3ee;
+  font-size: max(12px, 3.8cqw);
+  font-style: normal;
+  text-shadow: 0 1px 6px #2a0618;
+}
+
+.is-kitten .couch__hit:focus-visible {
+  outline-color: var(--ck-rose);
+}
+
+/* Moods: asleep while all are out, awake when one is back (or they march), wings out when ready. */
+.couch__kit-happy,
+.couch__kit-wings,
+.couch__kit-sparkle {
+  display: none;
+}
+
+.couch__orb:not(.is-asleep) .couch__kit-happy,
+.couch__orb.is-eager .couch__kit-wings,
+.couch__orb.is-eager .couch__kit-sparkle {
+  display: inline;
+}
+
+.couch__orb:not(.is-asleep) .couch__kit-shut,
+.couch__orb:not(.is-asleep) .couch__kit-zzz {
+  display: none;
+}
+
+.couch__kit-zzz text {
+  font: 600 10px var(--cz-book);
+  animation: ck-zz 2.6s ease-in-out infinite;
+}
+
+.couch__kit-zzz text:nth-child(2) {
+  animation-delay: 0.9s;
+}
+
+@keyframes ck-zz {
+  0% {
+    opacity: 0;
+    transform: translate(0, 4px);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(6px, -8px);
+  }
+}
+
+.couch__kit-wings path {
+  transform-box: fill-box;
+  animation: ck-flap 0.5s ease-in-out infinite alternate;
+}
+
+.couch__kit-wings .is-l {
+  transform-origin: 100% 70%;
+}
+
+.couch__kit-wings .is-r {
+  transform-origin: 0 70%;
+  animation-name: ck-flap-r;
+}
+
+@keyframes ck-flap {
+  to {
+    transform: rotate(-18deg);
+  }
+}
+
+@keyframes ck-flap-r {
+  to {
+    transform: rotate(18deg);
+  }
+}
+
+.couch__kit-sparkle {
+  animation: ck-sparkle 1.2s ease-in-out infinite;
+}
+
+@keyframes ck-sparkle {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.couch__kit-tail {
+  transform-box: fill-box;
+  transform-origin: 0 0;
+  animation: ck-swish 3.2s ease-in-out infinite;
+}
+
+.couch__orb.is-eager .couch__kit-tail {
+  animation-duration: 1.1s;
+}
+
+@keyframes ck-swish {
+  50% {
+    transform: rotate(-4deg);
+  }
+}
+
+.couch__kit-bell {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+
+.couch__orb.is-eager .couch__kit-bell {
+  animation: ck-jingle 1.1s ease-in-out infinite;
+}
+
+@keyframes ck-jingle {
+  25% {
+    transform: rotate(10deg);
+  }
+  75% {
+    transform: rotate(-10deg);
+  }
+}
+
+/* ---- Tablets, the card, the mine ------------------------------------------------------------------- */
+
+.is-kitten .couch__tablet {
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--cz-pl1), var(--cz-pl2));
+  box-shadow:
+    inset 0 0 0 1.5px var(--cz-fr),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+  outline: 1.5px dashed rgba(242, 167, 195, 0.25);
+  outline-offset: -6px;
+}
+
+.is-kitten .couch__tablet:focus-visible {
+  outline: 1.5px solid var(--ck-rose);
+  outline-offset: 3px;
+}
+
+.is-kitten .couch__tablet svg {
+  color: var(--ck-rose);
+}
+
+.is-kitten .couch__tablet b {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.is-kitten .couch__tablet b small {
+  color: var(--cz-dim);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.is-kitten .couch__tablet > span {
+  color: var(--cz-dim);
+  font-size: 12.5px;
+}
+
+.is-kitten .couch__tablet > span em {
+  color: var(--cz-tx);
+}
+
+.is-kitten .couch__tablet.is-alert {
+  box-shadow:
+    inset 0 0 0 1.5px var(--cz-gold),
+    0 0 18px rgba(255, 210, 122, 0.3),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+  animation: ck-alert 2s ease-in-out infinite;
+}
+
+@keyframes ck-alert {
+  50% {
+    box-shadow:
+      inset 0 0 0 1.5px var(--cz-gold),
+      0 0 30px rgba(255, 210, 122, 0.55),
+      0 6px 14px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* The docked toast: a cushion with a cherry edge; paw prints count the transactions. */
+.is-kitten .couch__card {
+  --tone: var(--cz-blood);
+  --glow: rgba(255, 61, 127, 0.2);
+  gap: 3px;
+  padding: 11px 14px 12px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #3a1434, #1f0b22);
+  box-shadow:
+    inset 0 0 0 1.5px var(--tone),
+    0 0 30px -8px color-mix(in srgb, var(--tone) 55%, transparent),
+    0 8px 20px rgba(0, 0, 0, 0.5);
+  animation-name: ck-pop;
+  animation-timing-function: cubic-bezier(0.3, 1.6, 0.5, 1);
+  animation-duration: 0.35s;
+}
+
+@keyframes ck-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+}
+
+.is-kitten .couch__card::before {
+  border-radius: inherit;
+}
+
+.is-kitten .couch__card.is-done {
+  --tone: var(--ck-mint);
+  --glow: rgba(127, 227, 196, 0.18);
+}
+
+.is-kitten .couch__card.is-bad {
+  --tone: #ff5a6a;
+  --glow: rgba(255, 90, 106, 0.2);
+  box-shadow:
+    inset 0 0 0 1.5px var(--tone),
+    0 0 30px -8px rgba(255, 90, 106, 0.55),
+    0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.is-kitten .couch__card-hd b {
+  font-family: var(--ck-goth);
+  font-size: 21px;
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--tone) 45%, transparent);
+}
+
+.is-kitten .couch__card-hd span {
+  color: var(--cz-dim);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.is-kitten .couch__card-line {
+  color: #ffd9e8;
+  font-size: 13.5px;
+}
+
+.is-kitten .couch__card > .couch__card-hair {
+  position: relative;
+  inset: auto;
+  gap: 6px;
+  height: auto;
+  margin-top: 3px;
+}
+
+.is-kitten .couch__card-hair i {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+  -webkit-mask: var(--ck-paw) center / contain no-repeat;
+  mask: var(--ck-paw) center / contain no-repeat;
+  --ck-paw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-5 -5 10 10'%3E%3Ccircle cx='0' cy='1.6' r='2.5'/%3E%3Ccircle cx='-2.8' cy='-1.5' r='1.15'/%3E%3Ccircle cx='-1' cy='-3.3' r='1.15'/%3E%3Ccircle cx='1' cy='-3.3' r='1.15'/%3E%3Ccircle cx='2.8' cy='-1.5' r='1.15'/%3E%3C/svg%3E");
+}
+
+.is-kitten .couch__card-hair i.is-busy {
+  background: var(--cz-blood);
+}
+
+.is-kitten .couch__card-hair i.is-ok,
+.is-kitten .couch__card.is-done .couch__card-hair i {
+  background: var(--ck-mint);
+  box-shadow: none;
+}
+
+.is-kitten .couch__card-hair i.is-bad {
+  background: #ff5a6a;
+}
+
+/* The mine: a rounded bar that fills in solid rose, and glows when it brims. */
+.is-kitten .couch__mine {
+  border-radius: 999px;
+  background: #1d0b20;
+  box-shadow:
+    inset 0 0 0 1.5px var(--cz-fr),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+  color: #fff;
+}
+
+/* The fill always spans the whole bar inside its rim and is revealed from the left, so even a sliver
+   follows the bar's rounded end instead of being a tiny pill of its own. */
+.is-kitten .couch__mine-fill {
+  inset: 1.5px;
+  width: auto;
+  border-radius: 999px;
+  background: #cf6f97;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  -webkit-mask: linear-gradient(90deg, #000 calc(var(--f, 0) * 100%), transparent calc(var(--f, 0) * 100% + 4px));
+  mask: linear-gradient(90deg, #000 calc(var(--f, 0) * 100%), transparent calc(var(--f, 0) * 100% + 4px));
+  transition: none;
+}
+
+.is-kitten .couch__mine-fill::after {
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.22) 50%, transparent 65%) 0 0 / 200% 100%;
+  mix-blend-mode: normal;
+}
+
+.is-kitten .couch__mine.is-ready {
+  box-shadow:
+    inset 0 0 0 1.5px var(--ck-rose),
+    0 0 24px -4px rgba(242, 140, 180, 0.7),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.is-kitten .couch__mine.is-ready .couch__mine-fill {
+  background: #e07fa8;
+}
+
+.is-kitten .couch__mine svg {
+  color: #ffd9e8;
+}
+
+.is-kitten .couch__mine b {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  text-shadow: 0 1px 3px rgba(42, 6, 24, 0.7);
+}
+
+.is-kitten .couch__mine span {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 3px rgba(42, 6, 24, 0.7);
+}
+
+/* ---- Panels ---------------------------------------------------------------------------------------- */
+
+.is-kitten .couch__scrim {
+  background: rgba(15, 4, 18, 0.7);
+}
+
+.is-kitten .couch__tip {
+  border-radius: 24px;
+  background: linear-gradient(180deg, #2a1230, #160819);
+  box-shadow:
+    inset 0 0 0 1.5px var(--cz-fr),
+    0 20px 50px rgba(0, 0, 0, 0.8);
+}
+
+.is-kitten .couch__tip.is-out {
+  --tc: var(--cz-blood);
+}
+
+.is-kitten .couch__cn {
+  display: none;
+}
+
+.is-kitten .couch__tip header {
+  border-radius: 24px 24px 0 0;
+}
+
+.is-kitten .couch__tip h3 {
+  font-family: var(--ck-goth);
+  font-size: 28px;
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 14px color-mix(in srgb, var(--tc) 45%, transparent);
+}
+
+.is-kitten .couch__tip header small,
+.is-kitten .couch__tip li small,
+.is-kitten .couch__tip li.is-empty {
+  font-size: 13px;
+  font-style: normal;
+}
+
+.is-kitten .couch__div i {
+  width: 9px;
+  height: 8px;
+  background: currentColor;
+  clip-path: path('M4.5 8C-1.5 3.5 1 -1 4.5 2.2C8 -1 10.5 3.5 4.5 8Z');
+  transform: none;
+}
+
+.is-kitten .couch__x:hover,
+.is-kitten .couch__x:focus-visible {
+  color: var(--cz-tx);
+}
+
+.is-kitten .couch__tip li + li {
+  border-top-color: rgba(156, 90, 120, 0.3);
+}
+
+.is-kitten .couch__tip li b {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.is-kitten .couch__tip .t {
+  font-weight: 500;
+}
+
+.is-kitten .couch__tip .t .haul {
+  font-weight: 600;
+}
+
+.is-kitten .couch__tip li.is-home .t {
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.is-kitten .couch__tip .p {
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 61, 127, 0.14);
+  box-shadow: none;
+}
+
+.is-kitten .couch__tip .p i {
+  border-radius: inherit;
+  background: linear-gradient(90deg, #a8124a, var(--cz-blood));
+  box-shadow: 0 0 6px rgba(255, 61, 127, 0.5);
+}
+
+.is-kitten .couch__tip li.is-home .p i {
+  background: linear-gradient(90deg, #b5832e, var(--cz-gold));
+  box-shadow: 0 0 6px rgba(255, 210, 122, 0.5);
+}
+
+.is-kitten .couch__send {
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff4f8b, #c2185b);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 3px 10px rgba(255, 61, 127, 0.3);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  text-shadow: 0 1px 2px rgba(80, 0, 30, 0.5);
+}
+
+.is-kitten .couch__hold {
+  border-radius: 999px;
+  background: #1d0b20;
+  box-shadow: inset 0 0 0 1.5px var(--ck-rose);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.is-kitten .couch__hold i {
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c2185b, var(--cz-blood) 70%, var(--cz-lava));
+  box-shadow: 0 0 20px rgba(255, 61, 127, 0.5);
+}
+
+.is-kitten .couch__hold span {
+  text-shadow: 0 1px 3px rgba(42, 6, 24, 0.8);
+}
+
+.is-kitten .couch__warn {
+  color: #ff9ab0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch__star,
+  .couch__kit-zzz text,
+  .couch__kit-wings path,
+  .couch__kit-sparkle,
+  .couch__kit-tail,
+  .couch__kit-bell,
+  .is-kitten .couch__tablet.is-alert {
+    animation: none;
+  }
+
+  .couch__floaty {
+    display: none;
+  }
+}

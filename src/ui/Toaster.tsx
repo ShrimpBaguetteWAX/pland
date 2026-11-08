@@ -2,8 +2,10 @@ import { useToasts } from '@/components/toast'
 
 /** The floating messages: one per transaction, or one live row for a run of several. */
 export function Toaster() {
-  const { toasts, live, dismiss, close } = useToasts()
+  const { toasts, live, docked, dismiss, close } = useToasts()
   if (!toasts.length && !live.length) return null
+  // Couch mode shows the toasts itself, docked in place of its tablets.
+  if (docked) return null
   return (
     <div className="toasts" aria-live="polite">
       {live.map((t) => (

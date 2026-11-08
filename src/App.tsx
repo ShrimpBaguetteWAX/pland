@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { usePlayer, useRewardPool } from '@/data/game'
@@ -10,7 +10,7 @@ import { Army } from './ui/Army'
 import { Icon, type IconName } from './ui/icons'
 import { Blend } from './ui/Blend'
 import { Campaigns } from './ui/Campaigns'
-import { Console } from './ui/Console'
+import { BarActions } from './ui/BarActions'
 import { Forge } from './ui/Forge'
 import { Market } from './ui/Market'
 import { Settings } from './ui/Settings'
@@ -24,10 +24,12 @@ import { Toaster } from './ui/Toaster'
  * bar reads as the finished game will, and say they are still to come.
  */
 
-type Page = 'divisions' | 'missions' | 'campaigns' | 'forge' | 'market' | 'blend' | 'swap' | 'settings'
+type Page = 'divisions' | 'missions' | 'campaigns' | 'forge' | 'market' | 'blend' | 'swap' | 'settings' | 'couch'
 const PAGES: Record<string, Page> = { Divisions: 'divisions', Missions: 'missions', Campaigns: 'campaigns', Forge: 'forge', Market: 'market', Blend: 'blend', Swap: 'swap' }
 
-const ALL_PAGES: Page[] = ['divisions', 'missions', 'campaigns', 'forge', 'market', 'blend', 'swap', 'settings']
+const ALL_PAGES: Page[] = ['divisions', 'missions', 'campaigns', 'forge', 'market', 'blend', 'swap', 'settings', 'couch']
+/** Couch mode, the old deck's full-screen phone view: loaded (with its fonts and art) only when opened. */
+const Couch = lazy(() => import('./ui/Couch'))
 /** The page named in the address (#missions); Divisions when there is none or it is unknown. */
 function pageFromHash(): Page {
   const h = window.location.hash.replace('#', '') as Page
@@ -67,7 +69,8 @@ function AccountMenu({
   onConnect,
   onSignOut,
   onSettings,
-  onSwap
+  onSwap,
+  onCouch
 }: {
   account: string
   spectating: boolean
@@ -76,6 +79,7 @@ function AccountMenu({
   onSignOut: () => void
   onSettings: () => void
   onSwap: () => void
+  onCouch: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -135,6 +139,17 @@ function AccountMenu({
           >
             Swap · deposit · withdraw
           </button>
+          <button
+            type="button"
+            className="btn btn--sm me__couch"
+            onClick={() => {
+              setOpen(false)
+              onCouch()
+            }}
+          >
+            <b>Couch mode</b>
+            <small>Mine and loop from one calm screen</small>
+          </button>
           <span className="me__pool" title="TLM the missions contract (miss.pdef) holds for player rewards right now">
             <small>Left for player rewards</small>
             <b>{pool.data === undefined ? '…' : `${formatNumber(pool.data, 0)} TLM`}</b>
@@ -174,8 +189,8 @@ function AccountMenu({
 }
 
 function TopBar({ page, onPage }: { page: Page; onPage: (p: Page) => void }) {
-  const { account, spectating, login, logout } = useSession(
-    useShallow((s) => ({ account: s.account, spectating: s.spectating, login: s.login, logout: s.logout }))
+  const { account, restored, spectating, login, logout } = useSession(
+    useShallow((s) => ({ account: s.account, restored: s.restored, spectating: s.spectating, login: s.login, logout: s.logout }))
   )
   const player = usePlayer(account)
   const p = player.data
@@ -192,8 +207,9 @@ function TopBar({ page, onPage }: { page: Page; onPage: (p: Page) => void }) {
           </span>
         </div>
         <span className="bar__gap" />
+        {account && restored && <BarActions account={account} onMissions={() => onPage('missions')} />}
         {account ? (
-          <AccountMenu account={account} spectating={spectating} balances={p ? { tlm: p.tlm, def: p.def, wax: p.wax, forge: p.forgeLevel } : null} onConnect={() => void connectOwn(login)} onSignOut={() => void logout()} onSettings={() => onPage('settings')} onSwap={() => onPage('swap')} />
+          <AccountMenu account={account} spectating={spectating} balances={p ? { tlm: p.tlm, def: p.def, wax: p.wax, forge: p.forgeLevel } : null} onConnect={() => void connectOwn(login)} onSignOut={() => void logout()} onSettings={() => onPage('settings')} onSwap={() => onPage('swap')} onCouch={() => onPage('couch')} />
         ) : (
           <button type="button" className="btn btn--go" onClick={() => void login()}>
             <Icon name="wallet" />
@@ -239,11 +255,31 @@ export function App() {
   }, [])
   /** Pages opened so far this visit; each stays mounted from then on. */
   const [seen, setSeen] = useState<Set<Page>>(() => new Set([pageFromHash()]))
+  const couch = page === 'couch' && restored && !!account
+  // Where couch mode was opened from, so closing it goes back there (Missions when opened on its own).
+  const before = useRef<Page>(page === 'couch' ? 'missions' : page)
+  useEffect(() => {
+    if (page !== 'couch') before.current = page
+  }, [page])
+  // --bar-h follows the sticky header's real height (the bar and the menu), so
+  // sticky panels further down sit just below it.
+  const topRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = topRef.current
+    if (!el) return
+    const set = () => document.documentElement.style.setProperty('--bar-h', el.offsetHeight + 'px')
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   useEffect(() => setSeen((s) => (s.has(page) ? s : new Set([...s, page]))), [page])
   return (
     <div className="app">
-      <TopBar page={page} onPage={setPage} />
-      {restored && account && <Console account={account} onMissions={() => setPage('missions')} />}
+      {/* The bar (with Loop and Mine) and the menu stay on top while the page scrolls. */}
+      <div className="top" ref={topRef} hidden={couch}>
+        <TopBar page={page} onPage={setPage} />
+      </div>
       {!restored ? (
         <p className="wrap muted page-msg">Opening the deck…</p>
       ) : account ? (
@@ -305,6 +341,11 @@ export function App() {
             </button>
           </div>
         </section>
+      )}
+      {couch && (
+        <Suspense fallback={<p className="wrap muted page-msg">Opening couch mode…</p>}>
+          <Couch onClose={() => setPage(before.current)} />
+        </Suspense>
       )}
       <Toaster />
     </div>
