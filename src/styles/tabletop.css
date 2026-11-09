@@ -5325,3 +5325,24 @@ code {
     display: none;
   }
 }
+
+/* ---- Unstaking unused NFTs (Divisions, Wallet tab) ---- */
+.item__acts {
+  display: flex;
+  gap: 4px;
+}
+.unstake-all {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  font-size: 13px;
+}
+.unstake-all span {
+  flex: 1 1 100%;
+  font-weight: 600;
+}

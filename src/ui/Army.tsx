@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react'
 import type { AnyAction } from '@wharfkit/session'
 
-import { addUnit, assignGear, createDivision, deleteDivision, removeUnit, stakeAssets, unassignGear } from '@/chain/actions/pd'
+import { addUnit, assignGear, createDivision, deleteDivision, removeUnit, stakeAssets, unassignGear, unstakeAsset } from '@/chain/actions/pd'
 import { divisionAllowance } from '@/chain/config'
 import type { AssetRef } from '@/data/assets'
 import { useArmy, useDeployments, usePlayer, useWalletNfts, type Division, type Unit } from '@/data/game'
@@ -160,6 +160,8 @@ export function Army({ account }: { account: string }) {
   const [unitId, setUnitId] = useState<string | null>(null)
   const [kind, setKind] = useState<GearKind>('weapon')
   const [side, setSide] = useState<Side>('gear')
+  /** "Unstake all" asks once more before it sends everything unused back. */
+  const [confirmUnstakeAll, setConfirmUnstakeAll] = useState(false)
   const [confirmDisband, setConfirmDisband] = useState(false)
   /**
    * What is being dragged: a staked NFT from a list, or a mercenary out of its division. Kept in a
@@ -222,6 +224,8 @@ export function Army({ account }: { account: string }) {
   const stats = selected ? (selected.live ?? { atk: selected.atk, def: selected.def, move: selected.move }) : null
   const gearCount = crew.reduce((n, u) => n + GEAR_KINDS.filter((k) => u.gear[k]).length, 0)
   const walletCount = wallet.data?.length ?? 0
+  /** Staked NFTs in no division (and on no unit), the ones that can go back to the wallet. */
+  const unused = (['warlord', 'mercenary', ...GEAR_KINDS] as Kind[]).flatMap((k) => free[k])
 
   // ---- Transactions ------------------------------------------------------------------------------
 
@@ -333,6 +337,11 @@ export function Army({ account }: { account: string }) {
   }
   function stake(list: AssetRef[], what: string, key: string) {
     void run((a, p) => stakeAssets(a, p, list.map((x) => x.assetId)), `${what} staked`, key)
+  }
+  /** Sends unused staked NFTs back to the wallet: one action each, split over several transactions when many. */
+  async function unstake(list: AssetRef[], what: string, key: string) {
+    const ok = await run((a, p) => list.map((x) => unstakeAsset(a, p, x.assetId)), `${what} back in your wallet`, key, { split: true })
+    if (ok) setConfirmUnstakeAll(false)
   }
 
   /**
@@ -1086,6 +1095,83 @@ export function Army({ account }: { account: string }) {
                 <p className="help">Staking moves an NFT into the game so it can join a division. Unstaking brings it back any time it is not in one.</p>
               </>
             )}
+          </div>
+        )}
+
+        {side === 'stake' && !editing && (
+          <div className="box panel">
+            <h3 className="h">
+              Staked, unused
+              <small>in the game but in no division</small>
+            </h3>
+            {!!unused.length &&
+              (confirmUnstakeAll ? (
+                <div className="unstake-all">
+                  <span>Send all {unused.length} back to your wallet?</span>
+                  <button
+                    type="button"
+                    className="btn btn--go btn--sm"
+                    disabled={spectating || !!pending}
+                    onClick={() => void unstake(unused, `${unused.length} NFT${unused.length === 1 ? '' : 's'}`, 'unstake-all')}
+                  >
+                    {pending === 'unstake-all' ? 'Signing…' : 'Yes, unstake'}
+                  </button>
+                  <button type="button" className="btn btn--sm" disabled={pending === 'unstake-all'} onClick={() => setConfirmUnstakeAll(false)}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className="btn stake-all" disabled={spectating || !!pending} onClick={() => setConfirmUnstakeAll(true)}>
+                  Unstake all {unused.length}
+                </button>
+              ))}
+            <div className="items">
+              {(['warlord', 'mercenary', ...GEAR_KINDS] as Kind[]).map((k) => {
+                const list = free[k]
+                if (!list.length) return null
+                return (
+                  <div key={k} className="group">
+                    <span className="group__h">{k === 'warlord' ? 'Warlords' : k === 'mercenary' ? 'Mercenaries' : GEAR_LABEL[k as GearKind]}</span>
+                    {stacks(list, gearRank).map(({ first, all }) => (
+                      <div key={first.templateId} className="item" style={{ '--rc': rarityColor(first.rarity) } as CSSProperties}>
+                        <Portrait img={first.img} rarity={first.rarity} className="item__pic" />
+                        <span className="item__text">
+                          <b>
+                            {first.name}
+                            {all.length > 1 && <em className="times">×{all.length}</em>}
+                          </b>
+                          <small className="cap">{first.rarity || 'common'}</small>
+                        </span>
+                        <span className="item__acts">
+                          <button
+                            type="button"
+                            className="btn btn--sm"
+                            disabled={spectating || !!pending}
+                            title={`Unstake one ${first.name}`}
+                            onClick={() => void unstake([first], first.name, `unstake-${first.assetId}`)}
+                          >
+                            {pending === `unstake-${first.assetId}` ? '…' : all.length > 1 ? '1' : 'Unstake'}
+                          </button>
+                          {all.length > 1 && (
+                            <button
+                              type="button"
+                              className="btn btn--sm"
+                              disabled={spectating || !!pending}
+                              title={`Unstake all ${all.length} ${first.name}`}
+                              onClick={() => void unstake(all, `${all.length} × ${first.name}`, `unstake-${first.templateId}`)}
+                            >
+                              {pending === `unstake-${first.templateId}` ? '…' : `All ${all.length}`}
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+              {!unused.length && <p className="none">Every staked NFT is in a division. Take one out (or disband a division) and it shows up here.</p>}
+            </div>
+            <p className="help">Only NFTs in no division can go back. A mercenary or gear in a division has to leave it first.</p>
           </div>
         )}
       </aside>
