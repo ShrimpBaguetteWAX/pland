@@ -4144,8 +4144,20 @@ code {
   color: var(--dim);
 }
 
-/* ---- Loop and Mine in the top bar: each button is its own progress bar ---- */
+/* ---- Loop and Mine in the top bar: two-line keys in honey, each its own progress bar ---- */
 .bact {
+  --hk-bg: #fbf6ea;
+  --hk-ledge: #e6d6b0;
+  --hk-ink: #1e2a40;
+  --hk-sub: #7a6334;
+  --hk-fill: rgba(233, 162, 39, 0.2);
+  --hk-edge: #d9931b;
+  --hk-go: #f6c24a;
+  --hk-go-ink: #3a2a08;
+  --hk-go-sub: #5c4510;
+  --hk-go-ledge: #cf9318;
+  --hk-busy: #fdf0cc;
+  --hk-busy-ink: #8a6210;
   display: flex;
   gap: 8px;
   flex: none;
@@ -4157,27 +4169,32 @@ code {
   position: relative;
   overflow: hidden;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 14px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  height: 46px;
+  min-width: 178px;
+  padding: 0 12px;
   border-radius: 12px;
-  background: var(--panel-2);
-  box-shadow: 0 3px 0 var(--ledge);
+  background: var(--hk-bg);
+  box-shadow: 0 3px 0 var(--hk-ledge);
   font-weight: 600;
   font-size: 13px;
-  color: var(--ink);
+  color: var(--hk-ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-/* The fill: amber, growing left to right towards ready. */
+.bact__b--mine {
+  min-width: 198px;
+}
+/* The fill: gold, growing left to right towards ready. */
 .bact__b::before {
   content: '';
   position: absolute;
   inset: 0 auto 0 0;
   width: calc(var(--f, 0) * 100%);
-  background: color-mix(in srgb, var(--move) 16%, transparent);
-  border-right: 2px solid var(--move);
+  background: var(--hk-fill);
+  border-right: 2px solid var(--hk-edge);
   transition: width 0.9s linear;
 }
 .bact__b[style*='--f: 0;']::before {
@@ -4186,11 +4203,16 @@ code {
 .bact__b > * {
   position: relative;
 }
+.bact__r1 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
 .bact__b em {
+  margin-left: auto;
   font-style: normal;
-  font-weight: 400;
-  font-size: 12px;
-  color: var(--dim);
+  font-weight: 600;
+  font-size: 13px;
 }
 .bact__n {
   min-width: 18px;
@@ -4198,69 +4220,188 @@ code {
   padding: 0 5px;
   box-sizing: border-box;
   border-radius: 9px;
-  background: var(--ink);
-  color: var(--panel);
+  background: var(--hk-ink);
+  color: var(--hk-bg);
   font-size: 10.5px;
   display: grid;
   place-items: center;
 }
+.bact__r2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--hk-sub);
+}
+.bact__land {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+/* The loop timeline: a dot per division at its return, gold once back, the next ringed, a hairline at now. */
+.bact__tl {
+  position: relative;
+  display: block;
+  flex: 1;
+  height: 8px;
+}
+.bact__tl::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  background: rgba(58, 42, 8, 0.16);
+}
+.bact__tl i {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: #b9a57a;
+}
+.bact__tl i.is-back {
+  background: var(--hk-edge);
+}
+.bact__tl i.is-next {
+  background: transparent;
+  box-shadow: 0 0 0 2px var(--hk-go-ink);
+}
+.bact__tl b {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--hk-go-ink);
+}
+/* Mine's cooldown line and its "better land" hint. */
+.bact__cool {
+  position: relative;
+  display: block;
+  flex: 1;
+  min-width: 24px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(58, 42, 8, 0.16);
+  overflow: hidden;
+}
+.bact__cool i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--hk-edge);
+}
+.bact__up {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  font-weight: 600;
+  color: #1d6b4c;
+}
+.bact__spin {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: bact-spin 0.8s linear infinite;
+}
+@keyframes bact-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .bact__b:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--hk-edge);
   outline-offset: 2px;
 }
 .bact__b:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
-/* Ready: the fill goes, the button turns coral and pulses softly. */
+/* Ready: the fill goes and the key turns honey yellow with dark text. */
 .bact__b.is-go {
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 0 3px 0 var(--accent-ledge);
+  background: var(--hk-go);
+  color: var(--hk-go-ink);
+  box-shadow: 0 3px 0 var(--hk-go-ledge);
 }
 .bact__b.is-go::before,
 .bact__b.is-busy::before {
   display: none;
 }
-.bact__b.is-go em {
-  color: var(--accent-ink);
-  opacity: 0.85;
+.bact__b.is-go .bact__r2 {
+  color: var(--hk-go-sub);
 }
 .bact__b.is-go .bact__n {
-  background: var(--accent-ink);
-  color: var(--accent);
+  background: var(--hk-go-ink);
+  color: var(--hk-go);
+}
+.bact__b.is-go .bact__tl::before {
+  background: rgba(58, 42, 8, 0.2);
+}
+.bact__b.is-go .bact__tl i {
+  background: rgba(58, 42, 8, 0.35);
+}
+.bact__b.is-go .bact__tl i.is-back {
+  background: #fff;
+}
+.bact__b.is-go .bact__tl i.is-next {
+  background: transparent;
 }
 .bact__b.is-busy {
   cursor: progress;
-  background: var(--accent-soft);
-  color: var(--accent-ledge);
+  background: var(--hk-busy);
+  color: var(--hk-busy-ink);
 }
-.bact__b.is-busy em {
-  color: var(--accent-ledge);
+.bact__b.is-busy .bact__r2 {
+  color: var(--hk-busy-ink);
+  opacity: 0.85;
 }
 @media (prefers-reduced-motion: no-preference) {
   .bact__b.is-go {
     animation: bact-nudge 2.4s ease-in-out infinite;
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .bact__spin {
+    animation: none;
+  }
+}
 @keyframes bact-nudge {
   0%,
   100% {
-    box-shadow: 0 3px 0 var(--accent-ledge), 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+    box-shadow: 0 3px 0 var(--hk-go-ledge), 0 0 0 0 rgba(246, 194, 74, 0.5);
   }
   50% {
-    box-shadow: 0 3px 0 var(--accent-ledge), 0 0 0 6px transparent;
+    box-shadow: 0 3px 0 var(--hk-go-ledge), 0 0 0 6px transparent;
   }
 }
-/* A phone: the countdown alone while it fills, the label alone once ready. */
+/* A phone: one line, the countdown alone while it fills, the label alone once ready. */
 @media (max-width: 640px) {
   .bact {
     gap: 6px;
   }
-  .bact__b {
+  .bact__b,
+  .bact__b--mine {
+    height: 38px;
+    min-width: 0;
     padding: 0 11px;
+  }
+  .bact__r1 {
     gap: 6px;
   }
+  .bact__r2,
   .bact__b:not(.is-go):not(.is-busy) .bact__lab,
   .bact__b.is-go em,
   .bact__n {

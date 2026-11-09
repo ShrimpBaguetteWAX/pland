@@ -7,13 +7,18 @@ import { useMining, type MineBlock } from '@/mining/useMining'
 import { Icon } from './icons'
 
 /*
- * Loop and Mine in the top bar: the two things in the game that run on a timer, one button each.
- * The button is its own progress bar: an amber fill grows behind the label while the next division
- * heads home or the tools cool down, with the countdown beside it. When it is ready the fill goes,
- * the button turns coral and shows what it brings (the divisions back and their TLM, the mine's
- * estimate), and a tap does it. While a run signs it says so and counts the transactions. Ticks once
- * a second, on its own, so the rest of the page does not.
+ * Loop and Mine in the top bar: the two things in the game that run on a timer, one two-line key
+ * each, in honey. The key is its own progress bar: a gold fill grows behind it while the next
+ * division heads home or the tools cool down. Top line: the action, then the countdown or what it
+ * brings (the divisions back and their TLM, the mine's estimate). Underneath, as on the old deck:
+ * for Loop a timeline with a dot per division at its return (gold once back, the next one ringed,
+ * a hairline at now); for Mine the land it mines on, with the cooldown line or the "better land"
+ * hint. Ready, the key turns honey yellow and a tap does it. While a run signs it says so and counts
+ * the transactions. On a phone only the top line shows. Ticks once a second, on its own.
  */
+
+/** The timeline never spans less than this, so it is never a single point. */
+const MIN_WINDOW_MS = 60_000
 
 const BLOCKED: Record<MineBlock, string> = {
   'signed-out': 'Connect your wallet to mine',
@@ -100,6 +105,15 @@ export function BarActions({ account, onMissions }: { account: string; onMission
 
   if (!f.loaded && m.block === 'loading') return null
 
+  // The timeline runs from when the earliest division still out left to the latest return, so the
+  // hairline at now travels along it; with every division back, from the earliest departure to now.
+  const anchors = running.length ? running : field
+  const start = anchors.length ? Math.min(...anchors.map((d) => d.joinedAt)) : now
+  const end = Math.max(start + MIN_WINDOW_MS, now, ...field.map((d) => d.unlockAt))
+  const pos = (t: number) => `${Math.round(Math.min(1, Math.max(0, (t - start) / (end - start))) * 1000) / 10}%`
+  const dots = [...field].sort((a, b) => a.unlockAt - b.unlockAt)
+  const shownLabel = !ready.length && !loopBusy && next ? 'Next back' : loopLabel
+
   return (
     <div className="bact" aria-live="polite">
       <button
@@ -107,26 +121,57 @@ export function BarActions({ account, onMissions }: { account: string; onMission
         className={`bact__b${loopGo ? ' is-go' : loopBusy ? ' is-busy' : ''}`}
         style={{ '--f': loopFill } as React.CSSProperties}
         title={loopTitle}
-        aria-label={`${loopLabel}${loopNote ? `, ${loopNote}` : ''}`}
+        aria-label={`${shownLabel}${loopNote ? `, ${loopNote}` : ''}`}
         onClick={onLoop}
       >
-        <Icon name={claimOnly ? 'gift' : 'rocket'} size={15} />
-        <span className="bact__lab">{loopLabel}</span>
-        {loopNote && <em>{loopNote}</em>}
-        {field.length > 0 && !loopBusy && <span className="bact__n">{field.length}</span>}
+        <span className="bact__r1">
+          {loopBusy ? <span className="bact__spin" /> : <Icon name={claimOnly ? 'gift' : 'rocket'} size={15} />}
+          <span className="bact__lab">{shownLabel}</span>
+          {loopNote && <em>{loopNote}</em>}
+          {field.length > 0 && !loopBusy && <span className="bact__n">{field.length}</span>}
+        </span>
+        <span className="bact__r2" aria-hidden="true">
+          <span className="bact__tl">
+            {dots.map((d) => (
+              <i
+                key={d.divisionId}
+                className={d.unlockAt <= now ? 'is-back' : d.divisionId === next?.divisionId ? 'is-next' : ''}
+                style={{ left: pos(d.unlockAt) }}
+              />
+            ))}
+            {field.length > 0 && <b style={{ left: pos(now) }} />}
+          </span>
+        </span>
       </button>
       <button
         type="button"
-        className={`bact__b${mineGo ? ' is-go' : m.busy ? ' is-busy' : ''}`}
+        className={`bact__b bact__b--mine${mineGo ? ' is-go' : m.busy ? ' is-busy' : ''}`}
         style={{ '--f': mineFill } as React.CSSProperties}
         title={mineTitle}
         aria-label={`Mine${mineNote ? `, ${mineNote}` : ''}`}
         disabled={!!m.block && m.block !== 'loading'}
         onClick={() => mineGo && void m.mine()}
       >
-        <Icon name="flame" size={15} />
-        <span className="bact__lab">{m.busy ? 'Mining…' : 'Mine'}</span>
-        {mineNote && <em>{mineNote}</em>}
+        <span className="bact__r1">
+          {m.busy ? <span className="bact__spin" /> : <Icon name="flame" size={15} />}
+          <span className="bact__lab">{m.busy ? 'Mining' : 'Mine'}</span>
+          {(mineNote || m.busy) && <em>{m.busy ? 'proof of work' : mineNote}</em>}
+        </span>
+        <span className="bact__r2" aria-hidden="true">
+          <span className="bact__land">{m.block ? BLOCKED[m.block] : (m.pick?.landName ?? '…')}</span>
+          {!m.block && !m.busy && m.cooling ? (
+            <span className="bact__cool">
+              <i style={{ width: `${Math.round(m.progress * 1000) / 10}%` }} />
+            </span>
+          ) : !m.block && !m.busy && m.upgrade ? (
+            <span className="bact__up">
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor">
+                <path d="M5 1l4 5H6v3H4V6H1z" />
+              </svg>
+              {clock(m.upgrade.at - now)}
+            </span>
+          ) : null}
+        </span>
       </button>
     </div>
   )
