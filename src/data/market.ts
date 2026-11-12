@@ -119,3 +119,20 @@ export function useSwapPools(): UseQueryResult<SwapPools> {
     refetchInterval: 60_000
   })
 }
+
+// ---- NFT floors ---------------------------------------------------------------------------------------
+
+/**
+ * The cheapest WAX listing per template (the floor), for valuing NFT rewards. Templates with no
+ * listing are missing from the map. Kept five minutes.
+ */
+export function useNftFloors(templateIds: string[]): UseQueryResult<Map<string, number>> {
+  const ids = [...new Set(templateIds)].sort()
+  return useQuery({
+    queryKey: ['nft-floors', ids.join(',')],
+    queryFn: () => atomic.getCheapestListings(ids),
+    enabled: ids.length > 0,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000
+  })
+}

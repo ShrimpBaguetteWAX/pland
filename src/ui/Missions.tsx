@@ -6,6 +6,8 @@ import { costParts, cycleSeconds, isTokenLoop, meetsRequirements, rewardParts, t
 import { chainDate, shortDuration } from '@/lib/time'
 import { useField } from '@/lib/useField'
 import { useMarket, useRewardPool } from '@/data/game'
+import { useNftFloors, useSwapPools } from '@/data/market'
+import { receiveFor } from '@/lib/pool'
 
 import { Portrait, rarityColor } from './Art'
 import { Icon } from './icons'
@@ -56,10 +58,10 @@ interface Row {
 }
 
 /** The efficiency score in a ring filled to its share of the best one in the list. */
-function EffRing({ score, share }: { score: number; share: number }) {
+function EffRing({ score, share, note }: { score: number; share: number; note?: string }) {
   const r = Math.max(0, Math.min(1, share))
   return (
-    <span className={`effring${score < 0 ? ' is-neg' : ''}`} title={`${formatNumber(score, 2)} TLM / h for every 100 points of strength the mission asks for`}>
+    <span className={`effring${score < 0 ? ' is-neg' : ''}`} title={`${formatNumber(score, 2)} TLM / h for every 100 points of strength the mission asks for${note ? `. ${note}` : ''}`}>
       <svg viewBox="0 0 48 48" aria-hidden="true">
         <circle cx="24" cy="24" r={RING_R} className="effring__track" />
         {r > 0 && <circle cx="24" cy="24" r={RING_R} className="effring__fill" strokeDasharray={`${RING_C * r} ${RING_C}`} />}
@@ -129,6 +131,31 @@ export function Missions({ account, spectating }: { account: string; spectating:
     return strength > 0 ? Math.min(MOVE_MAX, Math.round((divisions.reduce((n, d) => n + d.move, 0) / strength) * 100)) : MOVE_DEFAULT
   }, [divisions])
 
+  // NFT rewards are valued at the floor (the cheapest WAX listing of the template), then as TLM
+  // through the WAX → TLM pool, so NFT missions get an efficiency too.
+  const pools = useSwapPools()
+  const nftIds = useMemo(() => [...econ.values()].flatMap((e) => (e.rewardNft ? [String(e.rewardNft.templateId)] : [])), [econ])
+  const floors = useNftFloors(nftIds)
+  /** The TLM a mission's NFT reward is worth per cycle; 0 without one, null while its floor is unknown. */
+  const nftTlm = useMemo(() => {
+    const tlmPool = pools.data?.tlm
+    return (e: MissionEconomics): number | null => {
+      if (!e.rewardNft) return 0
+      const wax = floors.data?.get(String(e.rewardNft.templateId))
+      if (wax === undefined || !tlmPool) return null
+      return receiveFor(tlmPool, 'WAX', wax * e.rewardNft.count)
+    }
+  }, [floors.data, pools.data])
+
+  /** How an NFT reward was valued, for the efficiency tooltip. */
+  const nftNote = (e: MissionEconomics): string | undefined => {
+    if (!e.rewardNft) return undefined
+    const wax = floors.data?.get(String(e.rewardNft.templateId))
+    const tlm = nftTlm(e)
+    if (wax === undefined || tlm === null) return floors.isLoading ? 'Reading the NFT floor…' : 'The NFT has no listing, so it is not counted'
+    return `The NFT counts at its floor: ${formatNumber(wax, 2)} WAX${e.rewardNft.count > 1 ? ` each, ×${e.rewardNft.count}` : ''} ≈ ${formatNumber(tlm, 1)} TLM a cycle (the cheapest listing, before market fees)`
+  }
+
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = []
     const group = chosen.length ? chosen : home
@@ -141,7 +168,10 @@ export function Missions({ account, spectating }: { account: string; spectating:
       const perHour = counted.length ? counted.reduce((n, d) => n + tlmPerHour(e, d.move, market), 0) : null
       const need = Math.max(e.minAtk, e.minDef)
       const assumed = Math.round((need * movePer100) / 100)
-      const efficiency = need > 0 && isTokenLoop(e) ? (tlmPerHour(e, assumed, market) / need) * 100 : null
+      // Tokens after swaps, plus the NFT at its floor when it has one; an NFT-only mission waits for its floor.
+      const nft = nftTlm(e)
+      const nftPerHour = nft && cycleSeconds(e, assumed) > 0 ? (nft / cycleSeconds(e, assumed)) * 3600 : 0
+      const efficiency = need > 0 && (isTokenLoop(e) || nft !== null && nft > 0) ? ((tlmPerHour(e, assumed, market) + nftPerHour) / need) * 100 : null
       const mine = field.filter((d) => d.missionId === e.id)
       const missing = chosen.filter((d) => !meetsRequirements(e, d.atk, d.def))
       const short =
@@ -171,7 +201,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
     })
     // What the picked divisions earn first; missions they cannot take after, by efficiency.
     return shown.sort((a, b) => Number(b.fits) - Number(a.fits) || (b.perHour ?? -1e9) - (a.perHour ?? -1e9) || (b.efficiency ?? -1e9) - (a.efficiency ?? -1e9) || a.e.title.localeCompare(b.e.title))
-  }, [econ, home, chosen, market, movePer100, field, now, filter])
+  }, [econ, home, chosen, market, movePer100, field, now, filter, nftTlm])
   const bestEfficiency = rows.reduce((n, r) => Math.max(n, r.efficiency ?? 0), 0)
 
   // The whole game's flow per hour, from every player's divisions still running (as on the old deck):
@@ -350,7 +380,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
                     </>
                   )}
                 </td>
-                <td>{efficiency === null ? <span className="muted">—</span> : <EffRing score={efficiency} share={bestEfficiency > 0 ? efficiency / bestEfficiency : 0} />}</td>
+                <td>{efficiency === null ? <span className="muted">—</span> : <EffRing score={efficiency} share={bestEfficiency > 0 ? efficiency / bestEfficiency : 0} note={nftNote(e)} />}</td>
                 <td className="num mt__ends">{endsCell(e)}</td>
                 <td className="num">
                   {out ? (
