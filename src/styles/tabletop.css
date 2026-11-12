@@ -5487,3 +5487,10 @@ code {
   flex: 1 1 100%;
   font-weight: 600;
 }
+
+/* Missions: what each mission pays out per day to every division out on it. */
+.mt__out {
+  font-size: 12.5px;
+  line-height: 1.35;
+  white-space: nowrap;
+}

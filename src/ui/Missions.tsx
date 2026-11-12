@@ -69,6 +69,26 @@ function EffRing({ score, share }: { score: number; share: number }) {
   )
 }
 
+/** A per-day amount, short: 4,120 · 312 · 8.4 · 0.36. */
+const perDayNum = (n: number) => formatNumber(n, n >= 100 ? 0 : n >= 10 ? 1 : 2)
+
+/** What a mission pays out per day to every division out on it now (cycles per day × its reward). */
+function outputCell(e: MissionEconomics, perDay: number) {
+  if (perDay <= 0) return <span className="muted">—</span>
+  const parts: string[] = []
+  if (e.rewardTlm > 0) parts.push(`${perDayNum(e.rewardTlm * perDay)} TLM`)
+  if (e.rewardDef > 0) parts.push(`${perDayNum(e.rewardDef * perDay)} DEF`)
+  if (e.rewardNft) parts.push(`${perDayNum(e.rewardNft.count * perDay)} NFTs`)
+  if (e.rewardShards > 0) parts.push(`${perDayNum(e.rewardShards * perDay)} shards`)
+  if (!parts.length) return <span className="muted">—</span>
+  return parts.map((p, i) => (
+    <span key={p}>
+      {i > 0 && <br />}
+      {p}
+    </span>
+  ))
+}
+
 export function Missions({ account, spectating }: { account: string; spectating: boolean }) {
   const army = useArmy(account)
   const market = useMarket()
@@ -161,17 +181,17 @@ export function Missions({ account, spectating }: { account: string; spectating:
   const flowIds = useMemo(() => open.filter((e) => e.joined > 0).map((e) => e.id), [open])
   const entries = useMissionEntries(flowIds)
   const flow = useMemo(() => {
-    const t = { divisions: 0, atk: 0, def: 0, tlmIn: 0, defIn: 0, tlmOut: 0, defOut: 0 }
-    /** Per mission: the players with a division still out on it, and those divisions. */
-    const crowd = new Map<number, { players: number; divisions: number }>()
+    const t = { divisions: 0, atk: 0, def: 0, tlmIn: 0, defIn: 0, tlmOut: 0, defOut: 0, chestsOut: 0 }
+    /** Per mission: the divisions still out on it, their players, and its cycles per day (to price its output). */
+    const crowd = new Map<number, { players: number; divisions: number; perDay: number }>()
     for (const e of open) {
       const list = (entries.data?.get(e.id) ?? []).filter((r) => +chainDate(r.unlock_time) > now)
       if (!list.length) continue
-      crowd.set(e.id, { players: new Set(list.map((r) => r.owner)).size, divisions: list.length })
       const cycles = list.reduce((n, r) => {
         const ms = +chainDate(r.unlock_time) - +chainDate(r.join_time)
         return ms > 0 ? n + 3_600_000 / ms : n
       }, 0)
+      crowd.set(e.id, { players: new Set(list.map((r) => r.owner)).size, divisions: list.length, perDay: cycles * 24 })
       t.divisions += list.length
       for (const r of list) {
         t.atk += Number(r.atk) || 0
@@ -181,6 +201,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
       t.defIn += cycles * e.costDef
       t.tlmOut += cycles * e.rewardTlm
       t.defOut += cycles * e.rewardDef
+      if (e.rewardNft) t.chestsOut += cycles * e.rewardNft.count
     }
     return { ...t, crowd }
   }, [open, entries.data, now])
@@ -288,10 +309,10 @@ export function Missions({ account, spectating }: { account: string; spectating:
                       return c ? (
                         <span
                           className="mt__crowd"
-                          title={`${c.players} player${c.players === 1 ? ' has' : 's have'} ${c.divisions} division${c.divisions === 1 ? '' : 's'} out on this mission right now, your own counted too. Divisions back and waiting for the claim are not counted.`}
+                          title={`${c.divisions} division${c.divisions === 1 ? '' : 's'} out on this mission right now, from ${c.players} player${c.players === 1 ? '' : 's'}, your own counted too. Divisions back and waiting for the claim are not counted.`}
                         >
-                          <Icon name="users" size={12} />
-                          {formatNumber(c.players, 0)}
+                          <Icon name="army" size={12} />
+                          {formatNumber(c.divisions, 0)}
                         </span>
                       ) : null
                     })()}
@@ -318,6 +339,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
                   )}
                 </td>
                 <td>{rewardParts(e).join(' + ') || '—'}</td>
+                <td className="num mt__out">{outputCell(e, flow.crowd.get(e.id)?.perDay ?? 0)}</td>
                 <td className="num mt__rate">
                   {perHour === null ? (
                     <span className="muted">—</span>
@@ -354,14 +376,14 @@ export function Missions({ account, spectating }: { account: string; spectating:
   const tbody = soon.length ? (
     <>
       <tr className="mt__group">
-        <td colSpan={9}>
+        <td colSpan={10}>
           <em>Ending this week</em> · {soon.length} mission{soon.length === 1 ? '' : 's'}
         </td>
       </tr>
       {soon.map(renderRow)}
       {later.length > 0 && (
         <tr className="mt__group">
-          <td colSpan={9}>Later</td>
+          <td colSpan={10}>Later</td>
         </tr>
       )}
       {later.map(renderRow)}
@@ -378,15 +400,20 @@ export function Missions({ account, spectating }: { account: string; spectating:
             ['Divisions out', flow.divisions, '', "Every player's divisions still running on an open mission right now; those back and waiting for the claim are not counted."],
             ['Attack out', flow.atk, 'c-atk', 'The attack of all those divisions together, as each had it when it joined.'],
             ['Defense out', flow.def, 'c-def', 'The defense of all those divisions together, as each had it when it joined.'],
-            ['TLM demand / h', flow.tlmIn, '', 'TLM paid in entry fees per hour if every division out joins its mission again as soon as its cycle ends.'],
+            [
+              drain >= 0 ? 'TLM deficit / h' : 'TLM surplus / h',
+              Math.abs(drain),
+              drain > 0 ? 'c-bad' : 'c-good',
+              `TLM per hour if every division out joins its mission again as soon as its cycle ends: the missions pay out ${formatNumber(flow.tlmOut, 0)} TLM and take in ${formatNumber(flow.tlmIn, 0)} TLM in entry fees, so the reward pool ${drain >= 0 ? `loses ${formatNumber(drain, 0)}` : `gains ${formatNumber(-drain, 0)}`} TLM an hour.`
+            ],
             ['DEF demand / h', flow.defIn, 'c-def', 'DEF paid in entry fees per hour if every division out joins its mission again as soon as its cycle ends.'],
-            ['TLM payout / h', flow.tlmOut, '', 'TLM the missions pay out per hour to the divisions out now, each on its own cycle.'],
-            ['DEF payout / h', flow.defOut, 'c-def', 'DEF the missions pay out per hour to the divisions out now, each on its own cycle.']
+            ['DEF payout / h', flow.defOut, 'c-def', 'DEF the missions pay out per hour to the divisions out now, each on its own cycle.'],
+            ['Chests / h', flow.chestsOut, '', 'NFT chests the missions pay out per hour to the divisions out now, each on its own cycle.']
           ] as const
         ).map(([label, value, tone, help]) => (
           <div key={label} className="mis__fig" title={help}>
             <small className={tone}>{label}</small>
-            <b>{flowReady ? formatNumber(value, 0) : '…'}</b>
+            <b>{flowReady ? formatNumber(value, value > 0 && value < 10 ? 1 : 0) : '…'}</b>
           </div>
         ))}
         <div
@@ -532,6 +559,9 @@ export function Missions({ account, spectating }: { account: string; spectating:
                 <th>Needs</th>
                 <th>Holds for</th>
                 <th>Pays</th>
+                <th className="num" title="What this mission pays out per day to every division out on it now, from all players: each division is counted as rejoining as soon as its cycle ends.">
+                  Out / day
+                </th>
                 <th className="num" title={chosen.length ? 'Net TLM per hour of the picked divisions together on this mission, after swaps' : 'Net TLM per hour for the quickest home division that fits'}>
                   TLM / h
                 </th>
@@ -551,7 +581,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
               {tbody}
               {!rows.length && (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={10}>
                     <p className="none">{filter === 'fits' ? (chosen.length ? 'No open mission that all picked divisions meet. Pick fewer, or try All.' : home.length ? 'No open mission any home division meets.' : 'Nothing at home to send.') : 'No mission matches.'}</p>
                   </td>
                 </tr>
