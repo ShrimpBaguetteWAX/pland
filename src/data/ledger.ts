@@ -23,7 +23,7 @@ import { getRows } from '@/chain/rpc'
  * counted either.
  */
 
-export type Category = 'nft' | 'forge-level' | 'forge-slot' | 'forge-other' | 'entry' | 'mission' | 'v2' | 'sale'
+export type Category = 'nft' | 'forge-level' | 'forge-slot' | 'forge-other' | 'entry' | 'mission' | 'v2' | 'sale' | 'def-buy' | 'def-sell'
 export type Token = 'WAX' | 'TLM' | 'DEF'
 
 export interface LedgerEntry {
@@ -45,7 +45,9 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   entry: 'Mission entry fees',
   mission: 'Mission rewards',
   v2: 'Old game rewards (V2)',
-  sale: 'NFTs sold'
+  sale: 'NFTs sold',
+  'def-buy': 'DEF bought on Alcor',
+  'def-sell': 'DEF sold on Alcor'
 }
 
 const COLLECTION = 'planetdefnft'
@@ -246,15 +248,59 @@ async function buyofferEntry(account: string, pay: HistoryAction): Promise<Ledge
   return transferEntry(pay, 'sale', 'in', `Buy offer: ${names}`)
 }
 
+/**
+ * DEF bought and sold on Alcor. DEF itself is not money the ledger counts: what counts is the WAX
+ * or TLM paid for it when it is bought, and the WAX or TLM it brings when it is sold. Every token
+ * moving between the account and Alcor's swap contract is summed per transaction (an exact-out buy
+ * gets its change back in the same transaction); a transaction that gains DEF for WAX or TLM is a
+ * buy, one that gives DEF for WAX or TLM a sale. Anything else (adding liquidity) is left out.
+ */
+async function swapEntries(account: string): Promise<LedgerEntry[]> {
+  const filter = 'eosio.token:transfer,alien.worlds:transfer,defensetoken:transfer'
+  const [sent, got] = await Promise.all([
+    getActions(account, { filter, 'transfer.from': account, 'transfer.to': CONTRACTS.ALCOR_SWAP }, LEDGER_HISTORY_PAGES),
+    getActions(account, { filter, 'transfer.from': CONTRACTS.ALCOR_SWAP, 'transfer.to': account }, LEDGER_HISTORY_PAGES)
+  ])
+  const byTrx = new Map<string, { time: number; net: Record<Token, number> }>()
+  const add = (a: HistoryAction, sign: 1 | -1) => {
+    const q = tokenOf(a.act.data.quantity)
+    // Only the real tokens: a fake "TLM" or "DEF" from another contract does not count.
+    const real = { WAX: 'eosio.token', TLM: 'alien.worlds', DEF: 'defensetoken' } as const
+    if (!q || a.act.account !== real[q.token]) return
+    const t = byTrx.get(a.trx_id) ?? { time: chainTime(a['@timestamp']), net: { WAX: 0, TLM: 0, DEF: 0 } }
+    t.net[q.token] += sign * q.amount * timesRun(a)
+    byTrx.set(a.trx_id, t)
+  }
+  for (const a of sent) add(a, -1)
+  for (const a of got) add(a, 1)
+  const out: LedgerEntry[] = []
+  const eps = 1e-9
+  for (const [trx, { time, net }] of byTrx) {
+    const def = net.DEF
+    const paid = (['WAX', 'TLM'] as const).filter((k) => net[k] < -eps)
+    const received = (['WAX', 'TLM'] as const).filter((k) => net[k] > eps)
+    if (def > eps && paid.length && !received.length)
+      for (const k of paid)
+        out.push({ id: `${trx}:def-buy:${k}`, time, category: 'def-buy', direction: 'out', token: k, amount: -net[k], note: `Bought ${formatDef(def)} DEF` })
+    else if (def < -eps && received.length && !paid.length)
+      for (const k of received)
+        out.push({ id: `${trx}:def-sell:${k}`, time, category: 'def-sell', direction: 'in', token: k, amount: net[k], note: `Sold ${formatDef(-def)} DEF` })
+  }
+  return out
+}
+
+const formatDef = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+
 /** Every entry for an account, oldest first. */
 export async function fetchLedger(account: string): Promise<LedgerEntry[]> {
-  const [tokens, market, buyoffers] = await Promise.all([
+  const [tokens, market, buyoffers, swaps] = await Promise.all([
     tokenEntries(account),
     marketEntries(account),
-    buyofferEntries(account).catch(() => [] as LedgerEntry[])
+    buyofferEntries(account).catch(() => [] as LedgerEntry[]),
+    swapEntries(account)
   ])
   const seen = new Set<string>()
-  return [...tokens, ...market, ...buyoffers].filter((e) => !seen.has(e.id) && seen.add(e.id)).sort((a, b) => a.time - b.time)
+  return [...tokens, ...market, ...buyoffers, ...swaps].filter((e) => !seen.has(e.id) && seen.add(e.id)).sort((a, b) => a.time - b.time)
 }
 
 export function useLedger(account: string | null): UseQueryResult<LedgerEntry[]> {

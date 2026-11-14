@@ -20,8 +20,8 @@ import { Icon } from './icons'
 
 type Unit = 'USD' | 'WAX'
 
-const SPEND: Category[] = ['nft', 'forge-level', 'forge-slot', 'forge-other', 'entry']
-const EARN: Category[] = ['mission', 'sale', 'v2']
+const SPEND: Category[] = ['def-buy', 'nft', 'forge-level', 'forge-slot', 'forge-other', 'entry']
+const EARN: Category[] = ['mission', 'sale', 'def-sell', 'v2']
 /** Each category's colour, from the site's palette. */
 const COLOR: Record<Category, string> = {
   nft: 'var(--r-rare)',
@@ -31,6 +31,8 @@ const COLOR: Record<Category, string> = {
   entry: 'var(--r-common)',
   mission: 'var(--good)',
   sale: 'var(--r-rare)',
+  'def-buy': 'var(--def)',
+  'def-sell': 'var(--def)',
   v2: 'var(--r-common)'
 }
 const LIST_STEP = 50
@@ -42,19 +44,23 @@ const waxPer = (pool: Pool, symbol: string) => (pool.a.symbol === symbol ? midPr
 
 /**
  * Values entries in WAX and USD at the time they happened: WAX and TLM at that day's price
- * (CoinGecko), DEF through today's Alcor DEF/WAX price (DEF has no price history anywhere).
+ * (CoinGecko). DEF itself counts for nothing: it is counted where real money changes hands, the
+ * WAX or TLM paid for it on Alcor and the WAX or TLM it brings when sold there. Entry fees and
+ * Forge slots paid in DEF, and DEF rewards, are listed but not counted (DEF still held is shown
+ * apart, at today's Alcor price).
  */
 function valuer(prices: PriceHistory | undefined, tlmWaxNow: number, defWaxNow: number) {
   const waxUsd = (t: number) => (prices ? priceAt(prices.wax, t) : null)
   const tlmUsd = (t: number) => (prices ? priceAt(prices.tlm, t) : null)
   const wax = (e: { token: Token; amount: number; time: number }) => {
     if (e.token === 'WAX') return e.amount
-    if (e.token === 'DEF') return e.amount * defWaxNow
+    if (e.token === 'DEF') return 0
     const w = waxUsd(e.time)
     const t = tlmUsd(e.time)
     return w && t ? (e.amount * t) / w : e.amount * tlmWaxNow
   }
   const usd = (e: { token: Token; amount: number; time: number }) => {
+    if (e.token === 'DEF') return 0
     const w = waxUsd(e.time)
     if (w === null) return null
     if (e.token === 'TLM') {
@@ -63,7 +69,7 @@ function valuer(prices: PriceHistory | undefined, tlmWaxNow: number, defWaxNow: 
     }
     return wax(e) * w
   }
-  return { wax, usd, waxUsdNow: prices ? (prices.wax[prices.wax.length - 1]?.[1] ?? null) : null }
+  return { wax, usd, waxUsdNow: prices ? (prices.wax[prices.wax.length - 1]?.[1] ?? null) : null, defWaxNow }
 }
 
 const dayLabel = (t: number) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
@@ -185,6 +191,21 @@ export function Ledger({ account: own }: { account: string }) {
           <span className="lg__lab">Together</span>
           <b>{player.data && game.data ? formatNumber(player.data.def + game.data.def, 2) : '…'}</b>
         </span>
+        <span title="What the DEF you hold would bring at today's Alcor price. Not in the net: DEF only counts once it is sold.">
+          <span className="lg__lab">Worth today</span>
+          <b>
+            {player.data && game.data && v
+              ? (() => {
+                  const wax = (player.data.def + game.data.def) * v.defWaxNow
+                  return unit === 'USD'
+                    ? v.waxUsdNow !== null
+                      ? `$${(wax * v.waxUsdNow).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : '–'
+                    : `${formatNumber(wax, 0)} WAX`
+                })()
+              : '…'}
+          </b>
+        </span>
       </div>
     </>
   )
@@ -243,7 +264,7 @@ export function Ledger({ account: own }: { account: string }) {
         <section className="lg__mid box">
           <span
             className="lg__lab"
-            title="Earned minus spent. WAX and TLM are valued at their USD price on the day (CoinGecko, last 365 days; older entries use the oldest price). DEF has no price history, so it is valued at today's Alcor price. Token swaps are not counted: they only change what the money is held in. Since 7 Nov, rewards credited to the game balance count as earned, and entry fees taken from it as spent, each at the mission's entry cost; deposits and withdrawals only move your own money."
+            title="Earned minus spent. WAX and TLM are valued at their USD price on the day (CoinGecko, last 365 days; older entries use the oldest price). DEF counts where it is bought or sold on Alcor (the WAX or TLM paid or received, at that day's price); entry fees and Forge slots paid in DEF and DEF rewards are listed but not counted, and DEF you still hold is shown apart, not in the net. Token swaps are not counted: they only change what the money is held in. Since 7 Nov, rewards credited to the game balance count as earned, and entry fees taken from it as spent, each at the mission's entry cost; deposits and withdrawals only move your own money."
           >
             Net so far
           </span>
@@ -309,10 +330,16 @@ export function Ledger({ account: own }: { account: string }) {
                       {e.direction === 'in' ? '+' : '−'}
                       {formatNumber(e.amount, e.token === 'WAX' ? 2 : 4)} {e.token}
                     </td>
-                    <td className={`r num lg__val ${e.direction === 'in' ? 'c-good' : 'c-bad'}`}>
-                      {e.direction === 'in' ? '+' : '−'}
-                      {money(val(e))}
-                    </td>
+                    {e.token === 'DEF' ? (
+                      <td className="r lg__val muted" title="DEF counts where it is bought or sold on Alcor, not where it is spent or received">
+                        not counted
+                      </td>
+                    ) : (
+                      <td className={`r num lg__val ${e.direction === 'in' ? 'c-good' : 'c-bad'}`}>
+                        {e.direction === 'in' ? '+' : '−'}
+                        {money(val(e))}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

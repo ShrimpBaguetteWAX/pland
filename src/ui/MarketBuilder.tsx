@@ -153,6 +153,8 @@ interface GoalPlan {
   divisions: Division[]
   /** Forge level before the plan. */
   forgeLevel: number
+  /** Why the goal cannot be reached (way none). */
+  note?: string
 }
 
 const EMPTY_KEYS: ReadonlySet<string> = new Set()
@@ -885,20 +887,58 @@ export function MarketBuilder({
     const pool = new SolverPool(poolSize())
     const divisions = snap.army.divisions.filter((d) => d.units.length > 0)
     const piecesOf = (d: Division) => divisionPieces(d).map((a) => `own:${a.assetId}`)
+    /** Why the last attempt failed, for the message when nothing works. */
+    let failNote = ''
     try {
       /** Plans the divisions in turn, each the cheapest from what the ones before left (blend prices as corrected so far). */
       const planWay = async (taken: Set<string>, list: typeof slots, label: string, fix: Map<string, number>): Promise<GoalRow[] | null> => {
         const used = new Set(taken)
         let economy = base.economy
         const rows: GoalRow[] = []
-        const items = base.items.map((it) => (fix.has(it.key) ? { ...it, cost: Math.max(it.cost, fix.get(it.key)!) } : it))
+        // Blend materials the earlier divisions of this plan take: each division prices its blends after them.
+        const consumed = new Map<string, number>()
+        const blendOf = (key: string) => {
+          const s = sources.get(key)
+          return s?.from === 'blend' ? s.blend : null
+        }
+        /** Every blend copy priced after what the earlier divisions use (copies of one recipe in turn); unmakeable ones left out. */
+        const priced = (): Candidate[] => {
+          const out: Candidate[] = []
+          const runs = new Map<number, Map<string, number>>()
+          for (const it of base.items) {
+            if (used.has(it.key)) continue
+            const fixed = fix.get(it.key) ?? 0
+            const blend = blendMarket ? blendOf(it.key) : null
+            if (!blend) {
+              out.push(fixed ? { ...it, cost: Math.max(it.cost, fixed) } : it)
+              continue
+            }
+            // A recipe found dearer (or unmakeable) in an earlier round costs at least that for every copy.
+            const floor = Math.max(fixed, fix.get(`recipe:${blend.id}`) ?? 0)
+            if (floor >= UNMAKEABLE) continue
+            if (!runs.has(blend.id)) runs.set(blend.id, new Map(consumed))
+            const c = planBlend(blendMarket!, blend, runs.get(blend.id)!).cost
+            if (!Number.isFinite(c) || c >= UNMAKEABLE) continue
+            out.push({ ...it, cost: Math.max(it.cost, c, floor) })
+          }
+          return out
+        }
         for (const [i, s] of list.entries()) {
           setPlanning(`${label}: division ${i + 1} of ${list.length} (${s.title})`)
-          const input: SolveInput = { atk: s.atk, def: s.def, warlords: base.warlords.filter((w) => !used.has(w.key)), items: items.filter((it) => !used.has(it.key)), economy }
+          const input: SolveInput = { atk: s.atk, def: s.def, warlords: base.warlords.filter((w) => !used.has(w.key)), items: priced(), economy }
           const b = await solveBundleParallel(input, pool)
-          if (!b || !valid(b, input)) return null
+          if (!b || !valid(b, input)) {
+            const need = [s.atk ? `${formatNumber(s.atk, 0)} ATK` : '', s.def ? `${formatNumber(s.def, 0)} DEF` : ''].filter(Boolean).join(' and ')
+            failNote = `No division with ${need} for ${s.title} can be put together from what is left after the goal's other ${i} division${i === 1 ? '' : 's'} (${label.split(' (')[0].toLowerCase()}).`
+            return null
+          }
           const keys = bundleKeys(b)
           for (const k of keys) used.add(k)
+          // Its blends take their materials, so the next division prices its own blends after them.
+          for (const k of keys) {
+            const blend = blendMarket ? blendOf(k) : null
+            if (blend) planBlend(blendMarket!, blend, consumed)
+          }
           // A planned division made of exactly one of your divisions' NFTs is that division, kept.
           const same = divisions.find((d) => {
             const own = piecesOf(d)
@@ -918,6 +958,8 @@ export function MarketBuilder({
         const shared = new Map<string, number>()
         const dearer = new Map<string, number>()
         let total = 0
+        // A blend that cannot be made with what is left makes the whole plan impossible as it stands.
+        let impossible = false
         const out = rows.map((r) => {
           if (!r.bundle) return r
           const assumed = new Map([...r.bundle.mercs, ...GEAR_KINDS.flatMap((g) => r.bundle!.gear[g])].map((c) => [c.key, c.cost]))
@@ -928,15 +970,21 @@ export function MarketBuilder({
             if (s?.from === 'market') real += s.listing.price
             else if (s?.from === 'blend' && blendMarket) {
               const c = planBlend(blendMarket, s.blend, shared).cost
-              const price = Number.isFinite(c) ? c : UNMAKEABLE
-              real += price
-              if (price > (assumed.get(key) ?? 0) + 0.5) dearer.set(key, price)
+              const price = Number.isFinite(c) && c < UNMAKEABLE ? c : UNMAKEABLE
+              if (price >= UNMAKEABLE) impossible = true
+              else real += price
+              if (price > (assumed.get(key) ?? 0) + 0.5) {
+                // The whole recipe, not just this copy: otherwise the next round takes its next copy at the old price.
+                const recipe = `recipe:${s.blend.id}`
+                dearer.set(recipe, Math.max(price, dearer.get(recipe) ?? 0))
+              }
             }
           }
           total += real
           return { ...r, real }
         })
-        return { rows: out, total, dearer }
+        if (impossible) failNote = 'The blend materials run out: the whole plan needs more of them than you own and the market has.'
+        return { rows: out, total: impossible ? Infinity : total, dearer }
       }
 
       // Keep: match your divisions to the goal, hardest mission first, each to the weakest that meets it.
@@ -959,7 +1007,7 @@ export function MarketBuilder({
       let fix = new Map<string, number>()
       let bestKeep: { rows: GoalRow[]; total: number } | null = null
       let bestRebuild: { rows: GoalRow[]; total: number } | null = null
-      for (let round = 1; round <= 3; round++) {
+      for (let round = 1; round <= 4; round++) {
         const tag = round === 1 ? '' : ` (round ${round}, real blend prices)`
         const keepRows = rest.length ? await planWay(keepTaken, rest, `Keeping your divisions${tag}`, fix) : []
         const rebuildRows = tryRebuild ? await planWay(new Set(), slots, `Rebuilding${tag}`, fix) : null
@@ -989,7 +1037,7 @@ export function MarketBuilder({
       const rebuildTotal = bestRebuild?.total ?? Infinity
       const common = { sources, divisions: snap.army.divisions, forgeLevel }
       if (!Number.isFinite(keepTotal) && !Number.isFinite(rebuildTotal)) {
-        setGoalPlan({ sig: goalSig, rows: [], total: 0, way: 'none', other: null, ...common })
+        setGoalPlan({ sig: goalSig, rows: [], total: 0, way: 'none', other: null, ...common, note: failNote })
         return
       }
       const useRebuild = rebuildTotal + 1e-6 < keepTotal
@@ -1491,7 +1539,9 @@ export function MarketBuilder({
               <div className={`mb-plan__result${planFresh ? '' : ' is-stale'}`}>
                 {!planFresh && <p className="mb-plan__note">The goal or what you own changed since this plan: plan again before building.</p>}
                 {goalPlan.way === 'none' ? (
-                  <p className="mb-plan__note">The goal cannot be reached with what you own and what is on the market now.</p>
+                  <p className="mb-plan__note">
+                    The goal cannot be reached with what you own and what is on the market now. {goalPlan.note}
+                  </p>
                 ) : (
                   <>
                     <p className="mb-plan__sum">
