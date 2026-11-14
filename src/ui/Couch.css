@@ -2117,3 +2117,20 @@ html.is-couch .couch {
   outline: 2px solid var(--cz-tx);
   outline-offset: 2px;
 }
+
+/* Materials: "List everything" asks once more. */
+.cm__confirm {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.cm__confirm > span:first-child {
+  display: grid;
+  gap: 2px;
+}
+.cm__confirm small {
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--cz-dim);
+}

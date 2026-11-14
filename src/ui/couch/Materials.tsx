@@ -126,6 +126,30 @@ export function Materials({ account }: { account: string }) {
     setHeld((h) => new Map([...h].filter(([id]) => !ids.includes(id))))
   }
 
+  /** Every free material that has a lowest listing to be priced at, and what they bring together. */
+  const sellable = rows.filter((r) => r.lowest !== null && r.free.length > 0)
+  const sellCount = sellable.reduce((n, r) => n + r.free.length, 0)
+  const sellWax = sellable.reduce((n, r) => n + r.free.length * r.lowest!, 0)
+  /** "List everything" asks once more before it lists the whole wallet. */
+  const [confirmAll, setConfirmAll] = useState(false)
+
+  async function listEverything() {
+    const items = sellable.flatMap((r) => r.free.map((assetId) => ({ template: r.t, assetId, priceWax: r.lowest! })))
+    if (!items.length) return
+    const ok = await run(
+      (a, p) => listSalesActions(a, p, items.map(({ assetId, priceWax }) => ({ assetId, priceWax })), BUY_MARKETPLACE),
+      `Listed ${items.length} material${items.length === 1 ? '' : 's'} at their lowest listings`,
+      'mat-list-all',
+      { split: true }
+    )
+    setConfirmAll(false)
+    if (!ok) return
+    const ids = items.map((i) => i.assetId)
+    setHeld((h) => new Map([...h, ...items.map((i): [string, { template: string; price: number }] => [i.assetId, { template: i.template, price: i.priceWax }])]))
+    await settle((sales) => ids.every((id) => sales.some((s) => s.assets.some((x) => x.asset_id === id))))
+    setHeld((h) => new Map([...h].filter(([id]) => !ids.includes(id))))
+  }
+
   async function reprice() {
     if (!above.length) return
     const sales = above.map((s) => ({ saleId: s.sale_id, assetId: s.assets[0].asset_id, priceWax: floors.data!.get(s.assets[0].template!.template_id)! }))
@@ -158,6 +182,35 @@ export function Materials({ account }: { account: string }) {
         Worth at each one&apos;s lowest listing after the market&apos;s fees{totalListed ? ` · ${totalListed} listed by you` : ''}. List at the lowest listing on
         AtomicMarket through shop.ale.
       </p>
+
+      {confirmAll ? (
+        <div className="cb__plaque cm__confirm">
+          <span>
+            List all {sellCount} at {formatNumber(sellWax, 0)} WAX?
+            <small>
+              each at the lowest listing of its kind, through shop.ale · ≈ {formatNumber(sellWax * (1 - MARKET_FEES - collectionFee), 0)} WAX to
+              you after fees
+            </small>
+          </span>
+          <span className="cm__acts">
+            <button type="button" disabled={off} onClick={() => void listEverything()}>
+              {pending === 'mat-list-all' ? 'Signing…' : 'Yes, list'}
+            </button>
+            <button type="button" disabled={pending === 'mat-list-all'} onClick={() => setConfirmAll(false)}>
+              Cancel
+            </button>
+          </span>
+        </div>
+      ) : (
+        <button type="button" className="cb__go" disabled={off || !sellCount} onClick={() => setConfirmAll(true)}>
+          {sellCount ? `List everything · ${sellCount} at ${formatNumber(sellWax, 0)} WAX` : 'Nothing to list'}
+          <small>
+            {sellCount
+              ? `each at the lowest listing of its kind · ≈ ${formatNumber(sellWax * (1 - MARKET_FEES - collectionFee), 0)} WAX to you after fees`
+              : 'every free material at the lowest listing of its kind'}
+          </small>
+        </button>
+      )}
 
       <button type="button" className="cc__second" disabled={off || !above.length} onClick={() => void reprice()}>
         {pending === 'mat-reprice'
