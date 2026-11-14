@@ -82,12 +82,11 @@ function summary(names: string[]) {
 export function MarketSell({ account, spectating }: { account: string; spectating: boolean }) {
   const { run, pending } = useTransaction()
   const [collection, setCollection] = useState<Collection>('planetdefnft')
-  const [keepOne, setKeepOne] = useState(true)
   /**
-   * How much of each template to list: all but the one kept, or one of each that you hold at least
-   * two of and are not selling yet (so one always stays).
+   * How much of each template to list: all but one (one of each kept), everything (nothing kept), or
+   * one of each that you hold at least two of and are not selling yet (so one always stays).
    */
-  const [mode, setMode] = useState<'all' | 'one'>('all')
+  const [mode, setMode] = useState<'all' | 'everything' | 'one'>('all')
   /** Show only the templates you hold but have no listing of. */
   const [notSellingOnly, setNotSellingOnly] = useState(false)
   /** Categories ticked, per collection (a collection's defaults apply until you change one). */
@@ -170,14 +169,14 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
           const lowest = floors.data?.get(g.templateId) ?? null
           // Keeping one of each: one held back from what is free, unless one is already listed (then you still own it until it sells).
           const listedCount = g.all.length - g.free.length
-          const keep = mode === 'one' || keepOne ? Math.min(1, g.free.length) : 0
+          const keep = mode === 'everything' ? 0 : Math.min(1, g.free.length)
           const max = Math.max(0, g.free.length - keep)
           const auto = mode === 'one' ? (g.free.length >= 2 && listedCount === 0 ? 1 : 0) : max
           const count = Math.min(max, Math.max(0, counts.get(g.templateId) ?? auto))
           return { ...g, lowest, keep, max, count, listedCount }
         })
         .sort((a, b) => (b.lowest ?? 0) * b.count - (a.lowest ?? 0) * a.count || (b.lowest ?? 0) - (a.lowest ?? 0) || a.name.localeCompare(b.name)),
-    [groups, floors.data, keepOne, counts, mode]
+    [groups, floors.data, counts, mode]
   )
   const sellable = rows.filter((r) => r.lowest !== null && r.count > 0)
   const toList = sellable.reduce((n, r) => n + r.count, 0)
@@ -293,13 +292,25 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
               type="button"
               className={mode === 'all' ? 'is-on' : ''}
               aria-pressed={mode === 'all'}
-              title="Every free one of each template, but the one kept when that is on"
+              title="Every free one of each template but one: one of each is kept"
               onClick={() => {
                 setMode('all')
                 setCounts(new Map())
               }}
             >
               All but one
+            </button>
+            <button
+              type="button"
+              className={mode === 'everything' ? 'is-on' : ''}
+              aria-pressed={mode === 'everything'}
+              title="Every free one of each template: nothing is kept"
+              onClick={() => {
+                setMode('everything')
+                setCounts(new Map())
+              }}
+            >
+              Everything
             </button>
             <button
               type="button"
@@ -314,12 +325,6 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
               One of each
             </button>
           </span>
-          {mode === 'all' && (
-            <label className={`opt__toggle ${keepOne ? 'is-on' : ''}`}>
-              <input type="checkbox" checked={keepOne} onChange={(e) => setKeepOne(e.target.checked)} />
-              Keep one of each template
-            </label>
-          )}
         </span>
       </section>
 

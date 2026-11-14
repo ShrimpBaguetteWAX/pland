@@ -6065,3 +6065,41 @@ code {
   gap: 10px;
   font-size: 13px;
 }
+
+/* Sell: its cards sit inside .ms, one level below the page, so they take the shelves' padding here. */
+.ms > .box {
+  padding: 16px 18px;
+}
+.ms > .ms__table {
+  padding: 0;
+}
+.ms__table th:first-child,
+.ms__table td:first-child {
+  padding-left: 18px;
+}
+.ms__table th:last-child,
+.ms__table td:last-child {
+  padding-right: 18px;
+}
+.ms__table .none {
+  padding: 14px 18px;
+}
+.ms__sold .h {
+  margin: 0 0 6px;
+}
+.ms__filter {
+  padding: 0 4px;
+}
+@media (max-width: 640px) {
+  .ms > .box {
+    padding: 14px;
+  }
+  .ms__table th:first-child,
+  .ms__table td:first-child {
+    padding-left: 14px;
+  }
+  .ms__table th:last-child,
+  .ms__table td:last-child {
+    padding-right: 14px;
+  }
+}
