@@ -5590,3 +5590,54 @@ code {
   flex: 1 1 240px;
   min-width: 0;
 }
+.mb-plan__note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.mb-plan__note .link {
+  font-size: inherit;
+}
+.mb-plan__result {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.mb-plan__result.is-stale .mb-plan__rows {
+  opacity: 0.55;
+}
+.mb-plan__sum {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dim);
+}
+.mb-plan__sum b {
+  color: var(--ink);
+  font-size: 15px;
+}
+.mb-plan__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.mb-plan__rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 2px 0 var(--ledge);
+}
+.mb-plan__rows li.is-kept {
+  grid-template-columns: minmax(0, 1fr) auto;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+.mb-plan__rows .mb-plan__name small {
+  white-space: normal;
+}

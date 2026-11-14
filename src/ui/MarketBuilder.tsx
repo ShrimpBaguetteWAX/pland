@@ -36,6 +36,7 @@ import {
   GEAR_KINDS,
   type Bundle,
   type Candidate,
+  type Economy,
   type GearKind,
   type SlotKind,
   type SolveInput,
@@ -48,6 +49,8 @@ import { cycleSeconds, isTokenLoop, missionEconomics, tlmPerHour, type MissionEc
 import type { Market as TlmDefMarket } from '@/lib/market'
 import { buyExactAction, receiveFor } from '@/lib/pool'
 import { kindOfCategory, KIND_LABEL, type Kind } from '@/lib/stats'
+import { solveBundleParallel } from '@/lib/parallelSolve'
+import { Cancelled, poolSize, SolverPool } from '@/lib/solverPool'
 import { useBundleSolver } from '@/lib/useBundleSolver'
 import { useTransaction } from '@/wallet/useTransaction'
 
@@ -118,6 +121,70 @@ const divisionPieces = (d: Division): AssetRef[] =>
   [d.leader, ...d.units.flatMap((u) => [u.asset, u.gear.weapon, u.gear.supply, u.gear.creature, u.gear.lavalux])].filter(
     (a): a is AssetRef => !!a
   )
+
+/** One division of the goal plan: a division you keep as it is (no bundle), or one to build. */
+interface GoalRow {
+  missionId: number
+  title: string
+  atk: number
+  def: number
+  bundle: Bundle | null
+  /** The candidate keys it takes (own:, wal:, sale:, blend:). */
+  keys: string[]
+  cost: number
+  /** The division it is (kept, or rebuilt from exactly its own NFTs). */
+  keep: number | null
+}
+
+interface GoalPlan {
+  /** The goal, what you own and the toggles it was planned for. */
+  sig: string
+  rows: GoalRow[]
+  total: number
+  way: 'keep' | 'rebuild' | 'none'
+  /** The other way's total (to show the saving), null when it was not possible. */
+  other: number | null
+}
+
+const EMPTY_KEYS: ReadonlySet<string> = new Set()
+
+/** Where a planned division's NFTs come from, in short. */
+function bundleParts(b: Bundle, sources: Map<string, Source>) {
+  const keys = bundleKeys(b)
+  const from = keys.map((k) => sources.get(k)).filter((s): s is Source => !!s)
+  const lead = sources.get(b.warlord.key)
+  return {
+    warlord: lead ? assetOf(lead).name : '',
+    fromDivisions: [...new Set(from.flatMap((s) => (s.from === 'division' ? [s.division] : [])))].sort((x, y) => x - y),
+    bought: from.filter((s) => s.from === 'market').length,
+    blended: from.filter((s) => s.from === 'blend').length
+  }
+}
+
+/** Every candidate a bundle takes. */
+const bundleKeys = (b: Bundle): string[] => [b.warlord.key, ...b.mercs.map((m) => m.key), ...GEAR_KINDS.flatMap((g) => b.gear[g].map((c) => c.key))]
+
+/**
+ * The Forge after a planned division: its level reached and paid for, its slots bought and taken.
+ * Gear moved from another division keeps that division's slot, so this errs on the safe side.
+ */
+function advanceEconomy(e: Economy, b: Bundle): Economy {
+  const level = Math.max(e.forgeLevel, b.level)
+  const paidWax = e.levelWax[level] ?? 0
+  const paidTlm = e.levelTlm[level] ?? 0
+  const slots = { ...e.slots }
+  for (const k of Object.keys(slots) as SlotKind[]) {
+    const bought = b.slotsBought[k]?.length ?? 0
+    const placed = b.gear[k]?.length ?? 0
+    slots[k] = { free: Math.max(0, slots[k].free + bought - placed), offers: slots[k].offers.slice(bought) }
+  }
+  return {
+    forgeLevel: level,
+    levelWax: e.levelWax.map((w, l) => (l <= level ? 0 : Math.max(0, w - paidWax))),
+    levelTlm: e.levelTlm.map((t, l) => (l <= level ? 0 : Math.max(0, t - paidTlm))),
+    slots
+  }
+}
 
 /** A short, stable fingerprint of a long string. */
 function hashOf(text: string): string {
@@ -396,6 +463,8 @@ export function MarketBuilder({
     return { kept, have, next: next?.p ?? null, missing: goal.reduce((n, [id, c]) => n + Math.max(0, c - (have.get(id) ?? 0)), 0) }
   }, [goal, presets, army.data])
   const [goalAdd, setGoalAdd] = useState('')
+  /** While a goal division is built: the NFTs the plan set aside for its other divisions. */
+  const [reserved, setReserved] = useState<ReadonlySet<string>>(EMPTY_KEYS)
 
   /*
    * Corrected blend prices only apply to the target they were found for. A new target, or a change in
@@ -539,7 +608,19 @@ export function MarketBuilder({
             })
           }
         : null
-    const input: SolveInput | null = (atk > 0 || def > 0) && base ? { atk, def, ...(maxMove ? { maxMove } : {}), ...base } : null
+    // While a goal division is built, the NFTs the goal plan set aside for its other divisions stay out.
+    const input: SolveInput | null =
+      (atk > 0 || def > 0) && base
+        ? {
+            atk,
+            def,
+            ...(maxMove ? { maxMove } : {}),
+            ...base,
+            ...(reserved.size
+              ? { warlords: base.warlords.filter((w) => !reserved.has(w.key)), items: base.items.filter((i) => !reserved.has(i.key)) }
+              : {})
+          }
+        : null
     if (input) SOURCES_OF.set(input, sources)
     return { input, sources, base }
   }, [
@@ -563,10 +644,112 @@ export function MarketBuilder({
     def,
     maxMove,
     account,
-    forgeLevel
+    forgeLevel,
+    reserved
   ])
 
   const solver = useBundleSolver(locked || !scanning ? null : input)
+
+  // ---- The goal plan: every goal division at once ---------------------------------------------------
+  /*
+   * Two ways to reach the goal, and the cheaper is taken (keeping on a tie, so nothing is rearranged
+   * for no saving):
+   *  - keep: your divisions that already meet a goal mission stay as they are; the missing ones are
+   *    built from everything else;
+   *  - rebuild: every goal division is planned from everything (divisions included, if allowed).
+   * Divisions are planned hardest mission first, each the cheapest from what the ones before left,
+   * with the Forge (level and slots) carried over from one to the next. Building a division then runs
+   * the usual search for its mission with the NFTs of the plan's other divisions left out.
+   */
+  const [goalPlan, setGoalPlan] = useState<GoalPlan | null>(null)
+  const [planning, setPlanning] = useState<string | null>(null)
+  const goalSig = `${goal.map(([id, n]) => `${id}x${n}`).join(',')}|${ownedSig}|${useStaked}${useDivisions}${useWallet}${useMaterials}|${excludedKey}`
+  const planFresh = goalPlan?.sig === goalSig
+
+  async function planGoal() {
+    if (!base || !snap.army || planning) return
+    const req = new Map(presets.map((p) => [p.id, p]))
+    const slots = goal
+      .flatMap(([id, n]) => (req.has(id) ? Array.from({ length: n }, () => req.get(id)!) : []))
+      .sort((a, b) => b.atk + b.def - (a.atk + a.def))
+    if (!slots.length) return
+    setReserved(EMPTY_KEYS)
+    const pool = new SolverPool(poolSize())
+    const divisions = snap.army.divisions.filter((d) => d.units.length > 0)
+    const piecesOf = (d: Division) => divisionPieces(d).map((a) => `own:${a.assetId}`)
+    try {
+      const solveFrom = async (taken: Set<string>, list: typeof slots, label: string): Promise<{ rows: GoalRow[]; total: number } | null> => {
+        const used = new Set(taken)
+        let economy = base.economy
+        const rows: GoalRow[] = []
+        let total = 0
+        for (const [i, s] of list.entries()) {
+          setPlanning(`${label}: division ${i + 1} of ${list.length} (${s.title})`)
+          const b = await solveBundleParallel(
+            { atk: s.atk, def: s.def, warlords: base.warlords.filter((w) => !used.has(w.key)), items: base.items.filter((it) => !used.has(it.key)), economy },
+            pool
+          )
+          if (!b) return null
+          const keys = bundleKeys(b)
+          for (const k of keys) used.add(k)
+          // A planned division made of exactly one of your divisions' NFTs is that division, kept.
+          const same = divisions.find((d) => {
+            const own = piecesOf(d)
+            return own.length === keys.length && own.every((k) => keys.includes(k))
+          })
+          rows.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, bundle: b, keys, cost: b.cost, keep: same?.id ?? null })
+          total += b.cost
+          economy = advanceEconomy(economy, b)
+        }
+        return { rows, total }
+      }
+
+      // Keep: match your divisions to the goal, hardest mission first, each to the weakest that meets it.
+      const kept: GoalRow[] = []
+      const keptIds = new Set<number>()
+      const rest: typeof slots = []
+      for (const s of slots) {
+        const fit = divisions
+          .filter((d) => !keptIds.has(d.id) && d.atk >= s.atk && d.def >= s.def)
+          .sort((a, b) => a.atk + a.def - (b.atk + b.def))[0]
+        if (fit) {
+          keptIds.add(fit.id)
+          kept.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, bundle: null, keys: piecesOf(fit), cost: 0, keep: fit.id })
+        } else rest.push(s)
+      }
+      const keepTaken = new Set(kept.flatMap((r) => r.keys))
+      const keepPlan = rest.length ? await solveFrom(keepTaken, rest, 'Keeping your divisions') : { rows: [], total: 0 }
+      const rebuild = useDivisions && keptIds.size ? await solveFrom(new Set(), slots, 'Rebuilding') : null
+
+      const keepTotal = keepPlan ? keepPlan.total : Infinity
+      const rebuildTotal = rebuild ? rebuild.total : Infinity
+      if (!Number.isFinite(keepTotal) && !Number.isFinite(rebuildTotal)) {
+        setGoalPlan({ sig: goalSig, rows: [], total: 0, way: 'none', other: null })
+        return
+      }
+      const useRebuild = rebuildTotal + 1e-6 < keepTotal
+      const rows = useRebuild ? rebuild!.rows : [...kept, ...keepPlan!.rows]
+      setGoalPlan({
+        sig: goalSig,
+        rows: rows.sort((a, b) => b.atk + b.def - (a.atk + a.def)),
+        total: useRebuild ? rebuildTotal : keepTotal,
+        way: useRebuild ? 'rebuild' : 'keep',
+        other: useRebuild ? keepTotal : Number.isFinite(rebuildTotal) ? rebuildTotal : null
+      })
+    } catch (e) {
+      if (!(e instanceof Cancelled)) toast.error(`Planning the goal failed: ${String(e)}`)
+    } finally {
+      pool.terminate()
+      setPlanning(null)
+    }
+  }
+
+  /** Builds one division of the plan: its mission goes into the builder, with the plan's other NFTs left out. */
+  function buildGoalRow(row: GoalRow) {
+    if (!goalPlan) return
+    setReserved(new Set(goalPlan.rows.filter((r) => r !== row).flatMap((r) => r.keys)))
+    loadTarget({ atk: row.atk, def: row.def, missionId: row.missionId })
+  }
 
   /*
    * Each recipe's copies are priced on their own, so two recipes can both count the same owned
@@ -869,6 +1052,11 @@ export function MarketBuilder({
       { split: true }
     )
     setLocked({ ...locked, phase: equipped ? 'done' : 'bought' })
+    // A goal division is built: what was set aside is free again, and the goal is planned afresh.
+    if (equipped && reserved.size) {
+      setReserved(EMPTY_KEYS)
+      toast.success('Goal division built. Plan the goal again for the next one.')
+    }
   }
 
   const field = (
@@ -1006,23 +1194,105 @@ export function MarketBuilder({
                   </option>
                 ))}
               </select>
-              {coverage.next && (
+              {goal.length > 0 && (
                 <button
                   type="button"
                   className="btn btn--go btn--sm"
-                  disabled={!!locked}
-                  title="Loads the hardest mission still short into the builder and searches for the cheapest division for it"
-                  onClick={() => loadTarget({ atk: coverage.next!.atk, def: coverage.next!.def, missionId: coverage.next!.id })}
+                  disabled={!!locked || !!planning || !base}
+                  title="Plans every division of the goal together: what you keep, what is rebuilt, what is bought, and the total"
+                  onClick={() => void planGoal()}
                 >
-                  Build next: {coverage.next.title}
+                  {planning ? 'Planning…' : planFresh ? 'Plan again' : 'Plan the goal'}
                 </button>
               )}
               {goal.length > 0 && (
-                <button type="button" className="btn btn--sm" disabled={!!locked} onClick={() => setGoal(() => [])}>
+                <button
+                  type="button"
+                  className="btn btn--sm"
+                  disabled={!!locked}
+                  onClick={() => {
+                    setGoal(() => [])
+                    setGoalPlan(null)
+                    setReserved(EMPTY_KEYS)
+                  }}
+                >
                   Clear
                 </button>
               )}
             </div>
+            {planning && <p className="mb-plan__note">{planning}…</p>}
+            {goalPlan && !planning && (
+              <div className={`mb-plan__result${planFresh ? '' : ' is-stale'}`}>
+                {!planFresh && <p className="mb-plan__note">The goal or what you own changed since this plan: plan again before building.</p>}
+                {goalPlan.way === 'none' ? (
+                  <p className="mb-plan__note">The goal cannot be reached with what you own and what is on the market now.</p>
+                ) : (
+                  <>
+                    <p className="mb-plan__sum">
+                      <b className="num">{formatNumber(goalPlan.total, 2)} WAX</b> for the whole goal ·{' '}
+                      {goalPlan.way === 'keep'
+                        ? goalPlan.other !== null && goalPlan.other > goalPlan.total
+                          ? `keeping your divisions is ${formatNumber(goalPlan.other - goalPlan.total, 2)} WAX cheaper than rebuilding`
+                          : 'your divisions that already fit stay as they are'
+                        : `rearranging your divisions saves ${formatNumber((goalPlan.other ?? goalPlan.total) - goalPlan.total, 2)} WAX`}
+                    </p>
+                    <ol className="mb-plan__rows">
+                      {goalPlan.rows.map((r, i) => {
+                        const parts = r.bundle ? bundleParts(r.bundle, sources) : null
+                        const isKept = !r.bundle || (r.keep !== null && r.cost === 0)
+                        return (
+                          <li key={i} className={isKept ? 'is-kept' : ''}>
+                            <span className="mb-plan__name">
+                              <b>{r.title}</b>
+                              <small>
+                                {isKept
+                                  ? `#${r.keep} stays as it is`
+                                  : parts
+                                    ? [
+                                        parts.warlord && `led by ${parts.warlord}`,
+                                        `${r.bundle!.mercs.length} mercenar${r.bundle!.mercs.length === 1 ? 'y' : 'ies'}`,
+                                        parts.fromDivisions.length && `takes NFTs from ${parts.fromDivisions.map((d) => `#${d}`).join(', ')}`,
+                                        parts.bought && `${parts.bought} bought`,
+                                        parts.blended && `${parts.blended} blended`
+                                      ]
+                                        .filter(Boolean)
+                                        .join(' · ')
+                                    : ''}
+                              </small>
+                            </span>
+                            <span className="mb-plan__have num">{isKept ? '—' : `${formatNumber(r.cost, 2)} WAX`}</span>
+                            {!isKept && (
+                              <button
+                                type="button"
+                                className="btn btn--sm"
+                                disabled={!!locked || !planFresh}
+                                title="Opens this division in the builder; the NFTs planned for the goal's other divisions are left out of its search"
+                                onClick={() => buildGoalRow(r)}
+                              >
+                                Build
+                              </button>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ol>
+                    <p className="mb-plan__note">
+                      Build the divisions one by one. Each opens in the builder below with the NFTs meant for the others left
+                      out, so the rest of the goal stays possible. Plan again after each build: prices and what you own change.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+            {reserved.size > 0 && (
+              <p className="mb-plan__note">
+                Building a goal division: {reserved.size} NFT{reserved.size === 1 ? ' is' : 's are'} set aside for the goal&apos;s other
+                divisions.{' '}
+                <button type="button" className="link" disabled={!!locked} onClick={() => setReserved(EMPTY_KEYS)}>
+                  Use everything again
+                </button>
+              </p>
+            )}
           </div>
           <div className="mb-goal__row">
             <label className="mb-field mb-field--preset">
