@@ -343,6 +343,61 @@ export function MarketBuilder({
   }, [config.data])
 
   /*
+   * The goal: the missions you want to be able to run at once, with how many divisions each
+   * ("3× Veles Intelligence, 1× Neri"). Your divisions that already meet a mission count towards it
+   * (the hardest missions are matched first, each to the weakest division that meets it). They stay
+   * an ordinary source for the builder: a build may take them apart when that is cheaper. The rest
+   * is built one division at a time with the usual search. Remembered per account in this browser.
+   */
+  const goalKey = `pd:market-goal:${account}`
+  const readGoal = (key: string): [number, number][] => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(key) ?? '[]')
+      return Array.isArray(raw) ? raw.filter((x) => Array.isArray(x) && x.length === 2 && x[1] > 0) : []
+    } catch {
+      return []
+    }
+  }
+  // The list with the account it belongs to, so switching accounts shows that account's goal.
+  const [goalState, setGoalState] = useState(() => ({ key: goalKey, list: readGoal(goalKey) }))
+  const goal = goalState.key === goalKey ? goalState.list : readGoal(goalKey)
+  const setGoal = (f: (g: [number, number][]) => [number, number][]) => {
+    const list = f(goal)
+    setGoalState({ key: goalKey, list })
+    try {
+      localStorage.setItem(goalKey, JSON.stringify(list))
+    } catch {
+      // Private mode: the goal holds for this visit.
+    }
+  }
+  const setGoalCount = (id: number, n: number) =>
+    setGoal((g) => (n <= 0 ? g.filter(([x]) => x !== id) : g.some(([x]) => x === id) ? g.map(([x, c]) => [x, x === id ? n : c]) : [...g, [id, n]]))
+  const coverage = useMemo(() => {
+    const req = new Map(presets.map((p) => [p.id, p]))
+    const divs = (army.data?.divisions ?? []).filter((d) => d.units.length > 0)
+    const slots = goal
+      .flatMap(([id, n]) => (req.has(id) ? Array.from({ length: n }, () => req.get(id)!) : []))
+      .sort((a, b) => b.atk + b.def - (a.atk + a.def))
+    const kept = new Set<number>()
+    const have = new Map<number, number>()
+    for (const s of slots) {
+      const fit = divs
+        .filter((d) => !kept.has(d.id) && d.atk >= s.atk && d.def >= s.def)
+        .sort((a, b) => a.atk + a.def - (b.atk + b.def))[0]
+      if (!fit) continue
+      kept.add(fit.id)
+      have.set(s.id, (have.get(s.id) ?? 0) + 1)
+    }
+    // The next to build: the hardest mission still short.
+    const next = [...goal]
+      .map(([id, n]) => ({ p: req.get(id), short: n - (have.get(id) ?? 0) }))
+      .filter((x): x is { p: (typeof presets)[number]; short: number } => !!x.p && x.short > 0)
+      .sort((a, b) => b.p.atk + b.p.def - (a.p.atk + a.p.def))[0]
+    return { kept, have, next: next?.p ?? null, missing: goal.reduce((n, [id, c]) => n + Math.max(0, c - (have.get(id) ?? 0)), 0) }
+  }, [goal, presets, army.data])
+  const [goalAdd, setGoalAdd] = useState('')
+
+  /*
    * Corrected blend prices only apply to the target they were found for. A new target, or a change in
    * what you own, starts the search over. A scan works on its own snapshot (see above), so market
    * refreshes never disturb it.
@@ -887,6 +942,88 @@ export function MarketBuilder({
           <h2 className="h">
             Build a division <small>The cheapest mix from the market{useOwned ? ' and what you own' : ''}</small>
           </h2>
+
+          <div className="mb-plan" aria-label="Goal: the missions you want to run">
+            <div className="mb-plan__hd">
+              <b>Goal</b>
+              <small>
+                {goal.length
+                  ? coverage.missing
+                    ? `${coverage.missing} division${coverage.missing === 1 ? '' : 's'} still to build`
+                    : 'Reached: your divisions can run all of it'
+                  : 'Add the missions you want to run at once, with how many divisions each.'}
+              </small>
+            </div>
+            {goal.length > 0 && (
+              <ul className="mb-plan__list">
+                {goal.map(([id, n]) => {
+                  const p = presets.find((x) => x.id === id)
+                  const have = coverage.have.get(id) ?? 0
+                  return (
+                    <li key={id} className={have >= n ? 'is-done' : ''}>
+                      <span className="mb-plan__name">
+                        <b>{p ? p.title : `Mission #${id} (ended)`}</b>
+                        {p && (
+                          <small className="num">
+                            {p.atk ? formatNumber(p.atk, 0) : '–'} ATK / {p.def ? formatNumber(p.def, 0) : '–'} DEF
+                          </small>
+                        )}
+                      </span>
+                      <span className="mb-plan__count" role="group" aria-label={`Divisions for ${p?.title ?? id}`}>
+                        <button type="button" disabled={!!locked} aria-label="One fewer" onClick={() => setGoalCount(id, n - 1)}>
+                          −
+                        </button>
+                        <b className="num">{n}×</b>
+                        <button type="button" disabled={!!locked} aria-label="One more" onClick={() => setGoalCount(id, n + 1)}>
+                          +
+                        </button>
+                      </span>
+                      <span className="mb-plan__have num" title="Your divisions that already meet this mission, each counted once across the goal">
+                        {have >= n ? '✓ ' : ''}
+                        {Math.min(have, n)} of {n}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            <div className="mb-plan__foot">
+              <select
+                className="input mb-select"
+                value={goalAdd}
+                disabled={!!locked || presets.length === 0}
+                onChange={(e) => {
+                  const id = Number(e.target.value)
+                  if (id) setGoalCount(id, (goal.find(([x]) => x === id)?.[1] ?? 0) + 1)
+                  setGoalAdd('')
+                }}
+              >
+                <option value="">Add a mission…</option>
+                {presets.map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.title}
+                    {p.planet ? ` (${titleCase(p.planet)})` : ''}: {p.atk ? formatNumber(p.atk, 0) : '–'} ATK / {p.def ? formatNumber(p.def, 0) : '–'} DEF
+                  </option>
+                ))}
+              </select>
+              {coverage.next && (
+                <button
+                  type="button"
+                  className="btn btn--go btn--sm"
+                  disabled={!!locked}
+                  title="Loads the hardest mission still short into the builder and searches for the cheapest division for it"
+                  onClick={() => loadTarget({ atk: coverage.next!.atk, def: coverage.next!.def, missionId: coverage.next!.id })}
+                >
+                  Build next: {coverage.next.title}
+                </button>
+              )}
+              {goal.length > 0 && (
+                <button type="button" className="btn btn--sm" disabled={!!locked} onClick={() => setGoal(() => [])}>
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
           <div className="mb-goal__row">
             <label className="mb-field mb-field--preset">
               <span>Mission</span>
