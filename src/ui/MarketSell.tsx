@@ -71,6 +71,15 @@ interface Step {
   state: 'todo' | 'done' | 'failed'
 }
 
+/** A card picture that tries its sources in turn and shows a plain square when none loads. */
+function Thumb({ srcs }: { srcs: string[] }) {
+  const [i, setI] = useState(0)
+  const key = srcs.join('|')
+  useEffect(() => setI(0), [key])
+  if (i >= srcs.length) return <i />
+  return <img src={srcs[i]} alt="" loading="lazy" onError={() => setI((n) => n + 1)} />
+}
+
 /** "3× Scout, 2× Gunslinger, …" for a step's label. */
 function summary(names: string[]) {
   const c = new Map<string, number>()
@@ -434,11 +443,13 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
             </thead>
             <tbody>
               {rows.filter((x) => !notSellingOnly || x.listedCount === 0).map((r) => {
-                const img = r.img ? imageSources(r.img)[0] : undefined
+                // Alien Worlds cards: the small pictures from Alien Legends first (the IPFS originals are
+                // often large and the resizer gives up on them), then IPFS.
+                const srcs = [...(collection === 'alien.worlds' ? [`./img/aw-cards/${r.templateId}.webp`] : []), ...(r.img ? imageSources(r.img) : [])]
                 return (
                   <tr key={r.templateId}>
                     <td className="ms__name">
-                      {img ? <img src={img} alt="" loading="lazy" /> : <i />}
+                      <Thumb srcs={srcs} />
                       <span>
                         <b>{r.name}</b>
                         <small>
