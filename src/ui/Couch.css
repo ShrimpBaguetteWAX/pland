@@ -1486,3 +1486,241 @@ html.is-couch .couch {
 .couch__pet:active {
   transform: scale(0.9);
 }
+
+/* ---- Screens: the orb and the bank (swipe left), with page dots ---- */
+.couch__pages {
+  position: absolute;
+  top: max(16px, calc(env(safe-area-inset-top, 0px) + 10px));
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%) translateY(26px);
+}
+.couch__pages button {
+  all: unset;
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--cz-fr) 45%, transparent);
+  cursor: pointer;
+  transition: width 0.2s;
+}
+.couch__pages button.is-on {
+  width: 18px;
+  background: var(--cz-blood);
+}
+.couch__pages button:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+.couch {
+  touch-action: pan-y;
+}
+
+/* ---- The bank: the day as a receipt, the rate, the deposit, withdraw and swap ---- */
+.couch {
+  --cb-good: #7fe0b0;
+  --cb-bad: #ff8a8a;
+  --cb-def: #9db4ff;
+  --cb-nft: #f6c24a;
+}
+.couch[data-kt='snow'] {
+  --cb-good: #1f8f5c;
+  --cb-bad: #d9493a;
+  --cb-def: #4a6fd6;
+  --cb-nft: #b9801a;
+}
+.couch__bankpage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 64px 0 10px;
+  flex: 1;
+  color: var(--cz-tx);
+}
+.cb__hero {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding-top: 6px;
+}
+.cb__hero small,
+.cb__rate small {
+  color: var(--cz-dim);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.cb__hero b {
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1;
+}
+.cb__hero b i,
+.cb__rate i {
+  font-style: normal;
+  font-size: 0.36em;
+  font-weight: 500;
+  color: var(--cz-dim);
+  margin-left: 4px;
+}
+.couch__bankpage .is-good {
+  color: var(--cb-good);
+}
+.couch__bankpage .is-bad {
+  color: var(--cb-bad);
+}
+.couch__bankpage .is-tlm {
+  color: var(--cz-blood);
+}
+.couch__bankpage .is-def {
+  color: var(--cb-def);
+}
+.couch__bankpage .is-nft {
+  color: var(--cb-nft);
+}
+.cb__plaque {
+  position: relative;
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, var(--cz-pl1), var(--cz-pl2));
+  box-shadow:
+    inset 0 0 0 1.5px var(--cz-fr),
+    0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.cb__receipt table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--cz-tx);
+}
+.cb__receipt th {
+  padding: 0 0 5px;
+  text-align: right;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cz-dim);
+}
+.cb__receipt td {
+  padding: 4px 0;
+  text-align: right;
+  border-top: 1px dashed color-mix(in srgb, var(--cz-fr) 30%, transparent);
+}
+.cb__receipt th:first-child,
+.cb__receipt td:first-child {
+  text-align: left;
+  font-weight: 600;
+}
+.cb__receipt .cb__sum td {
+  padding-top: 7px;
+  border-top: 1.5px solid var(--cz-fr);
+  font-size: 15px;
+  font-weight: 600;
+}
+.cb__note {
+  margin: 8px 0 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--cz-dim);
+  text-align: center;
+}
+/* The rate, with the two little cat ears of the main screen's plaques. */
+.cb__rate {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cb__rate::before,
+.cb__rate::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 14px;
+  width: 12px;
+  height: 10px;
+  background: var(--cz-fr);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.cb__rate::after {
+  left: auto;
+  right: 14px;
+}
+.cb__rate b {
+  font-size: 34px;
+  font-weight: 600;
+  color: var(--cz-blood);
+}
+.cb__held {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 13px;
+  color: var(--cz-dim);
+}
+.cb__pct {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.cb__pct button {
+  all: unset;
+  padding: 9px 0;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--cz-tx);
+  background: color-mix(in srgb, var(--cz-tx) 6%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--cz-fr) 45%, transparent);
+  cursor: pointer;
+}
+.cb__pct button.is-on {
+  background: var(--cz-blood);
+  color: var(--cz-pl2);
+  box-shadow: none;
+}
+.cb__go {
+  all: unset;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 13px 10px;
+  border-radius: 16px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--cz-pl2);
+  background: var(--cz-blood);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--cz-blood) 55%, #000);
+  cursor: pointer;
+}
+.cb__go small {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.cb__go:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cb__pct button:focus-visible,
+.cb__go:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+.couch.is-bank .couch__moons,
+.couch.is-bank .couch__floaty {
+  display: none;
+}
