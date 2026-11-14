@@ -18,6 +18,12 @@ const PENALTY_MS = 60_000
 const PAGE = 1000
 /** Pages per query at most (10 000 actions). */
 const MAX_PAGES = 10
+/** Hyperion returns nothing past this many results of one query (its search window), whatever the paging. */
+const SKIP_LIMIT = 10_000
+
+const withZ = (iso: string) => (iso.endsWith('Z') ? iso : `${iso}Z`)
+/** One action's identity across pages (several equal claims in one transaction each have their own sequence). */
+const actionKey = (a: HistoryAction) => `${a.trx_id}:${a.global_sequence ?? a.action_ordinal ?? ''}:${a.act.account}:${a.act.name}:${JSON.stringify(a.act.data)}`
 
 const penalties = new Map<string, number>()
 let cursor = 0
@@ -114,11 +120,32 @@ export async function getActions(account: string, params: Record<string, string>
   for (const base of nodesInOrder()) {
     try {
       const out: HistoryAction[] = []
+      const seen = new Set<string>()
+      // A node answers nothing past 10,000 results, however the pages are cut. Past that the query
+      // starts again from the time of the last action read (a millisecond before, so actions of
+      // the same block are not lost), and the ones read twice are dropped.
+      let query = { ...params }
+      let skip = 0
       // Up to maxPages × 1,000 actions; a node with smaller pages just takes more of them.
       while (out.length < maxPages * PAGE) {
-        const { actions, size } = await getPage(base, { account, skip: String(out.length), sort: 'asc', ...params }, PAGE)
-        out.push(...actions)
+        if (skip >= SKIP_LIMIT && out.length) {
+          const last = Date.parse(withZ(out[out.length - 1]['@timestamp']))
+          query = { ...params, after: new Date(last - 1).toISOString() }
+          skip = 0
+        }
+        const { actions, size } = await getPage(base, { account, skip: String(skip), sort: 'asc', ...query }, PAGE)
+        skip += actions.length
+        let fresh = 0
+        for (const a of actions) {
+          const key = actionKey(a)
+          if (seen.has(key)) continue
+          seen.add(key)
+          out.push(a)
+          fresh++
+        }
         if (actions.length < size) break
+        // A restart that brought nothing new would loop forever: stop instead.
+        if (!fresh && skip <= size) break
       }
       return out
     } catch (err) {

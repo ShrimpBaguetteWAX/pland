@@ -20,8 +20,8 @@ import { Icon } from './icons'
 
 type Unit = 'USD' | 'WAX'
 
-const SPEND: Category[] = ['def-buy', 'nft', 'forge-level', 'forge-slot', 'forge-other', 'entry']
-const EARN: Category[] = ['mission', 'sale', 'def-sell', 'v2']
+const SPEND: Category[] = ['deposit', 'def-buy', 'nft', 'forge-level', 'forge-slot', 'forge-other', 'entry']
+const EARN: Category[] = ['withdraw', 'mission', 'sale', 'def-sell', 'v2']
 /** Each category's colour, from the site's palette. */
 const COLOR: Record<Category, string> = {
   nft: 'var(--r-rare)',
@@ -33,6 +33,8 @@ const COLOR: Record<Category, string> = {
   sale: 'var(--r-rare)',
   'def-buy': 'var(--def)',
   'def-sell': 'var(--def)',
+  deposit: 'var(--atk)',
+  withdraw: 'var(--good)',
   v2: 'var(--r-common)'
 }
 const LIST_STEP = 50
@@ -191,8 +193,13 @@ export function Ledger({ account: own }: { account: string }) {
           <span className="lg__lab">Together</span>
           <b>{player.data && game.data ? formatNumber(player.data.def + game.data.def, 2) : '…'}</b>
         </span>
+        <span title="TLM in your game balance (core.pdef): rewards credited and not yet withdrawn. Not in the net: it counts once you withdraw it.">
+          <img src="./img/Logo_token_TLM.png" alt="" />
+          <span className="lg__lab">TLM in the game</span>
+          <b>{game.data ? formatNumber(game.data.tlm, 2) : '…'}</b>
+        </span>
         <span title="What the DEF you hold would bring at today's Alcor price. Not in the net: DEF only counts once it is sold.">
-          <span className="lg__lab">Worth today</span>
+          <span className="lg__lab">DEF worth today</span>
           <b>
             {player.data && game.data && v
               ? (() => {
@@ -264,7 +271,7 @@ export function Ledger({ account: own }: { account: string }) {
         <section className="lg__mid box">
           <span
             className="lg__lab"
-            title="Earned minus spent. WAX and TLM are valued at their USD price on the day (CoinGecko, last 365 days; older entries use the oldest price). DEF counts where it is bought or sold on Alcor (the WAX or TLM paid or received, at that day's price); entry fees and Forge slots paid in DEF and DEF rewards are listed but not counted, and DEF you still hold is shown apart, not in the net. Token swaps are not counted: they only change what the money is held in. Since 7 Nov, rewards credited to the game balance count as earned, and entry fees taken from it as spent, each at the mission's entry cost; deposits and withdrawals only move your own money."
+            title="Earned minus spent. WAX and TLM are valued at their USD price on the day (CoinGecko, last 365 days; older entries use the oldest price). DEF counts where it is bought or sold on Alcor (the WAX or TLM paid or received, at that day's price); entry fees and Forge slots paid in DEF and DEF rewards are listed but not counted, and DEF you still hold is shown apart, not in the net. Token swaps are not counted: they only change what the money is held in. The game balance counts as a box: TLM you deposit into it is spent, TLM you withdraw from it is earned; rewards credited to it and entry fees taken from it are not counted (the TLM still in it is shown apart)."
           >
             Net so far
           </span>
