@@ -83,6 +83,13 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
   const { run, pending } = useTransaction()
   const [collection, setCollection] = useState<Collection>('planetdefnft')
   const [keepOne, setKeepOne] = useState(true)
+  /**
+   * How much of each template to list: all but the one kept, or one of each that you hold at least
+   * two of and are not selling yet (so one always stays).
+   */
+  const [mode, setMode] = useState<'all' | 'one'>('all')
+  /** Show only the templates you hold but have no listing of. */
+  const [notSellingOnly, setNotSellingOnly] = useState(false)
   /** Categories ticked, per collection (a collection's defaults apply until you change one). */
   const [picked, setPicked] = useState<Partial<Record<Collection, Set<string>>>>({})
   /** How many of a template to list, when changed from the default (free minus the one kept). */
@@ -162,13 +169,15 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
         .map((g) => {
           const lowest = floors.data?.get(g.templateId) ?? null
           // Keeping one of each: one held back from what is free, unless one is already listed (then you still own it until it sells).
-          const keep = keepOne ? Math.min(1, g.free.length) : 0
+          const listedCount = g.all.length - g.free.length
+          const keep = mode === 'one' || keepOne ? Math.min(1, g.free.length) : 0
           const max = Math.max(0, g.free.length - keep)
-          const count = Math.min(max, Math.max(0, counts.get(g.templateId) ?? max))
-          return { ...g, lowest, keep, max, count }
+          const auto = mode === 'one' ? (g.free.length >= 2 && listedCount === 0 ? 1 : 0) : max
+          const count = Math.min(max, Math.max(0, counts.get(g.templateId) ?? auto))
+          return { ...g, lowest, keep, max, count, listedCount }
         })
         .sort((a, b) => (b.lowest ?? 0) * b.count - (a.lowest ?? 0) * a.count || (b.lowest ?? 0) - (a.lowest ?? 0) || a.name.localeCompare(b.name)),
-    [groups, floors.data, keepOne, counts]
+    [groups, floors.data, keepOne, counts, mode]
   )
   const sellable = rows.filter((r) => r.lowest !== null && r.count > 0)
   const toList = sellable.reduce((n, r) => n + r.count, 0)
@@ -278,10 +287,40 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
           )}
           {owned.data && !schemas.length && <span className="muted">Nothing of this collection in your wallet.</span>}
         </div>
-        <label className={`opt__toggle ${keepOne ? 'is-on' : ''}`}>
-          <input type="checkbox" checked={keepOne} onChange={(e) => setKeepOne(e.target.checked)} />
-          Keep one of each template
-        </label>
+        <span className="ms__opt-row">
+          <span className="seg ms__mode" role="group" aria-label="How much of each to list">
+            <button
+              type="button"
+              className={mode === 'all' ? 'is-on' : ''}
+              aria-pressed={mode === 'all'}
+              title="Every free one of each template, but the one kept when that is on"
+              onClick={() => {
+                setMode('all')
+                setCounts(new Map())
+              }}
+            >
+              All but one
+            </button>
+            <button
+              type="button"
+              className={mode === 'one' ? 'is-on' : ''}
+              aria-pressed={mode === 'one'}
+              title="One of each template you hold at least two of and are not selling yet: one always stays"
+              onClick={() => {
+                setMode('one')
+                setCounts(new Map())
+              }}
+            >
+              One of each
+            </button>
+          </span>
+          {mode === 'all' && (
+            <label className={`opt__toggle ${keepOne ? 'is-on' : ''}`}>
+              <input type="checkbox" checked={keepOne} onChange={(e) => setKeepOne(e.target.checked)} />
+              Keep one of each template
+            </label>
+          )}
+        </span>
       </section>
 
       <section className="box ms__sum">
@@ -366,6 +405,15 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
         </section>
       )}
 
+      <div className="ms__filter">
+        <button type="button" className={`ms__chip${notSellingOnly ? ' is-on' : ''}`} aria-pressed={notSellingOnly} onClick={() => setNotSellingOnly((v) => !v)}>
+          Not selling <small className="num">{rows.filter((x) => x.listedCount === 0).length}</small>
+        </button>
+        <span className="muted">
+          {rows.filter((x) => x.listedCount === 0).length} of {rows.length} templates you hold have no listing of yours
+        </span>
+      </div>
+
       <section className="box ms__table" aria-label="Templates">
         <div className="ms__scroll">
           <table className="num">
@@ -380,7 +428,7 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => {
+              {rows.filter((x) => !notSellingOnly || x.listedCount === 0).map((r) => {
                 const img = r.img ? imageSources(r.img)[0] : undefined
                 return (
                   <tr key={r.templateId}>
@@ -397,6 +445,7 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
                     <td>
                       {r.free.length}
                       {r.keep ? <small className="muted"> · keep 1</small> : null}
+                      {r.listedCount ? <small className="c-good"> · {r.listedCount} listed</small> : null}
                     </td>
                     <td>{r.lowest !== null ? `${formatNumber(r.lowest, 2)}` : <span className="muted">none</span>}</td>
                     <td>
