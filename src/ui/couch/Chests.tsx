@@ -65,11 +65,36 @@ export function Chests({ account }: { account: string }) {
   const collectionFee = Number(others[0]?.current_collection_fee ?? mine[0]?.current_collection_fee ?? 0) || 0
   const net = lowest !== null ? lowest * (1 - MARKET_FEES - collectionFee) : null
 
+  /*
+   * The market's API shows a new or changed listing only a few seconds after it is signed. Until it
+   * does, what was just signed is shown as done (chest → its new price) and the market is asked again
+   * every few seconds, for half a minute at most.
+   */
+  const [held, setHeld] = useState<Map<string, number>>(() => new Map())
+  const [syncing, setSyncing] = useState(false)
+  async function settle(done: (sales: AtomicSale[]) => boolean) {
+    setSyncing(true)
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 3000))
+      const sales = (await market.refetch()).data ?? []
+      if (done(sales)) break
+    }
+    void owned.refetch()
+    setSyncing(false)
+  }
+  /** Your listings with what was just signed laid over them: asset → price. */
+  const myListings = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const s of mine) for (const a of s.assets) m.set(a.asset_id, waxOf(s))
+    for (const [id, price] of held) m.set(id, price)
+    return m
+  }, [mine, held])
+  const myPrices = [...myListings.values()].sort((a, b) => a - b)
+
   // A listed chest stays in the wallet (offered to the market): it is not free to list or open.
-  const listedIds = useMemo(() => new Set(mine.flatMap((s) => s.assets.map((a) => a.asset_id))), [mine])
-  const chests = useMemo(() => (owned.data?.get(QUANTUM_CHEST) ?? []).filter((id) => !listedIds.has(id)), [owned.data, listedIds])
+  const chests = useMemo(() => (owned.data?.get(QUANTUM_CHEST) ?? []).filter((id) => !myListings.has(id)), [owned.data, myListings])
   const keys = owned.data?.get(QUANTUM_KEY) ?? []
-  const above = lowest !== null ? mine.filter((s) => waxOf(s) > lowest + 1e-8) : []
+  const above = lowest !== null ? mine.filter((s) => !held.has(s.assets[0]?.asset_id) && waxOf(s) > lowest + 1e-8) : []
 
   const openings = useMemo(() => (blends.data ? openingsOf(blends.data) : null), [blends.data])
   const [useKeys, setUseKeys] = useState(true)
@@ -91,7 +116,12 @@ export function Chests({ account }: { account: string }) {
       'chest-list',
       { split: true }
     )
-    if (ok) void Promise.all([market.refetch(), owned.refetch()])
+    if (!ok) return
+    setHeld((h) => new Map([...h, ...ids.map((id): [string, number] => [id, lowest])]))
+    const listedNow = (sales: AtomicSale[]) =>
+      ids.every((id) => sales.some((s) => s.seller === account && s.assets.some((a) => a.asset_id === id)))
+    await settle(listedNow)
+    setHeld((h) => new Map([...h].filter(([id]) => !ids.includes(id))))
   }
 
   async function reprice() {
@@ -108,7 +138,14 @@ export function Chests({ account }: { account: string }) {
       'chest-reprice',
       { split: true }
     )
-    if (ok) void market.refetch()
+    if (!ok) return
+    const ids = above.map((s) => s.assets[0].asset_id)
+    const price = lowest
+    setHeld((h) => new Map([...h, ...ids.map((id): [string, number] => [id, price])]))
+    const repricedNow = (sales: AtomicSale[]) =>
+      ids.every((id) => sales.some((s) => s.seller === account && s.assets.some((a) => a.asset_id === id) && Math.abs(waxOf(s) - price) < 1e-6))
+    await settle(repricedNow)
+    setHeld((h) => new Map([...h].filter(([id]) => !ids.includes(id))))
   }
 
   async function open(n: number) {
@@ -170,8 +207,10 @@ export function Chests({ account }: { account: string }) {
             <tr>
               <td>Listed by you</td>
               <td>
-                {mine.length
-                  ? `${mine.length} · ${formatNumber(waxOf(mine[0]), 2)}${mine.length > 1 ? `–${formatNumber(waxOf(mine[mine.length - 1]), 2)}` : ''} WAX`
+                {myPrices.length
+                  ? `${myPrices.length} · ${formatNumber(myPrices[0], 2)}${
+                      myPrices[myPrices.length - 1] > myPrices[0] + 1e-8 ? `–${formatNumber(myPrices[myPrices.length - 1], 2)}` : ''
+                    } WAX`
                   : 'none'}
               </td>
             </tr>
@@ -203,12 +242,13 @@ export function Chests({ account }: { account: string }) {
       <button type="button" className="cc__second" disabled={off || !above.length} onClick={() => void reprice()}>
         {pending === 'chest-reprice'
           ? 'Signing…'
-          : !mine.length
+          : !myPrices.length
             ? 'No chests of yours listed'
             : above.length
               ? `Set my ${above.length} listing${above.length === 1 ? '' : 's'} to ${lowestText} WAX`
               : 'Your listings are at the lowest'}
       </button>
+      {syncing && <p className="cb__note">Updating: the market shows a change a few seconds after it is signed…</p>}
 
       <div className="cc__open">
         <div className="cc__keys" role="group" aria-label="Open with keys or without">

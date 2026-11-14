@@ -1,6 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 
 import { useToasts } from '@/components/toast'
+import { refreshPlayer } from '@/data/game'
 import { refreshToday, useTodayEarnings } from '@/data/today'
 import { CHIME_FOR, chimeNow, useChimeSchedule, useChimeSetting, type ChimeEvent } from '@/lib/chime'
 import { formatNumber } from '@/lib/format'
@@ -285,20 +287,37 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const today = useTodayEarnings(account)
   /** Which screen: the orb (0), the bank (1, a swipe to the left) or the chests (2, another). */
   const [page, setPage] = useState<0 | 1 | 2>(0)
+  /*
+   * Swipes: left goes one screen on (orb → bank → chests), right one back, down refreshes everything
+   * on screen. Touch is read with touch events (a browser cancels the pointer once a move turns into
+   * a vertical scroll), a mouse or pen with pointer events.
+   */
   const swipe = useRef<{ x: number; y: number } | null>(null)
-  const onSwipeStart = (e: React.PointerEvent) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    swipe.current = { x: e.clientX, y: e.clientY }
+  const queryClient = useQueryClient()
+  const [refreshing, setRefreshing] = useState(false)
+  async function refreshAll() {
+    if (refreshing) return
+    setRefreshing(true)
+    const started = Date.now()
+    refreshToday(account)
+    await Promise.all([refreshPlayer(account), queryClient.refetchQueries({ type: 'active' })]).catch(() => undefined)
+    // Long enough to be seen, even when everything answers at once.
+    await new Promise((r) => setTimeout(r, Math.max(0, 700 - (Date.now() - started))))
+    setRefreshing(false)
   }
-  const onSwipeEnd = (e: React.PointerEvent) => {
+  const swipeStart = (x: number, y: number) => (swipe.current = { x, y })
+  const swipeEnd = (x: number, y: number) => {
     const s = swipe.current
     swipe.current = null
     if (!s) return
-    const dx = e.clientX - s.x
-    const dy = e.clientY - s.y
-    // A clear sideways move: left goes one screen on (orb → bank → chests), right one back.
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-    setPage((p) => (dx < 0 ? Math.min(2, p + 1) : Math.max(0, p - 1)) as 0 | 1 | 2)
+    const dx = x - s.x
+    const dy = y - s.y
+    if (Math.abs(dx) >= 60 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
+      setPage((p) => (dx < 0 ? Math.min(2, p + 1) : Math.max(0, p - 1)) as 0 | 1 | 2)
+      return
+    }
+    // Pulled down from the top of the screen.
+    if (dy >= 90 && dy >= Math.abs(dx) * 1.5 && window.scrollY <= 0) void refreshAll()
   }
   const [panel, setPanel] = useState<'out' | 'idle' | null>(null)
   /** The Deployed list for one mission only (a moon or the orb opened it), or every mission. */
@@ -457,9 +476,11 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     <div
       className={`couch is-kitten${page !== 0 ? ' is-bank' : ''}`}
       data-kt={tint.id}
-      onPointerDown={onSwipeStart}
-      onPointerUp={onSwipeEnd}
-      onPointerCancel={() => (swipe.current = null)}
+      onPointerDown={(e) => e.pointerType !== 'touch' && e.button === 0 && swipeStart(e.clientX, e.clientY)}
+      onPointerUp={(e) => e.pointerType !== 'touch' && swipeEnd(e.clientX, e.clientY)}
+      onTouchStart={(e) => e.touches.length === 1 && swipeStart(e.touches[0].clientX, e.touches[0].clientY)}
+      onTouchEnd={(e) => e.changedTouches.length && swipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
+      onTouchCancel={() => (swipe.current = null)}
       style={
         {
           '--moon-l1': tint.moon.l1,
@@ -499,6 +520,11 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         <PetFace animal={animal} t={tint.kitten} />
       </button>
 
+      {refreshing && (
+        <div className="couch__refresh" role="status">
+          <span aria-hidden="true" /> Refreshing…
+        </div>
+      )}
       <nav className="couch__pages" aria-label="Screens">
         <button type="button" className={page === 0 ? 'is-on' : ''} aria-pressed={page === 0} aria-label="The orb" onClick={() => setPage(0)} />
         <button type="button" className={page === 1 ? 'is-on' : ''} aria-pressed={page === 1} aria-label="The bank" onClick={() => setPage(1)} />
