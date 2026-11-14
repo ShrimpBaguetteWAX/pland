@@ -1524,8 +1524,20 @@ html.is-couch .couch {
   --cb-bad: #ff8a8a;
   --cb-def: #9db4ff;
   --cb-nft: #f6c24a;
+  /* Text on the theme's accent (the selected percentage, the swap button): dark on light accents. */
+  --cb-on: #2a0f1e;
+}
+.couch[data-kt='rainbow'] {
+  --cb-on: #3a2a08;
+}
+.couch[data-kt='cotton'] {
+  --cb-on: #3a1430;
+}
+.couch[data-kt='blueberry'] {
+  --cb-on: #141a3e;
 }
 .couch[data-kt='snow'] {
+  --cb-on: #ffffff;
   --cb-good: #1f8f5c;
   --cb-bad: #d9493a;
   --cb-def: #4a6fd6;
@@ -1688,7 +1700,7 @@ html.is-couch .couch {
 }
 .cb__pct button.is-on {
   background: var(--cz-blood);
-  color: var(--cz-pl2);
+  color: var(--cb-on);
   box-shadow: none;
 }
 .cb__go {
@@ -1701,7 +1713,7 @@ html.is-couch .couch {
   text-align: center;
   font-weight: 600;
   font-size: 16px;
-  color: var(--cz-pl2);
+  color: var(--cb-on);
   background: var(--cz-blood);
   box-shadow: 0 4px 0 color-mix(in srgb, var(--cz-blood) 55%, #000);
   cursor: pointer;
@@ -1723,4 +1735,170 @@ html.is-couch .couch {
 .couch.is-bank .couch__moons,
 .couch.is-bank .couch__floaty {
   display: none;
+}
+
+/* ---- Chests: inventory, the lowest listing, list, reprice, open and what came out ---- */
+.couch__chests {
+  gap: 11px;
+}
+.cc__inv {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--cz-tx);
+}
+.cc__inv td {
+  padding: 6px 0;
+  border-top: 1px dashed color-mix(in srgb, var(--cz-fr) 30%, transparent);
+}
+.cc__inv tr:first-child td {
+  border-top: 0;
+}
+.cc__inv td:last-child {
+  text-align: right;
+  font-weight: 600;
+}
+.cc__inv .cc__big {
+  font-size: 18px;
+}
+.cc__list {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.cc__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cc__step b {
+  min-width: 24px;
+  text-align: center;
+  font-size: 18px;
+}
+.cc__step button,
+.cc__keys button,
+.cc__open-b,
+.cc__second {
+  all: unset;
+  box-sizing: border-box;
+  text-align: center;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--cz-tx);
+  background: color-mix(in srgb, var(--cz-tx) 6%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--cz-fr) 45%, transparent);
+}
+.cc__step button {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 17px;
+}
+.cc__second {
+  padding: 11px;
+  border-radius: 14px;
+  font-size: 14.5px;
+}
+.cc__open {
+  display: grid;
+  gap: 6px;
+}
+.cc__keys {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cz-tx) 4%, transparent);
+}
+.cc__keys button {
+  padding: 6px 0;
+  border-radius: 9px;
+  font-size: 12.5px;
+  box-shadow: none;
+  background: transparent;
+  color: var(--cz-dim);
+}
+.cc__keys button.is-on {
+  background: color-mix(in srgb, var(--cz-tx) 12%, transparent);
+  color: var(--cz-tx);
+}
+.cc__opens {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+.cc__open-b {
+  padding: 10px 4px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+.cc__open-b.is-go {
+  background: var(--cz-blood);
+  color: var(--cb-on);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--cz-blood) 55%, #000);
+}
+.cc__step button:disabled,
+.cc__keys button:disabled,
+.cc__open-b:disabled,
+.cc__second:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.cc__step button:focus-visible,
+.cc__keys button:focus-visible,
+.cc__open-b:focus-visible,
+.cc__second:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+.cc__found {
+  display: grid;
+  gap: 6px;
+}
+.cc__found > small {
+  text-align: center;
+  color: var(--cz-dim);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.cc__loot {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.cc__item {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 7px 5px 6px;
+  border-radius: 12px;
+  text-align: center;
+  background: color-mix(in srgb, var(--cz-tx) 5%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--rc);
+}
+.cc__item img,
+.cc__item i {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.cc__item i {
+  background: var(--rc);
+}
+.cc__item b {
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+.cc__item small {
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rc);
 }

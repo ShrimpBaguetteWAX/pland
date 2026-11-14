@@ -13,6 +13,7 @@ import { useTransaction } from '@/wallet/useTransaction'
 
 import { ANIMALS, furOf, readAnimal, saveAnimal, type Animal } from './couch/animals'
 import { Bank } from './couch/Bank'
+import { Chests } from './couch/Chests'
 import { useBloodOrb } from './couch/bloodOrb'
 import { KittenFrame } from './couch/KittenFrame'
 import { Moons, type MoonMission } from './couch/Moons'
@@ -282,8 +283,8 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const loop = useLoopPlan(account, readCashOut())
   const m = useMining(now)
   const today = useTodayEarnings(account)
-  /** Which screen: the orb (0) or the bank (1, a swipe to the left). */
-  const [page, setPage] = useState<0 | 1>(0)
+  /** Which screen: the orb (0), the bank (1, a swipe to the left) or the chests (2, another). */
+  const [page, setPage] = useState<0 | 1 | 2>(0)
   const swipe = useRef<{ x: number; y: number } | null>(null)
   const onSwipeStart = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
@@ -295,9 +296,9 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     if (!s) return
     const dx = e.clientX - s.x
     const dy = e.clientY - s.y
-    // A clear sideways move: left opens the bank, right goes back to the orb.
+    // A clear sideways move: left goes one screen on (orb → bank → chests), right one back.
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-    setPage(dx < 0 ? 1 : 0)
+    setPage((p) => (dx < 0 ? Math.min(2, p + 1) : Math.max(0, p - 1)) as 0 | 1 | 2)
   }
   const [panel, setPanel] = useState<'out' | 'idle' | null>(null)
   /** The Deployed list for one mission only (a moon or the orb opened it), or every mission. */
@@ -454,7 +455,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className={`couch is-kitten${page === 1 ? ' is-bank' : ''}`}
+      className={`couch is-kitten${page !== 0 ? ' is-bank' : ''}`}
       data-kt={tint.id}
       onPointerDown={onSwipeStart}
       onPointerUp={onSwipeEnd}
@@ -501,11 +502,13 @@ export default function Couch({ onClose }: { onClose: () => void }) {
       <nav className="couch__pages" aria-label="Screens">
         <button type="button" className={page === 0 ? 'is-on' : ''} aria-pressed={page === 0} aria-label="The orb" onClick={() => setPage(0)} />
         <button type="button" className={page === 1 ? 'is-on' : ''} aria-pressed={page === 1} aria-label="The bank" onClick={() => setPage(1)} />
+        <button type="button" className={page === 2 ? 'is-on' : ''} aria-pressed={page === 2} aria-label="Your chests" onClick={() => setPage(2)} />
       </nav>
 
       {page === 1 && account && <Bank account={account} />}
+      {page === 2 && account && <Chests account={account} />}
 
-      <header className="couch__top" aria-label="Earned today" hidden={page === 1}>
+      <header className="couch__top" aria-label="Earned today" hidden={page !== 0}>
         <div className="couch__orn">
           <svg viewBox="0 0 46 14" aria-hidden="true">
             <path d="M23 1l5 6-5 6-5-6z" fill="#0a0606" stroke="currentColor" />
@@ -554,7 +557,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         </button>
       </header>
 
-      <main className="couch__stage" hidden={page === 1}>
+      <main className="couch__stage" hidden={page !== 0}>
         <div
           className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${centreLoops || centreMines ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
@@ -609,7 +612,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         </div>
       </main>
 
-      <section className="couch__lower" hidden={page === 1}>
+      <section className="couch__lower" hidden={page !== 0}>
         <div className={`couch__dock${card ? ' is-carding' : ''}`}>
           <div className="couch__tablets" aria-hidden={!!card}>
             <button type="button" className="couch__tablet" onClick={() => openList(null)}>

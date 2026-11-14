@@ -80,7 +80,7 @@ export const waxAmount = (wax: number) => waxAsset(BigInt(Math.round(wax * 1e8))
  * price and the NFT is offered to the market contract (memo "sale"). The NFT stays in the wallet
  * until someone buys it; AtomicMarket's `cancelsale` takes it off again.
  */
-export function listSalesActions(account: string, permission: string, sales: SaleToList[]): AnyAction[] {
+export function listSalesActions(account: string, permission: string, sales: SaleToList[], marketplace = ''): AnyAction[] {
   const auth = [{ actor: account, permission }]
   return sales.flatMap((s): AnyAction[] => [
     {
@@ -92,7 +92,7 @@ export function listSalesActions(account: string, permission: string, sales: Sal
         asset_ids: [s.assetId],
         listing_price: waxAmount(s.priceWax),
         settlement_symbol: '8,WAX',
-        maker_marketplace: ''
+        maker_marketplace: marketplace
       }
     },
     {
@@ -117,8 +117,8 @@ export interface SaleToReprice extends SaleToList {
 }
 
 /** Changes a listing's price the way AtomicHub does: the sale is cancelled and announced again. */
-export function repriceSalesActions(account: string, permission: string, sales: SaleToReprice[]): AnyAction[] {
-  return sales.flatMap((s) => [cancelSaleAction(account, permission, s.saleId), ...listSalesActions(account, permission, [s])])
+export function repriceSalesActions(account: string, permission: string, sales: SaleToReprice[], marketplace = ''): AnyAction[] {
+  return sales.flatMap((s) => [cancelSaleAction(account, permission, s.saleId), ...listSalesActions(account, permission, [s], marketplace)])
 }
 
 /**
