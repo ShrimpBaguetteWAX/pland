@@ -14,6 +14,7 @@ import { Portrait, rarityColor } from './Art'
 import { Icon } from './icons'
 import { ChestValue } from './ChestValue'
 import { ChestForecast, MarketBuilder } from './MarketBuilder'
+import { MarketSell } from './MarketSell'
 import { MarketUpgrade } from './MarketUpgrade'
 import { StarRail } from './Stars'
 
@@ -27,12 +28,13 @@ import { StarRail } from './Stars'
  * after buying.
  */
 
-type Aisle = 'builder' | 'payback' | 'upgrade' | 'chests' | 'material' | 'mercenary' | 'warlord' | 'weapon' | 'supply' | 'creature' | 'lavalux' | 'badge' | 'coins'
+type Aisle = 'builder' | 'payback' | 'upgrade' | 'sell' | 'chests' | 'material' | 'mercenary' | 'warlord' | 'weapon' | 'supply' | 'creature' | 'lavalux' | 'badge' | 'coins'
 
 const AISLES: { key: Aisle; label: string; blurb: string }[] = [
   { key: 'builder', label: 'Division builder', blurb: '' },
   { key: 'payback', label: 'Mission ROI', blurb: '' },
   { key: 'upgrade', label: 'Upgrade', blurb: '' },
+  { key: 'sell', label: 'Sell', blurb: '' },
   { key: 'chests', label: 'Chests & keys', blurb: 'A Quantum Chest opens into one material; opened with a Key the odds shift to the rarer ones. Open them on the Blend page.' },
   { key: 'material', label: 'Materials', blurb: 'What blends are made of. Chests open into them too.' },
   { key: 'mercenary', label: 'Mercenaries', blurb: 'The crew of a division. Sort by WAX per attack to find the cheapest strength.' },
@@ -148,9 +150,9 @@ export function Market({ account, spectating, onMissions }: { account: string; s
           <Fragment key={a.key}>
             <button type="button" className={a.key === aisle ? 'is-on' : ''} onClick={() => setAisle(a.key)}>
               <span>{a.label}</span>
-              {a.key !== 'builder' && a.key !== 'payback' && a.key !== 'upgrade' && <small className="num">{listings.data ? formatNumber(byAisle.get(a.key)?.length ?? 0, 0) : '…'}</small>}
+              {a.key !== 'builder' && a.key !== 'payback' && a.key !== 'upgrade' && a.key !== 'sell' && <small className="num">{listings.data ? formatNumber(byAisle.get(a.key)?.length ?? 0, 0) : '…'}</small>}
             </button>
-            {i === 2 && <span className="mkt__sep" />}
+            {i === 3 && <span className="mkt__sep" />}
           </Fragment>
         ))}
       </nav>
@@ -171,7 +173,8 @@ export function Market({ account, spectating, onMissions }: { account: string; s
         <div className="mkt__builder" hidden={aisle !== 'upgrade'}>
           <MarketUpgrade account={account} spectating={spectating} onBuild={(target) => setRequest({ ...target, nonce: Date.now() })} />
         </div>
-        {aisle === 'builder' || aisle === 'payback' || aisle === 'upgrade' ? null : (
+        {aisle === 'sell' && <MarketSell account={account} spectating={spectating} />}
+        {aisle === 'builder' || aisle === 'payback' || aisle === 'upgrade' || aisle === 'sell' ? null : (
           <Shelf
             key={aisle}
             aisle={aisle}
