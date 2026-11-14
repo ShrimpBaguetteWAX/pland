@@ -5,7 +5,9 @@ import { divisionAllowance } from '@/chain/config'
 import { toast } from '@/components/toast'
 import { useArmy, useDeployments, useGameBalance, useMarket, useMissionConfig, usePlayer, useWalletNfts, type Division } from '@/data/game'
 import { bestLoop, poolOf } from '@/lib/armyOptimizer'
+import { useNftFloors, useSwapPools } from '@/data/market'
 import { diffArmy } from '@/lib/armyDiff'
+import { receiveFor } from '@/lib/pool'
 import { readPresets, snapshot, writePresets, type PresetDivision } from '@/lib/armyPresets'
 import { EFFORTS, type EffortLevel, type PlannedDivision, type SearchInput } from '@/lib/armySearch'
 import type { SlotKind } from '@/lib/bundle'
@@ -161,7 +163,29 @@ export function OptimizePanel({
   const walletIds = useMemo(() => new Set(walletCards.map((a) => a.assetId)), [walletCards])
   const { run, runSequence, pending } = useTransaction()
 
-  const missions = useMemo(() => (config.data ? config.data.missions.map((row) => missionEconomics(row, config.data!)) : []), [config.data])
+  const rawMissions = useMemo(() => (config.data ? config.data.missions.map((row) => missionEconomics(row, config.data!)) : []), [config.data])
+  // NFT rewards count at their floor, as on the Missions page: the cheapest WAX listing of the
+  // template, swapped to TLM through the WAX → TLM pool, added to the mission's TLM reward. So NFT
+  // missions are weighed with the token ones; an NFT with no listing adds nothing.
+  const pools = useSwapPools()
+  const nftIds = useMemo(() => rawMissions.flatMap((e) => (e.rewardNft ? [String(e.rewardNft.templateId)] : [])), [rawMissions])
+  const floors = useNftFloors(nftIds)
+  /** Per mission with an NFT reward: the TLM it counts for a cycle (shown in the mission list). */
+  const nftTlm = useMemo(() => {
+    const m = new Map<number, number>()
+    const pool = pools.data?.tlm
+    if (!pool) return m
+    for (const e of rawMissions) {
+      if (!e.rewardNft) continue
+      const wax = floors.data?.get(String(e.rewardNft.templateId))
+      if (wax !== undefined) m.set(e.id, receiveFor(pool, 'WAX', wax * e.rewardNft.count))
+    }
+    return m
+  }, [rawMissions, floors.data, pools.data])
+  const missions = useMemo(
+    () => rawMissions.map((e) => (nftTlm.has(e.id) ? { ...e, rewardTlm: e.rewardTlm + nftTlm.get(e.id)! } : e)),
+    [rawMissions, nftTlm]
+  )
   const candidates = useMemo(() => candidateMissions(missions), [missions])
   const chosen = useMemo(() => missions.filter((m) => !off.has(m.id)), [missions, off])
 
@@ -679,12 +703,23 @@ export function OptimizePanel({
                   None
                 </button>
                 {candidates.map((m) => (
-                  <button key={m.id} type="button" className={`opt__chip${off.has(m.id) ? '' : ' is-on'}`} onClick={() => toggleMission(m.id)}>
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`opt__chip${off.has(m.id) ? '' : ' is-on'}`}
+                    title={nftTlm.has(m.id) ? `Its NFT reward counts at its floor: ≈ ${formatNumber(nftTlm.get(m.id)!, 0)} TLM a cycle` : undefined}
+                    onClick={() => toggleMission(m.id)}
+                  >
                     {m.title}
+                    {nftTlm.has(m.id) && <small> · NFT ≈ {formatNumber(nftTlm.get(m.id)!, 0)} TLM</small>}
                   </button>
                 ))}
               </span>
-              <p className="help">Click a mission to leave it out. Missions, requirements and rewards come from the chain each time.</p>
+              <p className="help">
+                Click a mission to leave it out. Missions, requirements and rewards come from the chain each time. NFT rewards count
+                at their floor (the cheapest listing, swapped to TLM), as on the Missions page; an NFT with no listing counts for
+                nothing.
+              </p>
             </details>
           )}
         </div>
