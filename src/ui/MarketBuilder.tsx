@@ -11,6 +11,7 @@ import { toast } from '@/components/toast'
 import { makeAssetRef, type AssetRef } from '@/data/assets'
 import { useBlends, useCollectionTemplates, useOwnedBlendInputs, type Blend } from '@/data/blends'
 import {
+  liveStats,
   useArmy,
   useAssetStats,
   useForgeConfig,
@@ -40,7 +41,8 @@ import {
   type GearKind,
   type SlotKind,
   type SolveInput,
-  type WarlordOption
+  type WarlordOption,
+  valid
 } from '@/lib/bundle'
 import { forecastOpenings, type ChestForecast as Forecast } from '@/lib/chestOdds'
 import { buildEconomy, waxFor } from '@/lib/forgeEconomy'
@@ -131,7 +133,9 @@ interface GoalRow {
   bundle: Bundle | null
   /** The candidate keys it takes (own:, wal:, sale:, blend:). */
   keys: string[]
+  /** What the search assumed, and what it really costs with the whole plan's blends priced together. */
   cost: number
+  real: number
   /** The division it is (kept, or rebuilt from exactly its own NFTs). */
   keep: number | null
 }
@@ -144,21 +148,225 @@ interface GoalPlan {
   way: 'keep' | 'rebuild' | 'none'
   /** The other way's total (to show the saving), null when it was not possible. */
   other: number | null
+  /** Where every NFT comes from, and your divisions, as they were when it was planned. */
+  sources: Map<string, Source>
+  divisions: Division[]
+  /** Forge level before the plan. */
+  forgeLevel: number
 }
 
 const EMPTY_KEYS: ReadonlySet<string> = new Set()
 
-/** Where a planned division's NFTs come from, in short. */
-function bundleParts(b: Bundle, sources: Map<string, Source>) {
-  const keys = bundleKeys(b)
-  const from = keys.map((k) => sources.get(k)).filter((s): s is Source => !!s)
-  const lead = sources.get(b.warlord.key)
-  return {
-    warlord: lead ? assetOf(lead).name : '',
-    fromDivisions: [...new Set(from.flatMap((s) => (s.from === 'division' ? [s.division] : [])))].sort((x, y) => x - y),
-    bought: from.filter((s) => s.from === 'market').length,
-    blended: from.filter((s) => s.from === 'blend').length
+/** A division's stats on one line: attack, defense, move and what the move adds to each cycle. */
+function StatLine({ atk, def, move }: { atk: number; def: number; move: number }) {
+  return (
+    <span className="mb-gp__stats num">
+      <span className="c-atk">{formatNumber(atk, 0)} ATK</span> · <span className="c-def">{formatNumber(def, 0)} DEF</span> ·{' '}
+      <span className="c-move">{formatNumber(move, 0)} move</span> <small>(+{formatDuration(move * 10)} a cycle)</small>
+    </span>
+  )
+}
+
+/**
+ * The goal plan in full: each goal division with its stats and exactly what happens to build it
+ * (Forge, where every NFT comes from, what is bought and blended, unit by unit), then your other
+ * divisions as the plan leaves them.
+ */
+function GoalPlanView({
+  plan,
+  fresh,
+  disabled,
+  onBuild
+}: {
+  plan: GoalPlan
+  fresh: boolean
+  disabled: boolean
+  onBuild: (row: GoalRow) => void
+}) {
+  const byId = new Map(plan.divisions.map((d) => [d.id, d]))
+  const nameOf = (key: string) => {
+    const s = plan.sources.get(key)
+    return s ? assetOf(s).name : '?'
   }
+  const isKept = (r: GoalRow) => !r.bundle || (r.keep !== null && r.real === 0)
+  // What the plan takes out of each of your divisions (the kept ones stay whole).
+  const taken = new Map<number, Set<string>>()
+  for (const r of plan.rows) {
+    if (isKept(r)) continue
+    for (const k of r.keys) {
+      const s = plan.sources.get(k)
+      if (s?.from !== 'division') continue
+      if (!taken.has(s.division)) taken.set(s.division, new Set())
+      taken.get(s.division)!.add(s.asset.assetId)
+    }
+  }
+  const keptIds = new Set(plan.rows.filter(isKept).map((r) => r.keep))
+  let level = plan.forgeLevel
+
+  return (
+    <>
+      <ol className="mb-gp">
+        {plan.rows.map((r, i) => {
+          if (isKept(r)) {
+            const d = r.keep !== null ? byId.get(r.keep) : undefined
+            return (
+              <li key={i} className="mb-gp__div is-kept">
+                <div className="mb-gp__hd">
+                  <span className="mb-gp__title">
+                    <b>{r.title}</b>
+                    <small>#{r.keep} stays as it is, nothing changes</small>
+                  </span>
+                  {d && <StatLine atk={d.atk} def={d.def} move={d.move} />}
+                </div>
+              </li>
+            )
+          }
+          const b = r.bundle!
+          const from = new Map<string, string[]>()
+          const add = (label: string, item: string) => from.set(label, [...(from.get(label) ?? []), item])
+          for (const k of r.keys) {
+            const s = plan.sources.get(k)
+            if (!s) continue
+            const a = assetOf(s)
+            if (s.from === 'division')
+              add(`Taken out of #${s.division}${s.locked ? ' (on a mission: once it is back)' : ''}`, a.name)
+            else if (s.from === 'reserve') add('From your reserve', a.name)
+            else if (s.from === 'wallet') add('From your wallet (staked with the build)', a.name)
+            else if (s.from === 'market') add('Bought on the market', `${a.name} (${formatNumber(s.listing.price, 2)} WAX)`)
+            else if (s.from === 'blend') add('Blended', a.name)
+          }
+          const slots = (Object.keys(b.slotsBought) as SlotKind[]).filter((k) => b.slotsBought[k].length)
+          const forgeUp = b.level > level ? b.level : null
+          level = Math.max(level, b.level)
+          const count = (list: string[]) => {
+            const c = new Map<string, number>()
+            for (const n of list) c.set(n, (c.get(n) ?? 0) + 1)
+            return [...c].map(([n, k]) => (k > 1 ? `${n} ×${k}` : n)).join(', ')
+          }
+          return (
+            <li key={i} className="mb-gp__div">
+              <div className="mb-gp__hd">
+                <span className="mb-gp__title">
+                  <b>{r.title}</b>
+                  <small>
+                    new division · led by {nameOf(b.warlord.key)} · {b.mercs.length} of {b.warlord.slots} places filled
+                  </small>
+                </span>
+                <StatLine atk={b.atk} def={b.def} move={b.move} />
+                <span className="mb-gp__cost num">
+                  <b>{formatNumber(r.real, 2)} WAX</b>
+                  {Math.abs(r.real - r.cost) > 0.5 && <small>search assumed {formatNumber(r.cost, 2)}</small>}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn--go btn--sm"
+                  disabled={disabled || !fresh}
+                  title="Opens this division in the builder; the NFTs planned for the goal's other divisions are left out of its search"
+                  onClick={() => onBuild(r)}
+                >
+                  Build
+                </button>
+              </div>
+              <p className="mb-gp__meets">
+                Needs {r.atk ? `${formatNumber(r.atk, 0)} ATK` : ''}
+                {r.atk && r.def ? ' and ' : ''}
+                {r.def ? `${formatNumber(r.def, 0)} DEF` : ''}: met, checked with the contract&apos;s formula.
+              </p>
+              <ul className="mb-gp__steps">
+                {forgeUp !== null && <li>Forge to level {forgeUp}</li>}
+                {slots.length > 0 && (
+                  <li>
+                    Buy Forge slots: {slots.map((k) => `${b.slotsBought[k].length} ${k === 'lavalux' ? 'Lava Lux' : k}`).join(', ')}
+                  </li>
+                )}
+                {b.slotCost + b.forgeCost > 0 && <li>Forge costs {formatNumber(b.slotCost + b.forgeCost, 2)} WAX</li>}
+                {[...from].map(([label, names]) => (
+                  <li key={label}>
+                    <b>{label}</b> ({names.length}): {count(names)}
+                  </li>
+                ))}
+              </ul>
+              <details className="mb-gp__units">
+                <summary>Unit by unit ({b.units.length})</summary>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Mercenary</th>
+                      <th>Gear</th>
+                      <th className="num">ATK</th>
+                      <th className="num">DEF</th>
+                      <th className="num">Move</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {b.units.map((u) => (
+                      <tr key={u.merc.key}>
+                        <td>{nameOf(u.merc.key)}</td>
+                        <td>
+                          {GEAR_KINDS.flatMap((g) => (u.gear[g] ? [nameOf(u.gear[g]!.key)] : [])).join(', ') || (
+                            <span className="muted">none</span>
+                          )}
+                        </td>
+                        <td className="num">{formatNumber(u.atk, 0)}</td>
+                        <td className="num">{formatNumber(u.def, 0)}</td>
+                        <td className="num">{formatNumber(u.move, 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </details>
+            </li>
+          )
+        })}
+      </ol>
+
+      {taken.size > 0 && (
+        <div className="mb-gp__after">
+          <b>Your other divisions afterwards</b>
+          <ul>
+            {[...taken]
+              .filter(([id]) => !keptIds.has(id))
+              .sort(([a], [b]) => a - b)
+              .map(([id, ids]) => {
+                const d = byId.get(id)
+                if (!d) return null
+                const leaderTaken = !!d.leader && ids.has(d.leader.assetId)
+                const units = d.units
+                  .filter((u) => !ids.has(u.asset.assetId))
+                  .map((u) => ({
+                    ...u,
+                    gear: Object.fromEntries(Object.entries(u.gear).filter(([, g]) => g && !ids.has(g.assetId)))
+                  }))
+                const lostUnits = d.units.length - units.length
+                const lostGear = ids.size - lostUnits - (leaderTaken ? 1 : 0)
+                const left = liveStats(units, units.length, d.leader)
+                return (
+                  <li key={id}>
+                    <b>#{id}</b>{' '}
+                    {leaderTaken ? (
+                      <>gives up its warlord, so it is disbanded; its other {divisionPieces(d).length - ids.size} NFTs go back to your reserve.</>
+                    ) : (
+                      <>
+                        loses {lostUnits ? `${lostUnits} mercenar${lostUnits === 1 ? 'y' : 'ies'}` : ''}
+                        {lostUnits && lostGear > 0 ? ' and ' : ''}
+                        {lostGear > 0 ? `${lostGear} gear` : ''}:{' '}
+                        {units.length && left ? (
+                          <>
+                            <StatLine atk={left.atk} def={left.def} move={left.move} /> <small className="muted">(was {formatNumber(d.atk, 0)} ATK / {formatNumber(d.def, 0)} DEF / {formatNumber(d.move, 0)} move)</small>
+                          </>
+                        ) : (
+                          'left with only its warlord.'
+                        )}
+                      </>
+                    )}
+                  </li>
+                )
+              })}
+          </ul>
+        </div>
+      )}
+    </>
+  )
 }
 
 /** Every candidate a bundle takes. */
@@ -678,18 +886,17 @@ export function MarketBuilder({
     const divisions = snap.army.divisions.filter((d) => d.units.length > 0)
     const piecesOf = (d: Division) => divisionPieces(d).map((a) => `own:${a.assetId}`)
     try {
-      const solveFrom = async (taken: Set<string>, list: typeof slots, label: string): Promise<{ rows: GoalRow[]; total: number } | null> => {
+      /** Plans the divisions in turn, each the cheapest from what the ones before left (blend prices as corrected so far). */
+      const planWay = async (taken: Set<string>, list: typeof slots, label: string, fix: Map<string, number>): Promise<GoalRow[] | null> => {
         const used = new Set(taken)
         let economy = base.economy
         const rows: GoalRow[] = []
-        let total = 0
+        const items = base.items.map((it) => (fix.has(it.key) ? { ...it, cost: Math.max(it.cost, fix.get(it.key)!) } : it))
         for (const [i, s] of list.entries()) {
           setPlanning(`${label}: division ${i + 1} of ${list.length} (${s.title})`)
-          const b = await solveBundleParallel(
-            { atk: s.atk, def: s.def, warlords: base.warlords.filter((w) => !used.has(w.key)), items: base.items.filter((it) => !used.has(it.key)), economy },
-            pool
-          )
-          if (!b) return null
+          const input: SolveInput = { atk: s.atk, def: s.def, warlords: base.warlords.filter((w) => !used.has(w.key)), items: items.filter((it) => !used.has(it.key)), economy }
+          const b = await solveBundleParallel(input, pool)
+          if (!b || !valid(b, input)) return null
           const keys = bundleKeys(b)
           for (const k of keys) used.add(k)
           // A planned division made of exactly one of your divisions' NFTs is that division, kept.
@@ -697,11 +904,39 @@ export function MarketBuilder({
             const own = piecesOf(d)
             return own.length === keys.length && own.every((k) => keys.includes(k))
           })
-          rows.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, bundle: b, keys, cost: b.cost, keep: same?.id ?? null })
-          total += b.cost
+          rows.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, bundle: b, keys, cost: b.cost, real: b.cost, keep: same?.id ?? null })
           economy = advanceEconomy(economy, b)
         }
-        return { rows, total }
+        return rows
+      }
+      /**
+       * What the plan really costs: every blend of every division priced together from one shared
+       * pool of materials (the divisions compete for the same cheap ones), listings at their price,
+       * plus the Forge. Also returns the blends that came out dearer than the search assumed.
+       */
+      const realOf = (rows: GoalRow[]) => {
+        const shared = new Map<string, number>()
+        const dearer = new Map<string, number>()
+        let total = 0
+        const out = rows.map((r) => {
+          if (!r.bundle) return r
+          const assumed = new Map([...r.bundle.mercs, ...GEAR_KINDS.flatMap((g) => r.bundle!.gear[g])].map((c) => [c.key, c.cost]))
+          let real = r.bundle.slotCost + r.bundle.forgeCost + r.bundle.warlord.cost
+          for (const key of r.keys) {
+            const s = sources.get(key)
+            if (key === r.bundle.warlord.key) continue
+            if (s?.from === 'market') real += s.listing.price
+            else if (s?.from === 'blend' && blendMarket) {
+              const c = planBlend(blendMarket, s.blend, shared).cost
+              const price = Number.isFinite(c) ? c : UNMAKEABLE
+              real += price
+              if (price > (assumed.get(key) ?? 0) + 0.5) dearer.set(key, price)
+            }
+          }
+          total += real
+          return { ...r, real }
+        })
+        return { rows: out, total, dearer }
       }
 
       // Keep: match your divisions to the goal, hardest mission first, each to the weakest that meets it.
@@ -714,27 +949,58 @@ export function MarketBuilder({
           .sort((a, b) => a.atk + a.def - (b.atk + b.def))[0]
         if (fit) {
           keptIds.add(fit.id)
-          kept.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, bundle: null, keys: piecesOf(fit), cost: 0, keep: fit.id })
+          kept.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, bundle: null, keys: piecesOf(fit), cost: 0, real: 0, keep: fit.id })
         } else rest.push(s)
       }
       const keepTaken = new Set(kept.flatMap((r) => r.keys))
-      const keepPlan = rest.length ? await solveFrom(keepTaken, rest, 'Keeping your divisions') : { rows: [], total: 0 }
-      const rebuild = useDivisions && keptIds.size ? await solveFrom(new Set(), slots, 'Rebuilding') : null
+      const tryRebuild = useDivisions && keptIds.size > 0
 
-      const keepTotal = keepPlan ? keepPlan.total : Infinity
-      const rebuildTotal = rebuild ? rebuild.total : Infinity
+      // Up to three rounds: plan, price the whole plan's blends together, plan again with the real prices.
+      let fix = new Map<string, number>()
+      let bestKeep: { rows: GoalRow[]; total: number } | null = null
+      let bestRebuild: { rows: GoalRow[]; total: number } | null = null
+      for (let round = 1; round <= 3; round++) {
+        const tag = round === 1 ? '' : ` (round ${round}, real blend prices)`
+        const keepRows = rest.length ? await planWay(keepTaken, rest, `Keeping your divisions${tag}`, fix) : []
+        const rebuildRows = tryRebuild ? await planWay(new Set(), slots, `Rebuilding${tag}`, fix) : null
+        const dearer = new Map<string, number>()
+        if (keepRows) {
+          const k = realOf([...kept, ...keepRows])
+          if (!bestKeep || k.total < bestKeep.total) bestKeep = { rows: k.rows, total: k.total }
+          for (const [key, p] of k.dearer) dearer.set(key, Math.max(p, dearer.get(key) ?? 0))
+        }
+        if (rebuildRows) {
+          const r = realOf(rebuildRows)
+          if (!bestRebuild || r.total < bestRebuild.total) bestRebuild = { rows: r.rows, total: r.total }
+          for (const [key, p] of r.dearer) dearer.set(key, Math.max(p, dearer.get(key) ?? 0))
+        }
+        const next = new Map(fix)
+        let changed = false
+        for (const [key, p] of dearer)
+          if (p > (next.get(key) ?? 0) + 0.5) {
+            next.set(key, p)
+            changed = true
+          }
+        if (!changed) break
+        fix = next
+      }
+
+      const keepTotal = bestKeep?.total ?? Infinity
+      const rebuildTotal = bestRebuild?.total ?? Infinity
+      const common = { sources, divisions: snap.army.divisions, forgeLevel }
       if (!Number.isFinite(keepTotal) && !Number.isFinite(rebuildTotal)) {
-        setGoalPlan({ sig: goalSig, rows: [], total: 0, way: 'none', other: null })
+        setGoalPlan({ sig: goalSig, rows: [], total: 0, way: 'none', other: null, ...common })
         return
       }
       const useRebuild = rebuildTotal + 1e-6 < keepTotal
-      const rows = useRebuild ? rebuild!.rows : [...kept, ...keepPlan!.rows]
+      const rows = useRebuild ? bestRebuild!.rows : bestKeep!.rows
       setGoalPlan({
         sig: goalSig,
-        rows: rows.sort((a, b) => b.atk + b.def - (a.atk + a.def)),
+        rows: [...rows].sort((a, b) => b.atk + b.def - (a.atk + a.def)),
         total: useRebuild ? rebuildTotal : keepTotal,
         way: useRebuild ? 'rebuild' : 'keep',
-        other: useRebuild ? keepTotal : Number.isFinite(rebuildTotal) ? rebuildTotal : null
+        other: useRebuild ? keepTotal : Number.isFinite(rebuildTotal) ? rebuildTotal : null,
+        ...common
       })
     } catch (e) {
       if (!(e instanceof Cancelled)) toast.error(`Planning the goal failed: ${String(e)}`)
@@ -1229,53 +1495,14 @@ export function MarketBuilder({
                 ) : (
                   <>
                     <p className="mb-plan__sum">
-                      <b className="num">{formatNumber(goalPlan.total, 2)} WAX</b> for the whole goal ·{' '}
+                      <b className="num">{formatNumber(goalPlan.total, 2)} WAX</b> for the whole goal, every blend priced together ·{' '}
                       {goalPlan.way === 'keep'
                         ? goalPlan.other !== null && goalPlan.other > goalPlan.total
                           ? `keeping your divisions is ${formatNumber(goalPlan.other - goalPlan.total, 2)} WAX cheaper than rebuilding`
                           : 'your divisions that already fit stay as they are'
                         : `rearranging your divisions saves ${formatNumber((goalPlan.other ?? goalPlan.total) - goalPlan.total, 2)} WAX`}
                     </p>
-                    <ol className="mb-plan__rows">
-                      {goalPlan.rows.map((r, i) => {
-                        const parts = r.bundle ? bundleParts(r.bundle, sources) : null
-                        const isKept = !r.bundle || (r.keep !== null && r.cost === 0)
-                        return (
-                          <li key={i} className={isKept ? 'is-kept' : ''}>
-                            <span className="mb-plan__name">
-                              <b>{r.title}</b>
-                              <small>
-                                {isKept
-                                  ? `#${r.keep} stays as it is`
-                                  : parts
-                                    ? [
-                                        parts.warlord && `led by ${parts.warlord}`,
-                                        `${r.bundle!.mercs.length} mercenar${r.bundle!.mercs.length === 1 ? 'y' : 'ies'}`,
-                                        parts.fromDivisions.length && `takes NFTs from ${parts.fromDivisions.map((d) => `#${d}`).join(', ')}`,
-                                        parts.bought && `${parts.bought} bought`,
-                                        parts.blended && `${parts.blended} blended`
-                                      ]
-                                        .filter(Boolean)
-                                        .join(' · ')
-                                    : ''}
-                              </small>
-                            </span>
-                            <span className="mb-plan__have num">{isKept ? '—' : `${formatNumber(r.cost, 2)} WAX`}</span>
-                            {!isKept && (
-                              <button
-                                type="button"
-                                className="btn btn--sm"
-                                disabled={!!locked || !planFresh}
-                                title="Opens this division in the builder; the NFTs planned for the goal's other divisions are left out of its search"
-                                onClick={() => buildGoalRow(r)}
-                              >
-                                Build
-                              </button>
-                            )}
-                          </li>
-                        )
-                      })}
-                    </ol>
+                    <GoalPlanView plan={goalPlan} fresh={planFresh} disabled={!!locked} onBuild={buildGoalRow} />
                     <p className="mb-plan__note">
                       Build the divisions one by one. Each opens in the builder below with the NFTs meant for the others left
                       out, so the rest of the goal stays possible. Plan again after each build: prices and what you own change.
