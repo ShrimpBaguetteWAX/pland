@@ -125,11 +125,16 @@ const divisionPieces = (d: Division): AssetRef[] =>
   )
 
 /** One division of the goal plan: a division you keep as it is (no bundle), or one to build. */
+/** One mission of the goal: its id, how many divisions, and the most move each may carry (0: no limit). */
+type GoalEntry = [number, number, number]
+
 interface GoalRow {
   missionId: number
   title: string
   atk: number
   def: number
+  /** The most move it may carry, when the goal sets one. */
+  maxMove?: number
   bundle: Bundle | null
   /** The candidate keys it takes (own:, wal:, sale:, blend:). */
   keys: string[]
@@ -174,18 +179,107 @@ function StatLine({ atk, def, move }: { atk: number; def: number; move: number }
  * (Forge, where every NFT comes from, what is bought and blended, unit by unit), then your other
  * divisions as the plan leaves them.
  */
+/** A division's flow per day on its mission: what it pays in, what it brings, and the net in TLM. */
+interface DayFlow {
+  cycles: number
+  inTlm: number
+  inDef: number
+  outTlm: number
+  outDef: number
+  outNft: number
+  outShards: number
+  /** Net TLM a day after swapping DEF (tokens only; NFTs and shards not priced). */
+  net: number
+}
+
+/** The flow of a division with this move cost on mission `e`, claimed and sent again as soon as it is back. */
+function flowOf(e: MissionEconomics, move: number, m: TlmDefMarket | null): DayFlow | null {
+  const s = cycleSeconds(e, move)
+  if (!(s > 0)) return null
+  const cycles = 86_400 / s
+  return {
+    cycles,
+    inTlm: e.costTlm * cycles,
+    inDef: e.costDef * cycles,
+    outTlm: e.rewardTlm * cycles,
+    outDef: e.rewardDef * cycles,
+    outNft: (e.rewardNft?.count ?? 0) * cycles,
+    outShards: e.rewardShards * cycles,
+    net: m ? tlmPerHour(e, move, m) * 24 : NaN
+  }
+}
+
+const perDay = (n: number) => formatNumber(n, n >= 100 ? 0 : n >= 10 ? 1 : 2)
+
+/** "1,920 TLM + 60 DEF", or "nothing". */
+function flowParts(tlm: number, def: number, nft = 0, shards = 0) {
+  const parts = [
+    tlm > 0 && `${perDay(tlm)} TLM`,
+    def > 0 && `${perDay(def)} DEF`,
+    nft > 0 && `${perDay(nft)} NFT${nft === 1 ? '' : 's'}`,
+    shards > 0 && `${perDay(shards)} shards`
+  ].filter(Boolean)
+  return parts.length ? parts.join(' + ') : 'nothing'
+}
+
+/** One line: per day in, out and net, with the cycles behind it. */
+function FlowLine({ f, label = 'A day' }: { f: DayFlow; label?: string }) {
+  return (
+    <p className="mb-gp__flow num">
+      <b>{label}:</b> pays in <span className="c-bad">{flowParts(f.inTlm, f.inDef)}</span> · brings{' '}
+      <span className="c-good">{flowParts(f.outTlm, f.outDef, f.outNft, f.outShards)}</span>
+      {Number.isFinite(f.net) && (
+        <>
+          {' '}
+          · net <b className={f.net < 0 ? 'c-bad' : 'c-good'}>{f.net >= 0 ? '+' : '−'}{perDay(Math.abs(f.net))} TLM</b>
+        </>
+      )}{' '}
+      <small>({formatNumber(f.cycles, f.cycles >= 10 ? 0 : 1)} cycles)</small>
+    </p>
+  )
+}
+
 function GoalPlanView({
   plan,
   fresh,
   disabled,
-  onBuild
+  onBuild,
+  missions,
+  market
 }: {
   plan: GoalPlan
   fresh: boolean
   disabled: boolean
   onBuild: (row: GoalRow) => void
+  /** Every mission's economics, for the flows. */
+  missions: MissionEconomics[]
+  market: TlmDefMarket | null
 }) {
   const byId = new Map(plan.divisions.map((d) => [d.id, d]))
+  const econ = new Map(missions.map((e) => [e.id, e]))
+  /** A row's flow at its division's move cost (a kept division's own, a new one's planned). */
+  const rowFlow = (r: GoalRow): DayFlow | null => {
+    const e = econ.get(r.missionId)
+    const move = r.bundle ? r.bundle.move : r.keep !== null ? byId.get(r.keep)?.move : undefined
+    return e && move !== undefined ? flowOf(e, move, market) : null
+  }
+  const flows = plan.rows.map(rowFlow)
+  const total = flows.reduce<DayFlow | null>(
+    (t, f) =>
+      f
+        ? {
+            cycles: (t?.cycles ?? 0) + f.cycles,
+            inTlm: (t?.inTlm ?? 0) + f.inTlm,
+            inDef: (t?.inDef ?? 0) + f.inDef,
+            outTlm: (t?.outTlm ?? 0) + f.outTlm,
+            outDef: (t?.outDef ?? 0) + f.outDef,
+            outNft: (t?.outNft ?? 0) + f.outNft,
+            outShards: (t?.outShards ?? 0) + f.outShards,
+            net: (t?.net ?? 0) + f.net
+          }
+        : t,
+    null
+  )
   const nameOf = (key: string) => {
     const s = plan.sources.get(key)
     return s ? assetOf(s).name : '?'
@@ -220,6 +314,7 @@ function GoalPlanView({
                   </span>
                   {d && <StatLine atk={d.atk} def={d.def} move={d.move} />}
                 </div>
+                {flows[i] && <FlowLine f={flows[i]!} />}
               </li>
             )
           }
@@ -272,8 +367,10 @@ function GoalPlanView({
               <p className="mb-gp__meets">
                 Needs {r.atk ? `${formatNumber(r.atk, 0)} ATK` : ''}
                 {r.atk && r.def ? ' and ' : ''}
-                {r.def ? `${formatNumber(r.def, 0)} DEF` : ''}: met, checked with the contract&apos;s formula.
+                {r.def ? `${formatNumber(r.def, 0)} DEF` : ''}
+                {r.maxMove ? `, move at most ${formatNumber(r.maxMove, 0)}` : ''}: met, checked with the contract&apos;s formula.
               </p>
+              {flows[i] && <FlowLine f={flows[i]!} />}
               <ul className="mb-gp__steps">
                 {forgeUp !== null && <li>Forge to level {forgeUp}</li>}
                 {slots.length > 0 && (
@@ -321,6 +418,15 @@ function GoalPlanView({
           )
         })}
       </ol>
+      {total && plan.rows.length > 1 && (
+        <div className="mb-gp__total">
+          <FlowLine f={total} label="The whole goal, a day" />
+          <small>
+            Every division claimed and sent again as soon as it is back. Net is TLM after swapping DEF at today&apos;s pool
+            price; NFTs and shards are not priced in it.
+          </small>
+        </div>
+      )}
 
       {taken.size > 0 && (
         <div className="mb-gp__after">
@@ -627,10 +733,14 @@ export function MarketBuilder({
    * is built one division at a time with the usual search. Remembered per account in this browser.
    */
   const goalKey = `pd:market-goal:${account}`
-  const readGoal = (key: string): [number, number][] => {
+  const readGoal = (key: string): GoalEntry[] => {
     try {
       const raw = JSON.parse(localStorage.getItem(key) ?? '[]')
-      return Array.isArray(raw) ? raw.filter((x) => Array.isArray(x) && x.length === 2 && x[1] > 0) : []
+      return Array.isArray(raw)
+        ? raw
+            .filter((x) => Array.isArray(x) && (x.length === 2 || x.length === 3) && x[1] > 0)
+            .map((x) => [Number(x[0]), Number(x[1]), Number(x[2]) > 0 ? Number(x[2]) : 0] as GoalEntry)
+        : []
     } catch {
       return []
     }
@@ -638,7 +748,7 @@ export function MarketBuilder({
   // The list with the account it belongs to, so switching accounts shows that account's goal.
   const [goalState, setGoalState] = useState(() => ({ key: goalKey, list: readGoal(goalKey) }))
   const goal = goalState.key === goalKey ? goalState.list : readGoal(goalKey)
-  const setGoal = (f: (g: [number, number][]) => [number, number][]) => {
+  const setGoal = (f: (g: GoalEntry[]) => GoalEntry[]) => {
     const list = f(goal)
     setGoalState({ key: goalKey, list })
     try {
@@ -648,18 +758,27 @@ export function MarketBuilder({
     }
   }
   const setGoalCount = (id: number, n: number) =>
-    setGoal((g) => (n <= 0 ? g.filter(([x]) => x !== id) : g.some(([x]) => x === id) ? g.map(([x, c]) => [x, x === id ? n : c]) : [...g, [id, n]]))
+    setGoal((g) =>
+      n <= 0 ? g.filter(([x]) => x !== id) : g.some(([x]) => x === id) ? g.map(([x, c, m]) => [x, x === id ? n : c, m]) : [...g, [id, n, 0]]
+    )
+  /** The most move the divisions for a mission may carry (0: no limit). */
+  const setGoalMove = (id: number, move: number) => setGoal((g) => g.map(([x, c, m]) => [x, c, x === id ? Math.max(0, Math.round(move) || 0) : m]))
+  /** Each wanted division: the mission's requirements and the move limit set for it. */
+  const goalSlots = (req: Map<number, (typeof presets)[number]>) =>
+    goal
+      .flatMap(([id, n, m]) => (req.has(id) ? Array.from({ length: n }, () => ({ ...req.get(id)!, maxMove: m > 0 ? m : undefined })) : []))
+      .sort((a, b) => b.atk + b.def - (a.atk + a.def))
+  /** Whether a division meets a goal slot: its requirements and, when set, the move limit. */
+  const fitsSlot = (d: Division, s: { atk: number; def: number; maxMove?: number }) => d.atk >= s.atk && d.def >= s.def && (!s.maxMove || d.move <= s.maxMove)
   const coverage = useMemo(() => {
     const req = new Map(presets.map((p) => [p.id, p]))
     const divs = (army.data?.divisions ?? []).filter((d) => d.units.length > 0)
-    const slots = goal
-      .flatMap(([id, n]) => (req.has(id) ? Array.from({ length: n }, () => req.get(id)!) : []))
-      .sort((a, b) => b.atk + b.def - (a.atk + a.def))
+    const slots = goalSlots(req)
     const kept = new Set<number>()
     const have = new Map<number, number>()
     for (const s of slots) {
       const fit = divs
-        .filter((d) => !kept.has(d.id) && d.atk >= s.atk && d.def >= s.def)
+        .filter((d) => !kept.has(d.id) && fitsSlot(d, s))
         .sort((a, b) => a.atk + a.def - (b.atk + b.def))[0]
       if (!fit) continue
       kept.add(fit.id)
@@ -873,15 +992,13 @@ export function MarketBuilder({
    */
   const [goalPlan, setGoalPlan] = useState<GoalPlan | null>(null)
   const [planning, setPlanning] = useState<string | null>(null)
-  const goalSig = `${goal.map(([id, n]) => `${id}x${n}`).join(',')}|${ownedSig}|${useStaked}${useDivisions}${useWallet}${useMaterials}|${excludedKey}`
+  const goalSig = `${goal.map(([id, n, m]) => `${id}x${n}m${m}`).join(',')}|${ownedSig}|${useStaked}${useDivisions}${useWallet}${useMaterials}|${excludedKey}`
   const planFresh = goalPlan?.sig === goalSig
 
   async function planGoal() {
     if (!base || !snap.army || planning) return
     const req = new Map(presets.map((p) => [p.id, p]))
-    const slots = goal
-      .flatMap(([id, n]) => (req.has(id) ? Array.from({ length: n }, () => req.get(id)!) : []))
-      .sort((a, b) => b.atk + b.def - (a.atk + a.def))
+    const slots = goalSlots(req)
     if (!slots.length) return
     setReserved(EMPTY_KEYS)
     const pool = new SolverPool(poolSize())
@@ -925,7 +1042,7 @@ export function MarketBuilder({
         }
         for (const [i, s] of list.entries()) {
           setPlanning(`${label}: division ${i + 1} of ${list.length} (${s.title})`)
-          const input: SolveInput = { atk: s.atk, def: s.def, warlords: base.warlords.filter((w) => !used.has(w.key)), items: priced(), economy }
+          const input: SolveInput = { atk: s.atk, def: s.def, ...(s.maxMove ? { maxMove: s.maxMove } : {}), warlords: base.warlords.filter((w) => !used.has(w.key)), items: priced(), economy }
           const b = await solveBundleParallel(input, pool)
           if (!b || !valid(b, input)) {
             const need = [s.atk ? `${formatNumber(s.atk, 0)} ATK` : '', s.def ? `${formatNumber(s.def, 0)} DEF` : ''].filter(Boolean).join(' and ')
@@ -944,7 +1061,7 @@ export function MarketBuilder({
             const own = piecesOf(d)
             return own.length === keys.length && own.every((k) => keys.includes(k))
           })
-          rows.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, bundle: b, keys, cost: b.cost, real: b.cost, keep: same?.id ?? null })
+          rows.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, maxMove: s.maxMove, bundle: b, keys, cost: b.cost, real: b.cost, keep: same?.id ?? null })
           economy = advanceEconomy(economy, b)
         }
         return rows
@@ -993,11 +1110,11 @@ export function MarketBuilder({
       const rest: typeof slots = []
       for (const s of slots) {
         const fit = divisions
-          .filter((d) => !keptIds.has(d.id) && d.atk >= s.atk && d.def >= s.def)
+          .filter((d) => !keptIds.has(d.id) && fitsSlot(d, s))
           .sort((a, b) => a.atk + a.def - (b.atk + b.def))[0]
         if (fit) {
           keptIds.add(fit.id)
-          kept.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, bundle: null, keys: piecesOf(fit), cost: 0, real: 0, keep: fit.id })
+          kept.push({ missionId: s.id, title: s.title, atk: s.atk, def: s.def, maxMove: s.maxMove, bundle: null, keys: piecesOf(fit), cost: 0, real: 0, keep: fit.id })
         } else rest.push(s)
       }
       const keepTaken = new Set(kept.flatMap((r) => r.keys))
@@ -1062,7 +1179,7 @@ export function MarketBuilder({
   function buildGoalRow(row: GoalRow) {
     if (!goalPlan) return
     setReserved(new Set(goalPlan.rows.filter((r) => r !== row).flatMap((r) => r.keys)))
-    loadTarget({ atk: row.atk, def: row.def, missionId: row.missionId })
+    loadTarget({ atk: row.atk, def: row.def, maxMove: row.maxMove, missionId: row.missionId })
   }
 
   /*
@@ -1458,7 +1575,7 @@ export function MarketBuilder({
             </div>
             {goal.length > 0 && (
               <ul className="mb-plan__list">
-                {goal.map(([id, n]) => {
+                {goal.map(([id, n, m]) => {
                   const p = presets.find((x) => x.id === id)
                   const have = coverage.have.get(id) ?? 0
                   return (
@@ -1480,7 +1597,20 @@ export function MarketBuilder({
                           +
                         </button>
                       </span>
-                      <span className="mb-plan__have num" title="Your divisions that already meet this mission, each counted once across the goal">
+                      <label className="mb-plan__move" title="Optional: the most move each division for this mission may carry (every move point adds 10 s to each cycle). Empty: no limit.">
+                        <span>move ≤</span>
+                        <input
+                          type="number"
+                          className="input num"
+                          min={0}
+                          step={10}
+                          placeholder="any"
+                          disabled={!!locked}
+                          value={m > 0 ? m : ''}
+                          onChange={(e) => setGoalMove(id, Number(e.target.value))}
+                        />
+                      </label>
+                      <span className="mb-plan__have num" title="Your divisions that already meet this mission (and its move limit), each counted once across the goal">
                         {have >= n ? '✓ ' : ''}
                         {Math.min(have, n)} of {n}
                       </span>
@@ -1549,10 +1679,12 @@ export function MarketBuilder({
                       {goalPlan.way === 'keep'
                         ? goalPlan.other !== null && goalPlan.other > goalPlan.total
                           ? `keeping your divisions is ${formatNumber(goalPlan.other - goalPlan.total, 2)} WAX cheaper than rebuilding`
-                          : 'your divisions that already fit stay as they are'
+                          : goalPlan.rows.some((r) => !r.bundle)
+                            ? 'your divisions that already fit stay as they are'
+                            : 'none of your divisions fits yet, so every one is built'
                         : `rearranging your divisions saves ${formatNumber((goalPlan.other ?? goalPlan.total) - goalPlan.total, 2)} WAX`}
                     </p>
-                    <GoalPlanView plan={goalPlan} fresh={planFresh} disabled={!!locked} onBuild={buildGoalRow} />
+                    <GoalPlanView plan={goalPlan} fresh={planFresh} disabled={!!locked} onBuild={buildGoalRow} missions={missionList} market={tlmDef} />
                     <p className="mb-plan__note">
                       Build the divisions one by one. Each opens in the builder below with the NFTs meant for the others left
                       out, so the rest of the goal stays possible. Plan again after each build: prices and what you own change.
