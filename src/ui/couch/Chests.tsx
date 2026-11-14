@@ -7,6 +7,7 @@ import { atomic, type AtomicSale } from '@/chain/atomic'
 import { QUANTUM_CHEST, QUANTUM_KEY, useBlends, useCollectionTemplates, useOwnedBlendInputs, type Blend } from '@/data/blends'
 import { openingsOf } from '@/lib/blendEconomy'
 import { formatNumber } from '@/lib/format'
+import { shortDuration } from '@/lib/time'
 import { imageSources } from '@/lib/ipfs'
 import { useTransaction } from '@/wallet/useTransaction'
 
@@ -20,8 +21,8 @@ import { useTransaction } from '@/wallet/useTransaction'
  */
 
 /** AtomicMarket's cut besides the collection's: 1 % each to the listing and the buying marketplace. */
-const MARKET_FEES = 0.02
-const RARITY_COLOR: Record<string, string> = {
+export const MARKET_FEES = 0.02
+export const RARITY_COLOR: Record<string, string> = {
   common: '#98a2b3',
   uncommon: '#45b07a',
   rare: '#3d8fd8',
@@ -31,7 +32,7 @@ const RARITY_COLOR: Record<string, string> = {
   primordial: '#22d3ee'
 }
 
-const waxOf = (s: AtomicSale) => Number(s.price.amount) / 10 ** s.price.token_precision
+export const waxOf = (s: AtomicSale) => Number(s.price.amount) / 10 ** s.price.token_precision
 
 /** The NFTs for one run of a recipe, in its ingredients' order, taken from what is left. */
 function runFor(blend: Blend, pools: Map<string, string[]>): BlendRun | null {
@@ -58,6 +59,12 @@ export function Chests({ account }: { account: string }) {
     queryFn: () => atomic.getSales({ template_id: QUANTUM_CHEST, symbol: 'WAX' }, 2),
     staleTime: 30_000,
     refetchInterval: 60_000
+  })
+  // Your last sales of the collection (chests, keys, materials), newest first.
+  const sold = useQuery({
+    queryKey: ['my-recent-sales', account],
+    queryFn: () => atomic.getSales({ state: 3, seller: account, collection_name: 'planetdefnft', symbol: 'WAX', sort: 'updated', order: 'desc', limit: 10 }, 1),
+    staleTime: 60_000
   })
   const mine = useMemo(() => (market.data ?? []).filter((s) => s.seller === account), [market.data, account])
   const others = useMemo(() => (market.data ?? []).filter((s) => s.seller !== account), [market.data, account])
@@ -234,7 +241,7 @@ export function Chests({ account }: { account: string }) {
           </button>
         </span>
         <button type="button" className="cb__go" disabled={off || !chests.length || lowest === null} onClick={() => void list()}>
-          {pending === 'chest-list' ? 'Signing…' : `List ${toList} at ${lowestText} WAX`}
+          {pending === 'chest-list' ? 'Signing…' : chests.length ? `List ${toList} at ${lowestText} WAX` : 'No chests to list'}
           <small>on AtomicMarket through shop.ale</small>
         </button>
       </div>
@@ -249,6 +256,36 @@ export function Chests({ account }: { account: string }) {
               : 'Your listings are at the lowest'}
       </button>
       {syncing && <p className="cb__note">Updating: the market shows a change a few seconds after it is signed…</p>}
+
+      <details className="cb__plaque cc__sold">
+        <summary>
+          Your recent sales
+          <small>{sold.data ? (sold.data.length ? `last ${Math.min(10, sold.data.length)}` : 'none yet') : '…'}</small>
+        </summary>
+        {sold.data && sold.data.length > 0 && (
+          <ul>
+            {sold.data.slice(0, 10).map((s) => {
+              const price = waxOf(s)
+              const fee = Number(s.current_collection_fee ?? 0) || 0
+              const when = Number(s.updated_at_time ?? 0)
+              const tid = s.assets[0]?.template?.template_id
+              const name = s.assets.length === 1 ? (tid ? (templates.data?.get(tid)?.name ?? `#${tid}`) : 'NFT') : `${s.assets.length} NFTs`
+              return (
+                <li key={s.sale_id}>
+                  <span>
+                    <b>{name}</b>
+                    <small>{when ? `${shortDuration(Date.now() - when)} ago` : ''}</small>
+                  </span>
+                  <span className="num">
+                    <b>{formatNumber(price, 2)} WAX</b>
+                    <small>≈ {formatNumber(price * (1 - MARKET_FEES - fee), 2)} to you</small>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </details>
 
       <div className="cc__open">
         <div className="cc__keys" role="group" aria-label="Open with keys or without">

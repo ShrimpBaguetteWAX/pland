@@ -1554,7 +1554,14 @@ html.is-couch .couch {
   margin: 0 auto;
   padding: 64px 0 10px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
   color: var(--cz-tx);
+}
+.couch__bankpage::-webkit-scrollbar {
+  display: none;
 }
 .cb__hero {
   display: grid;
@@ -1940,4 +1947,173 @@ html.is-couch .couch {
   .couch__refresh span {
     animation: none;
   }
+}
+
+/* Chests: your recent sales, folded until tapped. */
+.cc__sold {
+  padding: 10px 14px;
+}
+.cc__sold summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  list-style: none;
+}
+.cc__sold summary::-webkit-details-marker {
+  display: none;
+}
+.cc__sold summary::after {
+  content: '▾';
+  color: var(--cz-dim);
+}
+.cc__sold[open] summary::after {
+  content: '▴';
+}
+.cc__sold summary small {
+  margin-left: auto;
+  color: var(--cz-dim);
+  font-weight: 500;
+  font-size: 11.5px;
+}
+.cc__sold ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+}
+.cc__sold li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px dashed color-mix(in srgb, var(--cz-fr) 30%, transparent);
+  font-size: 13px;
+}
+.cc__sold li > span {
+  display: grid;
+  min-width: 0;
+}
+.cc__sold li > span:last-child {
+  text-align: right;
+}
+.cc__sold li b {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cc__sold li small {
+  font-size: 10.5px;
+  color: var(--cz-dim);
+}
+.cc__sold summary:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+
+/* ---- Materials: one row per material you hold, its lowest listing, list one or all ---- */
+.cm__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.cm__row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'pic name low'
+    'pic acts acts';
+  align-items: center;
+  gap: 4px 10px;
+  padding: 9px 12px;
+  box-shadow:
+    inset 0 0 0 1.5px var(--cz-fr),
+    inset 4px 0 0 var(--rc),
+    0 6px 14px rgba(0, 0, 0, 0.3);
+}
+.cm__row img,
+.cm__row > i {
+  grid-area: pic;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1.5px var(--rc);
+}
+.cm__row > i {
+  background: var(--rc);
+}
+.cm__name {
+  grid-area: name;
+  display: grid;
+  min-width: 0;
+}
+.cm__name b {
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm__name small {
+  font-size: 11px;
+  color: var(--cz-dim);
+}
+.cm__rar {
+  color: var(--rc);
+  text-transform: capitalize;
+  font-weight: 600;
+}
+.cm__low {
+  grid-area: low;
+  display: grid;
+  justify-items: end;
+}
+.cm__low b {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--cz-blood);
+}
+.cm__low small {
+  font-size: 10px;
+  color: var(--cz-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cm__acts {
+  grid-area: acts;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.cm__acts button {
+  all: unset;
+  box-sizing: border-box;
+  padding: 5px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--cz-blood);
+  color: var(--cb-on);
+}
+.cm__acts button + button {
+  background: color-mix(in srgb, var(--cz-tx) 8%, transparent);
+  color: var(--cz-tx);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--cz-fr) 45%, transparent);
+}
+.cm__acts button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.cm__acts button:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
 }

@@ -16,6 +16,7 @@ import { useTransaction } from '@/wallet/useTransaction'
 import { ANIMALS, furOf, readAnimal, saveAnimal, type Animal } from './couch/animals'
 import { Bank } from './couch/Bank'
 import { Chests } from './couch/Chests'
+import { Materials } from './couch/Materials'
 import { useBloodOrb } from './couch/bloodOrb'
 import { KittenFrame } from './couch/KittenFrame'
 import { Moons, type MoonMission } from './couch/Moons'
@@ -76,6 +77,10 @@ function usePinnedPage(night: string) {
     }
   }, [night])
 }
+
+/** Couch mode's screens, in swipe order: the orb, the bank, the chests, the materials. */
+type Page = 0 | 1 | 2 | 3
+const LAST_PAGE = 3
 
 /** The colour theme, remembered in this browser; a tap on the swatch moves on to the next one. */
 function useTint(): [KittenTheme, () => void] {
@@ -285,8 +290,8 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const loop = useLoopPlan(account, readCashOut())
   const m = useMining(now)
   const today = useTodayEarnings(account)
-  /** Which screen: the orb (0), the bank (1, a swipe to the left) or the chests (2, another). */
-  const [page, setPage] = useState<0 | 1 | 2>(0)
+  /** Which screen: the orb (0), the bank (1, a swipe to the left), the chests (2) or the materials (3). */
+  const [page, setPage] = useState<Page>(0)
   /*
    * Swipes: left goes one screen on (orb → bank → chests), right one back, down refreshes everything
    * on screen. Touch is read with touch events (a browser cancels the pointer once a move turns into
@@ -313,11 +318,12 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     const dx = x - s.x
     const dy = y - s.y
     if (Math.abs(dx) >= 60 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
-      setPage((p) => (dx < 0 ? Math.min(2, p + 1) : Math.max(0, p - 1)) as 0 | 1 | 2)
+      setPage((p) => (dx < 0 ? Math.min(LAST_PAGE, p + 1) : Math.max(0, p - 1)) as Page)
       return
     }
     // Pulled down from the top of the screen.
-    if (dy >= 90 && dy >= Math.abs(dx) * 1.5 && window.scrollY <= 0) void refreshAll()
+    const scroller = document.querySelector('.couch__bankpage')
+    if (dy >= 90 && dy >= Math.abs(dx) * 1.5 && window.scrollY <= 0 && (scroller?.scrollTop ?? 0) <= 0) void refreshAll()
   }
   const [panel, setPanel] = useState<'out' | 'idle' | null>(null)
   /** The Deployed list for one mission only (a moon or the orb opened it), or every mission. */
@@ -529,10 +535,12 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         <button type="button" className={page === 0 ? 'is-on' : ''} aria-pressed={page === 0} aria-label="The orb" onClick={() => setPage(0)} />
         <button type="button" className={page === 1 ? 'is-on' : ''} aria-pressed={page === 1} aria-label="The bank" onClick={() => setPage(1)} />
         <button type="button" className={page === 2 ? 'is-on' : ''} aria-pressed={page === 2} aria-label="Your chests" onClick={() => setPage(2)} />
+        <button type="button" className={page === 3 ? 'is-on' : ''} aria-pressed={page === 3} aria-label="Your materials" onClick={() => setPage(3)} />
       </nav>
 
       {page === 1 && account && <Bank account={account} />}
       {page === 2 && account && <Chests account={account} />}
+      {page === 3 && account && <Materials account={account} />}
 
       <header className="couch__top" aria-label="Earned today" hidden={page !== 0}>
         <div className="couch__orn">
