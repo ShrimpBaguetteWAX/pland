@@ -296,10 +296,17 @@
   justify-content: space-between;
   font-size: 13px;
 }
-.mb-buy {
+/* .btn.mb-buy: .btn sets nowrap and can load later; a long label ("Buy 1 card, 39 materials, blend 8, ascend 1 & stake") wraps inside. */
+.btn.mb-buy {
   width: 100%;
+  min-width: 0;
   white-space: normal;
   text-align: center;
+  line-height: 1.3;
+}
+.btn.mb-buy svg,
+.btn.mb-buy .mb-spin {
+  flex: none;
 }
 .mb-link {
   justify-self: center;
