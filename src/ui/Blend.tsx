@@ -6,7 +6,7 @@ import { buySalesActions } from '@/chain/actions/market'
 import { atomic, type AtomicAsset } from '@/chain/atomic'
 import { FRAGMENT_TEMPLATE } from '@/chain/config'
 import type { AssetRef } from '@/data/assets'
-import { costKey, expectedYield, useAscensionConfig, usePendingBurns } from '@/data/ascension'
+import { costKey, expectedYield, useAscensionConfig, usePendingBurns, type AscensionConfig } from '@/data/ascension'
 import {
   QUANTUM_CHEST,
   QUANTUM_KEY,
@@ -18,7 +18,8 @@ import {
   type Ingredient
 } from '@/data/blends'
 import { refreshPlayer, useArmy, useAssetStats, useDeployments, usePlayer, useWalletNfts } from '@/data/game'
-import { ascendInPlaceParts, divisionOf, locateAsset, placeText, type Place } from '@/lib/ascendInPlace'
+import { ascendInPlaceParts, divisionOf, locateAsset, placeText, type FragmentSource, type Place } from '@/lib/ascendInPlace'
+import { acquireFragments, buyFragmentActions, fragmentSupply, unitSources, type Supply } from '@/lib/ascensionRoutes'
 import { useListings } from '@/data/market'
 import { queryClient } from '@/data/queryClient'
 import type { AssetStats } from '@/data/types'
@@ -42,6 +43,7 @@ import { KIND_LABEL, kindOf } from '@/lib/stats'
 import { useTransaction } from '@/wallet/useTransaction'
 
 import { Portrait, rarityColor } from './Art'
+import { AscensionInfo, GainLine, StatLine } from './AscensionInfo'
 import { ChestValue } from './ChestValue'
 import { Icon } from './icons'
 import { StarRail } from './Stars'
@@ -54,13 +56,14 @@ import '@/styles/blend.css'
  * prices are AtomicMarket floors in WAX, and what you own is used first and counted as free.
  */
 
-type View = 'recipes' | 'materials' | 'chests' | 'ascension'
+type View = 'recipes' | 'materials' | 'chests' | 'ascension' | 'ascinfo'
 
 const VIEWS: { key: View; label: string }[] = [
   { key: 'recipes', label: 'Recipes' },
   { key: 'materials', label: 'Materials' },
   { key: 'chests', label: 'Chests & keys' },
-  { key: 'ascension', label: 'Ascension' }
+  { key: 'ascension', label: 'Ascension' },
+  { key: 'ascinfo', label: 'Ascension info' }
 ]
 
 const CATEGORY_ORDER = ['warlord', 'mercenary', 'equipment', 'supplies', 'creature', 'services', 'material']
@@ -119,13 +122,15 @@ export function Blend({ account, spectating }: { account: string; spectating: bo
     if (v === 'recipes') return formatNumber(blends.data!.filter((b) => b.active && resultOf(b)).length, 0)
     if (v === 'materials') return formatNumber(values!.materials.length, 0)
     if (v === 'chests') return formatNumber(market!.owned.get(QUANTUM_CHEST)?.length ?? 0, 0)
+    if (v === 'ascinfo') return null
     return formatNumber(market!.owned.get(FRAGMENT_TEMPLATE)?.length ?? 0, 0)
   }
   const countTitle: Record<View, string> = {
     recipes: 'Recipes on NeftyBlocks',
     materials: 'Materials',
     chests: 'Quantum Chests you hold',
-    ascension: 'Fragments you hold'
+    ascension: 'Fragments you hold',
+    ascinfo: 'Every card that ascends'
   }
 
   return (
@@ -181,8 +186,10 @@ export function Blend({ account, spectating }: { account: string; spectating: bo
             pending={pending}
             spectating={spectating}
           />
+        ) : view === 'ascinfo' ? (
+          <AscensionInfo market={market!} blends={blends.data!} spectating={spectating} />
         ) : (
-          <Ascension account={account} market={market!} run={run} runSequence={runSequence} pending={pending} spectating={spectating} />
+          <Ascension account={account} market={market!} blends={blends.data!} run={run} runSequence={runSequence} pending={pending} spectating={spectating} />
         )}
       </section>
     </main>
@@ -1041,6 +1048,7 @@ const starText = (n: number) => (n > 0 ? '★'.repeat(n) : 'no stars')
 function Ascension({
   account,
   market,
+  blends,
   run,
   runSequence,
   pending: busy,
@@ -1048,6 +1056,7 @@ function Ascension({
 }: {
   account: string
   market: Market
+  blends: Recipe[]
   run: Run
   runSequence: RunSequence
   pending: string | null
@@ -1134,6 +1143,8 @@ function Ascension({
     .filter((r) => r.to && r.cost !== null)
     .sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0) || placeRank(a.place) - placeRank(b.place))
   const forgeLevel = player.data?.forgeLevel ?? 0
+  // The cheapest Fragments for any row's star: your own first, then bought, sacrificed or crafted.
+  const supply = fragmentSupplyFor(cfg, market, blends, ascendable)
 
   // ---- Sacrifice ----
   const sacrificeable = [...groups.entries()]
@@ -1184,6 +1195,8 @@ function Ascension({
 
       <AscendList
         rows={ascendable}
+        market={market}
+        supply={supply}
         fragmentIds={fragmentIds}
         forgeLevel={forgeLevel}
         paused={cfg.paused}
@@ -1228,8 +1241,22 @@ function ascendSteps(r: AscendRow): string {
   return `Division #${p.division.id} is taken apart, ${name} unstaked and ascended, then staked to lead a new division with the same ${p.division.units.length} mercenaries and their gear (it gets a new number). ${burn}.`
 }
 
+/** Fragment supply for the Ascension view, up to the dearest star on the page. */
+let supplyCache: { cfg: AscensionConfig; market: Market; blends: Recipe[]; target: number; supply: Supply } | null = null
+function fragmentSupplyFor(cfg: AscensionConfig, market: Market, blends: Recipe[], rows: AscendRow[]): Supply {
+  const target = Math.max(0, ...rows.map((r) => r.cost ?? 0))
+  // Walking the market is not cheap: the same market, recipes and target give the same answer.
+  const c = supplyCache
+  if (c && c.cfg === cfg && c.market === market && c.blends === blends && c.target >= target) return c.supply
+  const supply = fragmentSupply(cfg, market, blends, target)
+  supplyCache = { cfg, market, blends, target, supply }
+  return supply
+}
+
 function AscendList({
   rows,
+  market,
+  supply,
   fragmentIds,
   forgeLevel,
   paused,
@@ -1238,6 +1265,8 @@ function AscendList({
   runSequence
 }: {
   rows: AscendRow[]
+  market: Market
+  supply: Supply
   fragmentIds: string[]
   forgeLevel: number
   paused: boolean
@@ -1245,6 +1274,8 @@ function AscendList({
   spectating: boolean
   runSequence: RunSequence
 }) {
+  /** A row whose button spends WAX asks once more. */
+  const [confirmKey, setConfirmKey] = useState<string | null>(null)
   return (
     <div className="box">
       <h3 className="h">
@@ -1254,7 +1285,7 @@ function AscendList({
       <p className="bl-blurb">
         A card goes up one star at a time, for Fragments. The card and the Fragments are burned and the next star of the same card is
         minted to you at once. A card with N stars needs Forge level N to be equipped. Common to Rare go to 3 stars, Epic and above to
-        5. Warlords, creatures, supplies and Lava Lux can ascend; mercenaries and weapons cannot yet.
+        5. Warlords, mercenaries, creatures, supplies and Lava Lux can ascend; weapons cannot yet. Missing Fragments are got the cheapest way at the tap: bought, or from cards bought (or crafted from bought materials) and sacrificed.
       </p>
       {rows.length === 0 ? (
         <p className="none">No card in your wallet, your reserve or a division at home can ascend.</p>
@@ -1262,9 +1293,26 @@ function AscendList({
         <div className="bl-recs">
           {rows.map((r) => {
             const st = r.sample.stats!
-            const isSupply = kindOf(st) === 'supply'
             const enough = fragmentIds.length >= (r.cost ?? Infinity)
             const kind = kindOf(st)
+            const schema = market.templates.get(r.templateId)?.schema ?? ''
+            // Short of Fragments: the cheapest ones on the market, your own first.
+            const need = r.cost ?? 0
+            const buyable = supply.cost[need] !== undefined
+            const units = buyable ? supply.units.slice(0, supply.prefix[need]) : []
+            const spend = buyable ? supply.cost[need] : null
+            const sources = unitSources(units, need, market)
+            const confirming = confirmKey === r.key
+            function go() {
+              let source: FragmentSource
+              if (enough) source = { ids: async () => fragmentIds }
+              else {
+                const got = acquireFragments(units, need)
+                source = { ids: got.fragments, pre: (a, p) => buyFragmentActions(a, p, got.buys), before: got.parts }
+              }
+              setConfirmKey(null)
+              void runSequence(ascendInPlaceParts(r.cards[0], r.place, r.to!, need, source, starText(r.from + 1)), `ascend-${r.key}`, `Ascend ${r.sample.name}`)
+            }
             // Equipped cards go back into the division, which needs the Forge level of the new star.
             const levelOk = r.place.at === 'wallet' || r.place.at === 'reserve' || forgeLevel >= r.from + 1
             return (
@@ -1285,8 +1333,7 @@ function AscendList({
                   <span>
                     <small>now</small>
                     <b>
-                      {st.attack}/{st.defense}
-                      {isSupply ? ` −${st.movecost_reduction} move` : ` · ${st.movecost} move`}
+                      <StatLine schema={schema} s={st} />
                     </b>
                   </span>
                   <span className="bl-change__arrow" aria-hidden="true">
@@ -1294,41 +1341,60 @@ function AscendList({
                   </span>
                   <span>
                     <small>{starText(r.from + 1)}</small>
-                    <b className="is-good">
-                      {r.nextStats ? `${r.nextStats.attack}/${r.nextStats.defense}` : '?'}
-                      {r.nextStats ? (isSupply ? ` −${r.nextStats.movecost_reduction} move` : ` · ${r.nextStats.movecost} move`) : ''}
+                    <b>
+                      <StatLine schema={schema} s={r.nextStats} />
                     </b>
+                    <GainLine schema={schema} from={st} to={r.nextStats} />
                   </span>
                 </div>
                 <div className="bl-cost">
-                  <Fig label="Costs" value={`${r.cost} Fragments`} tone={enough ? '' : 'is-bad'} />
+                  <Fig label="Costs" value={`${r.cost} Fragments`} />
+                  {enough ? (
+                    <small className="muted">you hold {fragmentIds.length}</small>
+                  ) : spend !== null ? (
+                    <small className="muted" title={sources.join(', ')}>
+                      you hold {fragmentIds.length} · the rest ≈ <b className="num">{wax(spend, 0)} WAX</b>: {sources.filter((x) => !x.startsWith('your')).join(', ')}
+                    </small>
+                  ) : (
+                    <small className="c-bad">you hold {fragmentIds.length}; the market has too few Fragments for this star</small>
+                  )}
                   <small className={levelOk ? 'muted' : 'c-bad'}>needs Forge level {r.from + 1} to equip</small>
                   {r.place.at !== 'wallet' && <small className="muted">{r.place.at === 'leader' ? 'takes the division apart and back' : 'goes back where it was'}</small>}
                 </div>
                 <div className="bl-act bl-act--one">
+                  {confirming ? (
+                    <>
+                      <button type="button" className="btn btn--sm btn--go" disabled={!!busy || spectating} onClick={go}>
+                        Yes, spend ≈ {wax(spend, 0)} WAX
+                      </button>
+                      <button type="button" className="btn btn--sm" onClick={() => setConfirmKey(null)}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
                   <button
                     type="button"
                     className="btn btn--sm btn--go"
-                    disabled={!enough || !levelOk || paused || spectating || !!busy}
+                    disabled={(!enough && spend === null) || !levelOk || paused || spectating || !!busy}
                     title={
                       spectating
                         ? READ_ONLY
-                        : !enough
-                          ? `You have ${fragmentIds.length} Fragments; this star costs ${r.cost}.`
+                        : !enough && spend === null
+                          ? `You have ${fragmentIds.length} Fragments; this star costs ${r.cost}, and the market has too few.`
                           : !levelOk
                             ? `The ${starText(r.from + 1)} version needs Forge level ${r.from + 1} to go back ${placeText(r.place)}; you are at ${forgeLevel}.`
-                            : ascendSteps(r)
+                            : enough
+                              ? ascendSteps(r)
+                              : `First the missing Fragments: ${sources.join(', ')}. Then: ${ascendSteps(r)}`
                     }
-                    onClick={() =>
-                      void runSequence(
-                        ascendInPlaceParts(r.cards[0], r.place, r.to!, fragmentIds.slice(0, r.cost!), starText(r.from + 1)),
-                        `ascend-${r.key}`,
-                        `Ascend ${r.sample.name}`
-                      )
-                    }
+                    onClick={() => (enough ? go() : setConfirmKey(r.key))}
                   >
-                    <Icon name="spark" size={14} /> {busy === `ascend-${r.key}` ? 'Signing…' : r.place.at === 'wallet' || r.place.at === 'reserve' || r.cards.length > 1 ? 'Ascend one' : 'Ascend'}
+                    <Icon name="spark" size={14} />{' '}
+                    {busy === `ascend-${r.key}`
+                      ? 'Signing…'
+                      : `${r.place.at === 'wallet' || r.place.at === 'reserve' || r.cards.length > 1 ? 'Ascend one' : 'Ascend'}${enough ? '' : ` · ≈ ${wax(spend, 0)} WAX`}`}
                   </button>
+                  )}
                 </div>
               </article>
             )

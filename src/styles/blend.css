@@ -203,7 +203,18 @@
   border-top: 1px solid var(--line);
 }
 .bl-rec--asc {
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1fr) 132px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1fr) 168px;
+}
+/* "Ascend one · ≈ 711 WAX" and the confirm pair fit their column. */
+.bl-rec--asc .bl-act .btn {
+  white-space: normal;
+  text-align: center;
+  justify-content: center;
+  width: 100%;
+}
+.bl-rec--asc .bl-act {
+  display: grid;
+  gap: 6px;
 }
 .bl-rec.is-capped {
   opacity: 0.6;
@@ -601,4 +612,229 @@
 /* Buy and open steppers are as wide as each other, so both buttons start at the same x. */
 .bl-line .bl-stepper b {
   min-width: 40px;
+}
+
+/* ---- Ascension info: the card list on the left, the step ledger on the right ---- */
+.ai {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.ai__list {
+  display: grid;
+  gap: 14px;
+  overflow-x: hidden;
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+  position: sticky;
+  top: 12px;
+}
+.ai__grp {
+  display: grid;
+  gap: 1px;
+}
+.ai__grp > small {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 4px 4px;
+}
+.ai__pick {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 9px;
+}
+.ai__pick .dot {
+  background: var(--rc);
+}
+.ai__pick b {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai__pick:hover {
+  background: var(--panel-2);
+}
+.ai__pick.is-on {
+  background: var(--accent-soft);
+}
+.ai__pick.is-on b {
+  font-weight: 600;
+}
+.ai__stars,
+.ai__star {
+  color: var(--move);
+  font-size: 11px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.ai__star {
+  font-size: 13px;
+}
+.ai__main {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.ai__hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+.ai__title h3 {
+  margin: 0;
+  font-size: 20px;
+}
+.ai__title small {
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.ai__figs,
+.ai__prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ai__figs {
+  margin-left: auto;
+}
+.ai .fig {
+  display: grid;
+  gap: 1px;
+  background: var(--panel-2);
+  border-radius: 12px;
+  padding: 8px 12px;
+  min-width: 110px;
+}
+.ai .fig small {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.ai .fig b {
+  font-size: 15px;
+  font-weight: 600;
+}
+.ai .fig .muted {
+  font-size: 11.5px;
+}
+.c-frag {
+  color: #7a5bd6;
+}
+.ai__tbl {
+  overflow-x: auto;
+}
+.ai__tbl table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.ai__tbl th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 0 8px 8px;
+  white-space: nowrap;
+}
+.ai__tbl td {
+  padding: 10px 8px;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+}
+.ai__tbl .r {
+  text-align: right;
+}
+.ai-gain {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  font-weight: 600;
+}
+.ai-gain span,
+.ai__tbl td:nth-child(2) {
+  white-space: nowrap;
+}
+.ai__bar {
+  display: block;
+  height: 8px;
+  min-width: 70px;
+  border-radius: 4px;
+  background: var(--sunk);
+  overflow: hidden;
+}
+.ai__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--good);
+}
+.ai__route {
+  font-size: 12px;
+  color: var(--dim);
+  min-width: 220px;
+}
+.ai__get {
+  white-space: nowrap;
+}
+.ai__get small {
+  font-weight: 500;
+  opacity: 0.85;
+  margin-left: 4px;
+}
+.ai__get small::after {
+  content: ' W';
+}
+.ai__confirm {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 50%, var(--line-2));
+  background: var(--accent-soft);
+}
+.ai__confirm ol {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 3px;
+}
+.ai__acts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+@media (max-width: 1280px) {
+  .ai {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ai__list {
+    position: static;
+    max-height: 300px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    align-items: start;
+  }
+  .ai__figs {
+    margin-left: 0;
+  }
 }

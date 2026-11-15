@@ -3,7 +3,7 @@ import type { AnyAction } from '@wharfkit/session'
 import { ascendAction } from '@/chain/actions/ascend'
 import { addUnit, assignGear, createDivision, deleteDivision, removeUnit, stakeAssets, unassignGear, unstakeAsset } from '@/chain/actions/pd'
 import { atomic } from '@/chain/atomic'
-import { CONTRACTS } from '@/chain/config'
+import { CONTRACTS, FRAGMENT_TEMPLATE } from '@/chain/config'
 import { getRows } from '@/chain/rpc'
 import type { AssetRef } from '@/data/assets'
 import type { Army, Division, Unit } from '@/data/game'
@@ -94,20 +94,44 @@ function takeOut(a: string, p: string, place: Place, card: AssetRef): AnyAction[
 }
 
 /** Ids of the cards of a template in the wallet right now. */
-async function walletIdsOf(owner: string, templateId: string): Promise<Set<string>> {
+export async function walletIdsOf(owner: string, templateId: string): Promise<Set<string>> {
   const assets = await atomic.getOwnedAssets(owner, 'planetdefnft').catch(() => [])
   return new Set(assets.filter((x) => String(x.template?.template_id) === templateId).map((x) => x.asset_id))
 }
 
-/** The card ascend.pdef just minted: a card of the new template that was not in the wallet before. */
-async function findMinted(owner: string, templateId: string, before: Set<string>): Promise<string> {
+/**
+ * Cards just minted (an ascension, a blend): `count` cards of these templates that were not in the
+ * wallet before, newest first. Waits up to a minute for the market API to show them.
+ */
+export async function findMinted(owner: string, templateIds: Set<string>, before: Set<string>, count = 1): Promise<string[]> {
   for (let i = 0; i < 20; i++) {
-    const now = await walletIdsOf(owner, templateId)
-    const fresh = [...now].filter((id) => !before.has(id)).sort((x, y) => (BigInt(y) > BigInt(x) ? 1 : -1))
-    if (fresh.length) return fresh[0]
+    const assets = await atomic.getOwnedAssets(owner, 'planetdefnft').catch(() => [])
+    const fresh = assets
+      .filter((x) => templateIds.has(String(x.template?.template_id)) && !before.has(x.asset_id))
+      .map((x) => x.asset_id)
+      .sort((x, y) => (BigInt(y) > BigInt(x) ? 1 : -1))
+    if (fresh.length >= count) return fresh.slice(0, count)
     await sleep(3000)
   }
-  throw new Error('The new card did not show up in the wallet yet. It is there, in your wallet: stake it and put it back on the Divisions page')
+  throw new Error('The new card did not show up in the wallet yet. It is there, in your wallet: carry on from the Blend page')
+}
+
+/** Fragment ids in the wallet right now. */
+export async function walletFragments(owner: string): Promise<string[]> {
+  return [...(await walletIdsOf(owner, FRAGMENT_TEMPLATE))]
+}
+
+/** Waits for a sacrifice's reveal: until the wallet holds at least `need` Fragments (up to about 80 s). */
+export async function waitForFragments(owner: string, need: number): Promise<string[]> {
+  for (let i = 0; i < 20; i++) {
+    const ids = await walletFragments(owner)
+    if (ids.length >= need) return ids
+    await sleep(4000)
+  }
+  throw new Error(
+    `Fewer than ${need} Fragments in the wallet yet (the game's oracle reveals a sacrifice a little later). ` +
+      'The cards are already sacrificed: ascend from the Ascension view in a minute'
+  )
 }
 
 async function findDivision(owner: string, leaderId: string): Promise<number> {
@@ -127,8 +151,19 @@ export interface Part {
 }
 
 /** The whole sequence for one card: see the top of this file. */
-export function ascendInPlaceParts(card: AssetRef, place: Place, toTemplate: string, fragmentIds: string[], starLabel: string): Part[] {
-  const parts: Part[] = []
+/**
+ * Fragments: where the ascension takes its Fragments from. `pre`: actions signed first in the same
+ * transaction as the ascension (Fragment listings bought); `before`: steps that come first (getting
+ * Fragments by crafting and sacrificing).
+ */
+export interface FragmentSource {
+  ids: (owner: string) => Promise<string[]>
+  pre?: (a: string, p: string) => AnyAction[]
+  before?: Part[]
+}
+
+export function ascendInPlaceParts(card: AssetRef, place: Place, toTemplate: string, need: number, source: FragmentSource, starLabel: string): Part[] {
+  const parts: Part[] = [...(source.before ?? [])]
   const staked = place.at !== 'wallet'
   if (staked) parts.push({ build: (a, p) => takeOut(a, p, place, card), success: `${card.name} is out of the game`, settle: true })
 
@@ -137,7 +172,8 @@ export function ascendInPlaceParts(card: AssetRef, place: Place, toTemplate: str
   parts.push({
     build: async (a, p) => {
       if (staked) before = await walletIdsOf(a, toTemplate)
-      return ascendAction(a, p, card.assetId, fragmentIds)
+      const ids = (await source.ids(a)).slice(0, need)
+      return [...(source.pre?.(a, p) ?? []), ascendAction(a, p, card.assetId, ids)]
     },
     success: `${card.name} ascended to ${starLabel}`,
     settle: staked
@@ -147,7 +183,7 @@ export function ascendInPlaceParts(card: AssetRef, place: Place, toTemplate: str
   let minted = ''
   parts.push({
     build: async (a, p) => {
-      minted = await findMinted(a, toTemplate, before)
+      minted = (await findMinted(a, new Set([toTemplate]), before))[0]
       const stake = stakeAssets(a, p, [minted])
       switch (place.at) {
         case 'gear':
