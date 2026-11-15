@@ -621,18 +621,24 @@
   gap: 16px;
   align-items: start;
 }
+/* .box has no padding of its own: only direct children of .bl__page get it, so these set theirs. */
+.ai > .box {
+  padding: 16px 18px;
+  min-width: 0;
+}
 .ai__list {
   display: grid;
   gap: 14px;
-  overflow-x: hidden;
   max-height: calc(100vh - 160px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   position: sticky;
   top: 12px;
 }
 .ai__grp {
   display: grid;
   gap: 1px;
+  min-width: 0;
 }
 .ai__grp > small {
   font-size: 11px;
@@ -650,6 +656,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-width: 0;
   padding: 6px 8px;
   border-radius: 9px;
 }
