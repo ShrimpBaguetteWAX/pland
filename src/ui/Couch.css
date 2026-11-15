@@ -2118,6 +2118,21 @@ html.is-couch .couch {
   outline-offset: 2px;
 }
 
+/* Sales: "List #mint" with the price it lists at beside it. */
+.cs__row .cm__acts button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.cs__row .cm__acts button small {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.cs__row .cm__acts button small::after {
+  content: " WAX";
+}
+
 /* Materials: "List everything" asks once more. */
 .cm__confirm {
   display: grid;

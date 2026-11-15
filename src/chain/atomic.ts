@@ -287,6 +287,8 @@ export interface AtomicAsset {
   template: { template_id: string } | null
   data: Record<string, unknown>
   is_transferable?: boolean
+  /** Its mint number within the template ("1" is the first minted). */
+  template_mint?: string
 }
 
 export interface AtomicTemplate {
@@ -307,6 +309,8 @@ export interface AtomicSale {
   price: { token_contract: string; token_symbol: string; token_precision: number; amount: string }
   assets: AtomicAsset[]
   collection_name: string
+  /** The marketplace the sale was listed through ("shop.ale" for this site), empty when none. */
+  maker_marketplace?: string
   /** When it last changed state (ms, as a string): for a sold one, when it sold. */
   updated_at_time?: string
   /** The collection's cut at the time of the sale (0.05 = 5%). */

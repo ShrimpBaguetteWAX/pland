@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
 import { blendActions, type BlendRun } from '@/chain/actions/blend'
-import { ascendAction, sacrificeAction } from '@/chain/actions/ascend'
+import { sacrificeAction } from '@/chain/actions/ascend'
 import { buySalesActions } from '@/chain/actions/market'
 import { atomic, type AtomicAsset } from '@/chain/atomic'
 import { FRAGMENT_TEMPLATE } from '@/chain/config'
@@ -17,7 +17,8 @@ import {
   type Blend as Recipe,
   type Ingredient
 } from '@/data/blends'
-import { refreshPlayer, useArmy, useAssetStats, useWalletNfts } from '@/data/game'
+import { refreshPlayer, useArmy, useAssetStats, useDeployments, usePlayer, useWalletNfts } from '@/data/game'
+import { ascendInPlaceParts, divisionOf, locateAsset, placeText, type Place } from '@/lib/ascendInPlace'
 import { useListings } from '@/data/market'
 import { queryClient } from '@/data/queryClient'
 import type { AssetStats } from '@/data/types'
@@ -88,9 +89,10 @@ const READ_ONLY = 'Read-only: not your account'
 
 type Tx = ReturnType<typeof useTransaction>
 type Run = Tx['run']
+type RunSequence = Tx['runSequence']
 
 export function Blend({ account, spectating }: { account: string; spectating: boolean }) {
-  const { run, pending } = useTransaction()
+  const { run, runSequence, pending } = useTransaction()
   const blends = useBlends()
   const templates = useCollectionTemplates()
   const listings = useListings()
@@ -180,7 +182,7 @@ export function Blend({ account, spectating }: { account: string; spectating: bo
             spectating={spectating}
           />
         ) : (
-          <Ascension account={account} market={market!} run={run} pending={pending} spectating={spectating} />
+          <Ascension account={account} market={market!} run={run} runSequence={runSequence} pending={pending} spectating={spectating} />
         )}
       </section>
     </main>
@@ -1025,8 +1027,10 @@ function RevealPanel({
 
 /*
  * The Ascension view: the Ascend Nexus (raise a card a star with Fragments) and the Sacrificial
- * Altar (burn cards for Fragments). Both work on cards in the wallet: a staked card has to be
- * unstaked first. Everything that goes in is burned.
+ * Altar (burn cards for Fragments). Ascending also takes staked cards (in the reserve, or in a
+ * division that is home): they come out of the game, go up a star and go back where they were, in
+ * one signed sequence (lib/ascendInPlace). Sacrifices take wallet cards only. Everything that goes
+ * in is burned.
  */
 
 /** Cards per sacrifice transaction at most. */
@@ -1038,18 +1042,22 @@ function Ascension({
   account,
   market,
   run,
+  runSequence,
   pending: busy,
   spectating
 }: {
   account: string
   market: Market
   run: Run
+  runSequence: RunSequence
   pending: string | null
   spectating: boolean
 }) {
   const config = useAscensionConfig()
   const wallet = useWalletNfts(account || null)
   const army = useArmy(account || null)
+  const deployments = useDeployments(account || null)
+  const player = usePlayer(account || null)
   const stats = useAssetStats()
   const pending = usePendingBurns(account || null)
 
@@ -1089,18 +1097,43 @@ function Ascension({
   const cfg = config.data
 
   // ---- Ascend ----
-  const ascendable = [...groups.entries()]
-    .map(([templateId, cards]) => {
-      const to = cfg.next.get(templateId)
-      const sample = cards[0]
-      const from = stars(sample)
-      const cost = cfg.costs.get(costKey(sample.rarity, from)) ?? null
-      const nextStats = to ? stats.data!.get(to) : undefined
-      return { templateId, cards, sample, from, to, cost, nextStats }
-    })
+  // A division with a lock row is out on a mission or has a reward waiting: its cards stay put.
+  const away = new Set((deployments.data ?? []).map((d) => d.divisionId))
+  const rowOf = (key: string, cards: AssetRef[], place: Place): AscendRow => {
+    const sample = cards[0]
+    const templateId = sample.templateId
+    const to = cfg.next.get(templateId)
+    const from = stars(sample)
+    const cost = cfg.costs.get(costKey(sample.rarity, from)) ?? null
+    const nextStats = to ? stats.data!.get(to) : undefined
+    return { key, templateId, cards, sample, from, to, cost, nextStats, place }
+  }
+  const reserve = new Map<string, AssetRef[]>()
+  // The same mercenary several times in one division is one row; the first one is ascended.
+  const inDivisions = new Map<string, { cards: AssetRef[]; place: Place }>()
+  let awayCount = 0
+  for (const a of army.data?.assets.values() ?? []) {
+    if (!cfg.next.has(a.templateId)) continue
+    const place = locateAsset(army.data, a.assetId)
+    const d = divisionOf(place)
+    if (!d) reserve.set(a.templateId, [...(reserve.get(a.templateId) ?? []), a])
+    else if (away.has(d.id)) awayCount++
+    else {
+      const key = place.at === 'unit' ? `div:${d.id}:${a.templateId}` : `div:${a.assetId}`
+      const g = inDivisions.get(key)
+      if (g) g.cards.push(a)
+      else inDivisions.set(key, { cards: [a], place })
+    }
+  }
+  const placeRank = (p: Place) => ({ wallet: 0, reserve: 1, leader: 2, unit: 3, gear: 4 })[p.at]
+  const ascendable = [
+    ...[...groups.entries()].map(([t, cards]) => rowOf(`wallet:${t}`, cards, { at: 'wallet' })),
+    ...[...reserve.entries()].map(([t, cards]) => rowOf(`reserve:${t}`, cards, { at: 'reserve' })),
+    ...[...inDivisions.entries()].map(([k, g]) => rowOf(k, g.cards, g.place))
+  ]
     .filter((r) => r.to && r.cost !== null)
-    .sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))
-  const stakedAscendable = [...(army.data?.assets.values() ?? [])].filter((a) => cfg.next.has(a.templateId)).length
+    .sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0) || placeRank(a.place) - placeRank(b.place))
+  const forgeLevel = player.data?.forgeLevel ?? 0
 
   // ---- Sacrifice ----
   const sacrificeable = [...groups.entries()]
@@ -1141,14 +1174,23 @@ function Ascension({
             Fragments on the way.
           </p>
         )}
-        {stakedAscendable > 0 && (
+        {awayCount > 0 && (
           <p className="help">
-            {stakedAscendable} staked card{stakedAscendable === 1 ? '' : 's'} could ascend too, after unstaking them on the Divisions page.
+            {awayCount} more card{awayCount === 1 ? '' : 's'} in divisions out on missions (or with a reward to claim) can ascend once
+            {awayCount === 1 ? ' it is' : ' they are'} home.
           </p>
         )}
       </div>
 
-      <AscendList rows={ascendable} fragmentIds={fragmentIds} paused={cfg.paused} busy={busy} spectating={spectating} run={run} />
+      <AscendList
+        rows={ascendable}
+        fragmentIds={fragmentIds}
+        forgeLevel={forgeLevel}
+        paused={cfg.paused}
+        busy={busy}
+        spectating={spectating}
+        runSequence={runSequence}
+      />
       <SacrificeList
         rows={sacrificeable}
         fragmentValue={fragmentValue}
@@ -1162,6 +1204,7 @@ function Ascension({
 }
 
 interface AscendRow {
+  key: string
   templateId: string
   cards: AssetRef[]
   sample: AssetRef
@@ -1169,22 +1212,38 @@ interface AscendRow {
   to: string | undefined
   cost: number | null
   nextStats: AssetStats | undefined
+  place: Place
+}
+
+/** What the sequence for a card does, in words. */
+function ascendSteps(r: AscendRow): string {
+  const p = r.place
+  const name = r.sample.name
+  const burn = `${name} and ${r.cost} Fragments go to ascend.pdef and are burned; the ${starText(r.from + 1)} version is minted to you`
+  if (p.at === 'wallet') return `One transaction: ${burn}.`
+  if (p.at === 'reserve') return `Unstake, ascend, stake again: ${burn} and staked back into the reserve.`
+  if (p.at === 'gear') return `Off ${p.unit.asset.name} and unstaked, ascended, then staked and put back on ${p.unit.asset.name} in #${p.division.id}. ${burn}.`
+  if (p.at === 'unit')
+    return `Out of #${p.division.id} (its gear waits in the reserve) and unstaked, ascended, then staked and put back in #${p.division.id} with the same gear. ${burn}.`
+  return `Division #${p.division.id} is taken apart, ${name} unstaked and ascended, then staked to lead a new division with the same ${p.division.units.length} mercenaries and their gear (it gets a new number). ${burn}.`
 }
 
 function AscendList({
   rows,
   fragmentIds,
+  forgeLevel,
   paused,
   busy,
   spectating,
-  run
+  runSequence
 }: {
   rows: AscendRow[]
   fragmentIds: string[]
+  forgeLevel: number
   paused: boolean
   busy: string | null
   spectating: boolean
-  run: Run
+  runSequence: RunSequence
 }) {
   return (
     <div className="box">
@@ -1198,7 +1257,7 @@ function AscendList({
         5. Warlords, creatures, supplies and Lava Lux can ascend; mercenaries and weapons cannot yet.
       </p>
       {rows.length === 0 ? (
-        <p className="none">No card in your wallet can ascend. Staked cards have to be unstaked first.</p>
+        <p className="none">No card in your wallet, your reserve or a division at home can ascend.</p>
       ) : (
         <div className="bl-recs">
           {rows.map((r) => {
@@ -1206,15 +1265,18 @@ function AscendList({
             const isSupply = kindOf(st) === 'supply'
             const enough = fragmentIds.length >= (r.cost ?? Infinity)
             const kind = kindOf(st)
+            // Equipped cards go back into the division, which needs the Forge level of the new star.
+            const levelOk = r.place.at === 'wallet' || r.place.at === 'reserve' || forgeLevel >= r.from + 1
             return (
-              <article key={r.templateId} className="bl-rec bl-rec--asc">
+              <article key={r.key} className="bl-rec bl-rec--asc">
                 <div className="bl-card">
                   <Portrait img={r.sample.img} rarity={r.sample.rarity} className="bl-pic bl-pic--lg" />
                   <span className="bl-card__text">
                     <b>{r.sample.name}</b>
                     <small>
                       <i className="dot" style={{ background: rarityColor(r.sample.rarity) }} /> <span className="cap">{r.sample.rarity}</span>{' '}
-                      {kind ? KIND_LABEL[kind] : ''} · you have {r.cards.length}
+                      {kind ? KIND_LABEL[kind] : ''} · {r.place.at === 'wallet' || r.place.at === 'reserve' || r.cards.length > 1 ? `${r.cards.length} ` : ''}
+                      <span className={r.place.at === 'wallet' ? '' : 'c-move'}>{placeText(r.place)}</span>
                     </small>
                     <StarRail asset={r.sample} size="sm" />
                   </span>
@@ -1240,29 +1302,32 @@ function AscendList({
                 </div>
                 <div className="bl-cost">
                   <Fig label="Costs" value={`${r.cost} Fragments`} tone={enough ? '' : 'is-bad'} />
-                  <small className="muted">needs Forge level {r.from + 1} to equip</small>
+                  <small className={levelOk ? 'muted' : 'c-bad'}>needs Forge level {r.from + 1} to equip</small>
+                  {r.place.at !== 'wallet' && <small className="muted">{r.place.at === 'leader' ? 'takes the division apart and back' : 'goes back where it was'}</small>}
                 </div>
                 <div className="bl-act bl-act--one">
                   <button
                     type="button"
                     className="btn btn--sm btn--go"
-                    disabled={!enough || paused || spectating || !!busy}
+                    disabled={!enough || !levelOk || paused || spectating || !!busy}
                     title={
                       spectating
                         ? READ_ONLY
-                        : enough
-                          ? `One transaction: ${r.sample.name} and ${r.cost} Fragments go to ascend.pdef and are burned; the ${starText(r.from + 1)} version is minted to you.`
-                          : `You have ${fragmentIds.length} Fragments; this star costs ${r.cost}.`
+                        : !enough
+                          ? `You have ${fragmentIds.length} Fragments; this star costs ${r.cost}.`
+                          : !levelOk
+                            ? `The ${starText(r.from + 1)} version needs Forge level ${r.from + 1} to go back ${placeText(r.place)}; you are at ${forgeLevel}.`
+                            : ascendSteps(r)
                     }
                     onClick={() =>
-                      void run(
-                        (a, p) => ascendAction(a, p, r.cards[0].assetId, fragmentIds.slice(0, r.cost!)),
-                        `${r.sample.name} ascended to ${starText(r.from + 1)}`,
-                        `ascend-${r.templateId}`
+                      void runSequence(
+                        ascendInPlaceParts(r.cards[0], r.place, r.to!, fragmentIds.slice(0, r.cost!), starText(r.from + 1)),
+                        `ascend-${r.key}`,
+                        `Ascend ${r.sample.name}`
                       )
                     }
                   >
-                    <Icon name="spark" size={14} /> {busy === `ascend-${r.templateId}` ? 'Signing…' : 'Ascend one'}
+                    <Icon name="spark" size={14} /> {busy === `ascend-${r.key}` ? 'Signing…' : r.place.at === 'wallet' || r.place.at === 'reserve' || r.cards.length > 1 ? 'Ascend one' : 'Ascend'}
                   </button>
                 </div>
               </article>

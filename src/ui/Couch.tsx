@@ -17,6 +17,7 @@ import { ANIMALS, furOf, readAnimal, saveAnimal, type Animal } from './couch/ani
 import { Bank } from './couch/Bank'
 import { Chests } from './couch/Chests'
 import { Materials } from './couch/Materials'
+import { Sales } from './couch/Sales'
 import { useBloodOrb } from './couch/bloodOrb'
 import { KittenFrame } from './couch/KittenFrame'
 import { Moons, type MoonMission } from './couch/Moons'
@@ -79,7 +80,9 @@ function usePinnedPage(night: string) {
 }
 
 /** Couch mode's screens, in swipe order: the orb, the bank, the chests, the materials. */
-type Page = 0 | 1 | 2 | 3
+/** -1 = your recent sales (left of the orb), 0 = the orb, then bank, chests, materials. */
+type Page = -1 | 0 | 1 | 2 | 3
+const FIRST_PAGE = -1
 const LAST_PAGE = 3
 
 /** The colour theme, remembered in this browser; a tap on the swatch moves on to the next one. */
@@ -318,7 +321,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     const dx = x - s.x
     const dy = y - s.y
     if (Math.abs(dx) >= 60 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
-      setPage((p) => (dx < 0 ? Math.min(LAST_PAGE, p + 1) : Math.max(0, p - 1)) as Page)
+      setPage((p) => (dx < 0 ? Math.min(LAST_PAGE, p + 1) : Math.max(FIRST_PAGE, p - 1)) as Page)
       return
     }
     // Pulled down from the top of the screen.
@@ -344,6 +347,9 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const canLoop = !!plan && plan.funding.affordable && !looping && !spectating
   const mineOn = !m.block || m.block === 'loading'
   const mineReady = !m.block && !m.cooling && !!m.pick && !m.busy
+  /** The mining state of the latest render, for a tap that has been waiting on a loop. */
+  const mineRef = useRef(m)
+  mineRef.current = m
   useReportCount('mine', mineReady ? 1 : 0)
   useReportCount('loop', back.length)
 
@@ -467,11 +473,21 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     }
     orb.slosh(1)
     navigator.vibrate?.(30)
+    // Mine first: it is the one on a timer, and its wallet prompt then opens straight from the tap.
+    let mined = false
+    if (centreMines) {
+      await m.mine()
+      mined = true
+    }
     if (centreLoops && plan) {
       const missions = new Set(back.map((d) => d.missionId)).size
       await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'} on ${missions} mission${missions === 1 ? '' : 's'}`)
     }
-    if (centreMines) await m.mine()
+    // The cooldown may have run out while the loop was being signed: mine then too, with today's state.
+    const latest = mineRef.current
+    if (!mined && !latest.block && !latest.busy && !!latest.pick && !(latest.pickReadyAt !== null && latest.pickReadyAt > Date.now())) {
+      await latest.mine()
+    }
     refreshToday(account)
   }
 
@@ -532,12 +548,14 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         </div>
       )}
       <nav className="couch__pages" aria-label="Screens">
+        <button type="button" className={page === -1 ? 'is-on' : ''} aria-pressed={page === -1} aria-label="Your recent sales" onClick={() => setPage(-1)} />
         <button type="button" className={page === 0 ? 'is-on' : ''} aria-pressed={page === 0} aria-label="The orb" onClick={() => setPage(0)} />
         <button type="button" className={page === 1 ? 'is-on' : ''} aria-pressed={page === 1} aria-label="The bank" onClick={() => setPage(1)} />
         <button type="button" className={page === 2 ? 'is-on' : ''} aria-pressed={page === 2} aria-label="Your chests" onClick={() => setPage(2)} />
         <button type="button" className={page === 3 ? 'is-on' : ''} aria-pressed={page === 3} aria-label="Your materials" onClick={() => setPage(3)} />
       </nav>
 
+      {page === -1 && account && <Sales account={account} />}
       {page === 1 && account && <Bank account={account} />}
       {page === 2 && account && <Chests account={account} />}
       {page === 3 && account && <Materials account={account} />}

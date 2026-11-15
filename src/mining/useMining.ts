@@ -70,9 +70,13 @@ export function useMining(now: number) {
     setBusy(true)
     try {
       // The pools move with every mine anyone makes: read them again and pick where it pays most now.
-      const fresh = await estimateNow()
-      const land = pickFavoriteLand(fresh, readyAt, mode, Date.now())
-      if (!land) return
+      // A node that answers empty under load leaves no lands: mine on the last read instead.
+      const fresh = await estimateNow().catch(() => [])
+      const land = pickFavoriteLand(fresh.length ? fresh : lands, readyAt, mode, Date.now())
+      if (!land) {
+        toast.error('Could not read your favourite lands. Please try again.')
+        return
+      }
       let txId = ''
       const ok = await run((a, p) => buildMine(a, p, tools.data, land.asset_id), '', 'mine', {
         register: false,

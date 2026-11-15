@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { BUY_MARKETPLACE, listSalesActions, repriceSalesActions } from '@/chain/actions/market'
 import { atomic, type AtomicAsset, type AtomicSale } from '@/chain/atomic'
+import { offeredAssetIds } from '@/chain/offers'
 import { formatNumber } from '@/lib/format'
 import { imageSources } from '@/lib/ipfs'
 import { shortDuration } from '@/lib/time'
@@ -69,6 +70,10 @@ interface Step {
   label: string
   build: (account: string, permission: string) => AnyAction[]
   state: 'todo' | 'done' | 'failed'
+  /** A listing step's NFTs: checked against the chain right before signing, so none is listed twice. */
+  list?: { assetId: string; priceWax: number; name: string }[]
+  /** Set when some of the step's NFTs turned out to be listed already. */
+  note?: string
 }
 
 /** A card picture that tries its sources in turn and shows a plain square when none loads. */
@@ -113,6 +118,12 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
     queryFn: () => atomic.getSales({ seller: account, collection_name: collection, symbol: 'WAX' }, 10),
     staleTime: 30_000
   })
+  // The chain's word on what is listed: the API above lags behind fresh listings.
+  const offered = useQuery({
+    queryKey: ['sell-offered', account],
+    queryFn: () => offeredAssetIds(account),
+    staleTime: 30_000
+  })
   const sold = useQuery({
     queryKey: ['sell-sold', account, collection],
     queryFn: () => atomic.getSales({ state: 3, seller: account, collection_name: collection, symbol: 'WAX', sort: 'updated', order: 'desc', limit: 20 }, 1),
@@ -129,7 +140,10 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
   })
 
   // Listed NFTs stay in the wallet (offered to the market): they are not free to list again.
-  const listedIds = useMemo(() => new Set((mine.data ?? []).flatMap((s) => s.assets.map((a) => a.asset_id))), [mine.data])
+  const listedIds = useMemo(
+    () => new Set([...(mine.data ?? []).flatMap((s) => s.assets.map((a) => a.asset_id)), ...(offered.data ?? [])]),
+    [mine.data, offered.data]
+  )
   const assets = useMemo(() => (owned.data ?? []).filter((a) => a.template && a.is_transferable !== false), [owned.data])
 
   /** Categories you hold, with how many. */
@@ -224,7 +238,8 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
       steps: chunk(items, LIST_PER_TX).map((part) => ({
         label: `List ${part.length}: ${summary(part.map((p) => p.name))} · ${formatNumber(part.reduce((n, p) => n + p.priceWax, 0), 2)} WAX`,
         build: (a, p) => listSalesActions(a, p, part, BUY_MARKETPLACE),
-        state: 'todo'
+        state: 'todo',
+        list: part
       }))
     })
   }
@@ -252,15 +267,30 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
     for (let i = 0; i < steps.length; i++) {
       if (steps[i].state === 'done') continue
       if (stopRef.current) break
-      const ok = await run(steps[i].build, `Step ${i + 1} of ${steps.length} signed`, 'sell-step')
-      steps = steps.map((s, k) => (k === i ? { ...s, state: ok ? 'done' : 'failed' } : s))
+      let build = steps[i].build
+      let note: string | undefined
+      const list = steps[i].list
+      if (list && account) {
+        // Read what is offered right now; anything listed since the plan was made is left out.
+        const taken = await offeredAssetIds(account).catch(() => null)
+        const left = taken ? list.filter((x) => !taken.has(x.assetId)) : list
+        if (left.length < list.length) note = `${list.length - left.length} already listed, left out`
+        if (!left.length) {
+          steps = steps.map((s, k) => (k === i ? { ...s, state: 'done', note: 'all already listed' } : s))
+          setPlan((p) => (p ? { ...p, steps } : p))
+          continue
+        }
+        build = (a, p) => listSalesActions(a, p, left, BUY_MARKETPLACE)
+      }
+      const ok = await run(build, `Step ${i + 1} of ${steps.length} signed`, 'sell-step')
+      steps = steps.map((s, k) => (k === i ? { ...s, state: ok ? 'done' : 'failed', note } : s))
       setPlan((p) => (p ? { ...p, steps } : p))
       if (!ok) break
     }
     stopRef.current = false
     setStopAsked(false)
     setRunning(false)
-    void Promise.all([owned.refetch(), mine.refetch(), floors.refetch(), myFloors.refetch()])
+    void Promise.all([owned.refetch(), mine.refetch(), offered.refetch(), floors.refetch(), myFloors.refetch()])
   }
 
   const done = plan?.steps.filter((s) => s.state === 'done').length ?? 0
@@ -412,6 +442,7 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
                   {s.state === 'done' ? <Icon name="check" size={13} /> : s.state === 'failed' ? '!' : i + 1}
                 </span>
                 {s.label}
+                {s.note ? <small className="muted"> · {s.note}</small> : null}
               </li>
             ))}
           </ol>

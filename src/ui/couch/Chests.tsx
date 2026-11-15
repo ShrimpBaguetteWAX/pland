@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { blendActions, type BlendRun } from '@/chain/actions/blend'
 import { BUY_MARKETPLACE, listSalesActions, repriceSalesActions } from '@/chain/actions/market'
 import { atomic, type AtomicSale } from '@/chain/atomic'
+import { offeredAssetIds } from '@/chain/offers'
 import { QUANTUM_CHEST, QUANTUM_KEY, useBlends, useCollectionTemplates, useOwnedBlendInputs, type Blend } from '@/data/blends'
 import { openingsOf } from '@/lib/blendEconomy'
 import { formatNumber } from '@/lib/format'
@@ -99,7 +100,11 @@ export function Chests({ account }: { account: string }) {
   const myPrices = [...myListings.values()].sort((a, b) => a - b)
 
   // A listed chest stays in the wallet (offered to the market): it is not free to list or open.
-  const chests = useMemo(() => (owned.data?.get(QUANTUM_CHEST) ?? []).filter((id) => !myListings.has(id)), [owned.data, myListings])
+  const offered = useQuery({ queryKey: ['sell-offered', account], queryFn: () => offeredAssetIds(account), staleTime: 30_000 })
+  const chests = useMemo(
+    () => (owned.data?.get(QUANTUM_CHEST) ?? []).filter((id) => !myListings.has(id) && !offered.data?.has(id)),
+    [owned.data, myListings, offered.data]
+  )
   const keys = owned.data?.get(QUANTUM_KEY) ?? []
   const above = lowest !== null ? mine.filter((s) => !held.has(s.assets[0]?.asset_id) && waxOf(s) > lowest + 1e-8) : []
 

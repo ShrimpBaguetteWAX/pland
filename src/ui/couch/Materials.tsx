@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 
 import { BUY_MARKETPLACE, listSalesActions, repriceSalesActions } from '@/chain/actions/market'
 import { atomic, type AtomicSale } from '@/chain/atomic'
+import { offeredAssetIds } from '@/chain/offers'
 import { useCollectionTemplates, useOwnedBlendInputs } from '@/data/blends'
 import { formatNumber } from '@/lib/format'
 import { imageSources } from '@/lib/ipfs'
@@ -10,6 +11,7 @@ import { shortDuration } from '@/lib/time'
 import { useTransaction } from '@/wallet/useTransaction'
 
 import { MARKET_FEES, RARITY_COLOR, waxOf } from './Chests'
+import { RepriceMine } from './RepriceMine'
 
 /*
  * Couch mode's fourth screen: your materials, the chest page's twin. Every material you hold with
@@ -45,6 +47,8 @@ export function Materials({ account }: { account: string }) {
     staleTime: 30_000,
     refetchInterval: 60_000
   })
+  // The chain's word on what is listed: the API lags behind fresh listings.
+  const offered = useQuery({ queryKey: ['sell-offered', account], queryFn: () => offeredAssetIds(account), staleTime: 30_000 })
   const sold = useQuery({
     queryKey: ['my-recent-material-sales', account],
     queryFn: () =>
@@ -62,7 +66,7 @@ export function Materials({ account }: { account: string }) {
       const sales = (await mineQ.refetch()).data ?? []
       if (done(sales)) break
     }
-    void Promise.all([owned.refetch(), floors.refetch(), sold.refetch()])
+    void Promise.all([owned.refetch(), floors.refetch(), sold.refetch(), offered.refetch()])
     setSyncing(false)
   }
 
@@ -77,7 +81,7 @@ export function Materials({ account }: { account: string }) {
     for (const [asset, h] of held) put(h.template, asset, h.price)
     return m
   }, [mineQ.data, held])
-  const listedAssets = useMemo(() => new Set([...listed.values()].flatMap((m) => [...m.keys()])), [listed])
+  const listedAssets = useMemo(() => new Set([...[...listed.values()].flatMap((m) => [...m.keys()]), ...(offered.data ?? [])]), [listed, offered.data])
 
   /** One row per material you hold or have listed, the most valuable first. */
   const rows = useMemo(() => {
@@ -221,6 +225,7 @@ export function Materials({ account }: { account: string }) {
               ? `Set my ${above.length} listing${above.length === 1 ? '' : 's'} to the lowest`
               : 'Your listings are at the lowest'}
       </button>
+      <RepriceMine account={account} />
       {syncing && <p className="cb__note">Updating: the market shows a change a few seconds after it is signed…</p>}
 
       <ul className="cm__rows">
