@@ -2838,6 +2838,19 @@ code {
 .effring.is-neg b {
   color: var(--bad);
 }
+/* Shard missions: their own unit and colour, compared only with each other. */
+.effring.is-shards .effring__fill {
+  stroke: var(--r-epic);
+}
+.effring.is-shards small {
+  position: absolute;
+  top: 100%;
+  margin-top: 1px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--r-epic);
+}
 
 /* Picking several home divisions on Missions */
 .fp__check {

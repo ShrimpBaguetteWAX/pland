@@ -1,43 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
-import { withdrawBalanceAction } from '@/chain/actions/pd'
 import { useGameBalance } from '@/data/game'
-import { useNftFloors, useSwapPools, type SwapPools } from '@/data/market'
-import { quantityOf } from '@/lib/deposit'
+import { useNftFloors, useSwapPools } from '@/data/market'
 import { formatNumber } from '@/lib/format'
 import { cycleSeconds } from '@/lib/loop'
-import { quoteRoute, receiveFor, swapExactInAction, type Pool, type Route } from '@/lib/pool'
+import { receiveFor } from '@/lib/pool'
 import { useField } from '@/lib/useField'
-import { useTransaction } from '@/wallet/useTransaction'
+
+import { KEEP_MAX, KEEP_STEP, KEEP_UNLIMITED, useDefSwap, useKeepDef } from './defKeep'
 
 /*
  * Couch mode's second screen (swipe left from the orb): the bank. The day of your divisions as a
  * little receipt (in, out and net per token, each net's TLM value, and the surplus in TLM as its
  * total, as if every division went out again as soon as it is back), the DEF → TLM rate on Alcor,
- * what is deposited in the game, and one tap to withdraw some of the DEF and swap it to TLM, in one
- * signature.
+ * what is deposited in the game, and how much DEF to keep there (a slider, unlimited by default):
+ * what is over it is withdrawn and swapped to TLM in one signature, here or by tapping the orb.
  */
-
-type Token = 'WAX' | 'TLM' | 'DEF'
-
-/** The pool between two tokens. */
-function poolFor(pools: SwapPools, a: Token, b: Token): Pool {
-  const pair = [a, b].sort().join('/')
-  return pair === 'DEF/WAX' ? pools.def : pair === 'TLM/WAX' ? pools.tlm : pools.tlmdef
-}
-
-/** DEF to TLM, direct or through WAX: whichever returns more. */
-function defToTlm(pools: SwapPools, amount: number): Route {
-  return [quoteRoute([pools.tlmdef], 'DEF', amount), quoteRoute([poolFor(pools, 'DEF', 'WAX'), poolFor(pools, 'WAX', 'TLM')], 'DEF', amount)].sort(
-    (x, y) => y.out - x.out
-  )[0]
-}
-
-const SHARES = [1 / 3, 2 / 3, 1] as const
-const SHARE_LABEL = ['33 %', '66 %', '100 %']
-const SLIPPAGE = 0.01
-/** DEF has 8 decimals: round down so the withdrawal never asks for more than is there. */
-const floorDef = (n: number) => Math.floor(n * 1e8) / 1e8
 
 const n0 = (n: number) => formatNumber(n, 0)
 const signed = (n: number, d = 0) => `${n >= 0 ? '+' : '−'}${formatNumber(Math.abs(n), d)}`
@@ -46,11 +24,12 @@ export function Bank({ account }: { account: string }) {
   const bank = useGameBalance(account)
   const pools = useSwapPools()
   const f = useField(account)
-  const { run, pending, spectating } = useTransaction()
-  const [share, setShare] = useState(1)
+  const keep = useKeepDef((st) => st.keep)
+  const setKeep = useKeepDef((st) => st.setKeep)
+  const dx = useDefSwap(account)
 
   // The rate shown: what 1 DEF brings in TLM on the better route right now.
-  const rate = pools.data ? defToTlm(pools.data, 1).rate : null
+  const rate = dx.rate
 
   // NFT rewards at their floor, as on the Missions page and in the optimizer.
   const nftIds = useMemo(() => [...f.econ.values()].flatMap((e) => (e.rewardNft ? [String(e.rewardNft.templateId)] : [])), [f.econ])
@@ -85,21 +64,8 @@ export function Bank({ account }: { account: string }) {
   const defTlm = rate !== null ? defNet * rate : 0
   const surplus = tlmNet + defTlm + day.nftTlm
 
-  // The swap: a share of the DEF in the game, withdrawn and swapped to TLM in one transaction.
-  const held = bank.data?.def ?? 0
-  const amount = floorDef(held * SHARES[share])
-  const route = pools.data && amount > 0 ? defToTlm(pools.data, amount) : null
-  const busy = pending === 'bank-swap'
-  async function swap() {
-    if (!route || amount <= 0) return
-    const minOut = route.out * (1 - SLIPPAGE)
-    const ok = await run(
-      (a, p) => [withdrawBalanceAction(a, p, quantityOf(amount, 'DEF')), swapExactInAction(a, p, route, amount, minOut)],
-      `Withdrew ${formatNumber(amount, 2)} DEF and swapped it for about ${n0(route.out)} TLM`,
-      'bank-swap'
-    )
-    if (ok) void bank.refetch()
-  }
+  const held = dx.held
+  const slider = keep === null ? KEEP_UNLIMITED : Math.min(KEEP_MAX, keep)
 
   return (
     <section className="couch__bankpage" aria-label="Bank: your day, the rate and your deposit">
@@ -174,25 +140,51 @@ export function Bank({ account }: { account: string }) {
         <b className="is-def">{bank.data ? formatNumber(held, held >= 100 ? 0 : 2) : '…'} DEF</b>
       </p>
 
-      <div className="cb__pct" role="group" aria-label="How much of the DEF to swap">
-        {SHARE_LABEL.map((label, i) => (
-          <button key={label} type="button" className={share === i ? 'is-on' : ''} aria-pressed={share === i} onClick={() => setShare(i)}>
-            {label}
-          </button>
-        ))}
-      </div>
-      <button type="button" className="cb__go" disabled={spectating || busy || !route || amount <= 0} onClick={() => void swap()}>
-        {busy ? (
+      <label className="cb__plaque cb__keep">
+        <span className="cb__keep-hd">
+          <small>Keep in the game</small>
+          <b className="num is-def">{keep === null ? 'Unlimited' : `${n0(keep)} DEF`}</b>
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={KEEP_UNLIMITED}
+          step={KEEP_STEP}
+          value={slider}
+          aria-label="DEF to keep in the game"
+          aria-valuetext={keep === null ? 'Unlimited' : `${keep} DEF`}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            setKeep(v > KEEP_MAX ? null : v)
+          }}
+        />
+        <span className="cb__keep-scale" aria-hidden="true">
+          <span>0</span>
+          <span>500</span>
+          <span>1,000</span>
+          <span>∞</span>
+        </span>
+        <small className="cb__keep-note">
+          {keep === null
+            ? 'All your DEF stays in the game. Slide left to swap what is over an amount to TLM.'
+            : dx.ready
+              ? `${formatNumber(dx.over, dx.over >= 100 ? 0 : 2)} DEF over it: tap the orb (it is lit) or swap here.`
+              : 'Nothing over it right now. When there is, the orb lights up and a tap swaps it.'}
+        </small>
+      </label>
+      <button type="button" className="cb__go" disabled={dx.spectating || dx.busy || !dx.ready || !dx.route} onClick={() => void dx.swap()}>
+        {dx.busy ? (
           'Signing…'
-        ) : amount > 0 && route ? (
+        ) : dx.ready && dx.route ? (
           <>
-            Swap {share === 2 ? 'all ' : ''}
-            {formatNumber(amount, amount >= 100 ? 0 : 2)} DEF → {n0(route.out)} TLM
+            Swap {formatNumber(dx.over, dx.over >= 100 ? 0 : 2)} DEF → {n0(dx.route.out)} TLM
           </>
+        ) : keep === null ? (
+          'Keeping all your DEF'
         ) : (
-          'No DEF in the game'
+          'Nothing over your keep amount'
         )}
-        <small>{spectating ? 'Read-only: not your account' : 'withdraw + Alcor, one signature · 1 % slippage'}</small>
+        <small>{dx.spectating ? 'Read-only: not your account' : 'withdraw + Alcor, one signature · 1 % slippage'}</small>
       </button>
     </section>
   )

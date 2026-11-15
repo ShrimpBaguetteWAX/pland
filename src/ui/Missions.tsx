@@ -52,21 +52,30 @@ interface Row {
   /** TLM / h of the fitting picked divisions together, each at its own move. */
   perHour: number | null
   efficiency: number | null
+  /**
+   * For missions that pay only shards (no price, so no TLM score): shards per hour for every 100
+   * points of strength asked, compared with the other shard missions only.
+   */
+  shardEff: number | null
   out: number
   back: number
   short: string
 }
 
-/** The efficiency score in a ring filled to its share of the best one in the list. */
-function EffRing({ score, share, note }: { score: number; share: number; note?: string }) {
+/** The efficiency score in a ring filled to its share of the best one in the list (of its unit). */
+function EffRing({ score, share, note, unit = 'TLM' }: { score: number; share: number; note?: string; unit?: 'TLM' | 'shards' }) {
   const r = Math.max(0, Math.min(1, share))
   return (
-    <span className={`effring${score < 0 ? ' is-neg' : ''}`} title={`${formatNumber(score, 2)} TLM / h for every 100 points of strength the mission asks for${note ? `. ${note}` : ''}`}>
+    <span
+      className={`effring${score < 0 ? ' is-neg' : ''}${unit === 'shards' ? ' is-shards' : ''}`}
+      title={`${formatNumber(score, 2)} ${unit} / h for every 100 points of strength the mission asks for${note ? `. ${note}` : ''}`}
+    >
       <svg viewBox="0 0 48 48" aria-hidden="true">
         <circle cx="24" cy="24" r={RING_R} className="effring__track" />
         {r > 0 && <circle cx="24" cy="24" r={RING_R} className="effring__fill" strokeDasharray={`${RING_C * r} ${RING_C}`} />}
       </svg>
       <b>{formatNumber(score, Math.abs(score) >= 10 ? 1 : 2)}</b>
+      {unit === 'shards' && <small>shards</small>}
     </span>
   )
 }
@@ -172,6 +181,9 @@ export function Missions({ account, spectating }: { account: string; spectating:
       const nft = nftTlm(e)
       const nftPerHour = nft && cycleSeconds(e, assumed) > 0 ? (nft / cycleSeconds(e, assumed)) * 3600 : 0
       const efficiency = need > 0 && (isTokenLoop(e) || nft !== null && nft > 0) ? ((tlmPerHour(e, assumed, market) + nftPerHour) / need) * 100 : null
+      // Shards have no price: a shard-only mission gets its own score, in shards.
+      const cycle = cycleSeconds(e, assumed)
+      const shardEff = efficiency === null && need > 0 && e.rewardShards > 0 && cycle > 0 ? ((e.rewardShards / cycle) * 3600 * 100) / need : null
       const mine = field.filter((d) => d.missionId === e.id)
       const missing = chosen.filter((d) => !meetsRequirements(e, d.atk, d.def))
       const short =
@@ -180,7 +192,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
           : missing.length > 1
             ? `${missing.length} of ${chosen.length} fall short`
             : ''
-      list.push({ e, fitting: counted, fits, perHour, efficiency, out: mine.length, back: mine.filter((d) => d.unlockAt <= now).length, short })
+      list.push({ e, fitting: counted, fits, perHour, efficiency, shardEff, out: mine.length, back: mine.filter((d) => d.unlockAt <= now).length, short })
     }
     // With nothing at home, Fits would show nothing: the whole list then.
     const shown = list.filter(({ e, fits }) => {
@@ -203,6 +215,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
     return shown.sort((a, b) => Number(b.fits) - Number(a.fits) || (b.perHour ?? -1e9) - (a.perHour ?? -1e9) || (b.efficiency ?? -1e9) - (a.efficiency ?? -1e9) || a.e.title.localeCompare(b.e.title))
   }, [econ, home, chosen, market, movePer100, field, now, filter, nftTlm])
   const bestEfficiency = rows.reduce((n, r) => Math.max(n, r.efficiency ?? 0), 0)
+  const bestShardEff = rows.reduce((n, r) => Math.max(n, r.shardEff ?? 0), 0)
 
   // The whole game's flow per hour, from every player's divisions still running (as on the old deck):
   // each one joins again as soon as its cycle ends (its own join-to-unlock time), paying the entry
@@ -322,7 +335,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
   const ordered = byEnd ? [...rows].sort((a, b) => ends(a.e) - ends(b.e)) : rows
   const soon = ordered.filter((x) => ends(x.e) < 7 * DAY)
   const later = ordered.filter((x) => ends(x.e) >= 7 * DAY)
-  const renderRow = ({ e, fitting, fits, perHour, efficiency, out, back, short }: (typeof rows)[number]) => {
+  const renderRow = ({ e, fitting, fits, perHour, efficiency, shardEff, out, back, short }: (typeof rows)[number]) => {
             const open = e.state === 'active'
             const sendList = chosen.length ? chosen : fitting
             const canSend = !!sendList.length && fits && open && !spectating
@@ -380,7 +393,20 @@ export function Missions({ account, spectating }: { account: string; spectating:
                     </>
                   )}
                 </td>
-                <td>{efficiency === null ? <span className="muted">—</span> : <EffRing score={efficiency} share={bestEfficiency > 0 ? efficiency / bestEfficiency : 0} note={nftNote(e)} />}</td>
+                <td>
+                  {efficiency !== null ? (
+                    <EffRing score={efficiency} share={bestEfficiency > 0 ? efficiency / bestEfficiency : 0} note={nftNote(e)} />
+                  ) : shardEff !== null ? (
+                    <EffRing
+                      unit="shards"
+                      score={shardEff}
+                      share={bestShardEff > 0 ? shardEff / bestShardEff : 0}
+                      note="Shards have no market price, so this is compared with the other shard missions only; entry fees are not taken off"
+                    />
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
                 <td className="num mt__ends">{endsCell(e)}</td>
                 <td className="num">
                   {out ? (

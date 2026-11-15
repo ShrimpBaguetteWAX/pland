@@ -16,6 +16,7 @@ import { useTransaction } from '@/wallet/useTransaction'
 import { ANIMALS, furOf, readAnimal, saveAnimal, type Animal } from './couch/animals'
 import { Bank } from './couch/Bank'
 import { Chests } from './couch/Chests'
+import { useDefSwap } from './couch/defKeep'
 import { Materials } from './couch/Materials'
 import { Sales } from './couch/Sales'
 import { useBloodOrb } from './couch/bloodOrb'
@@ -459,14 +460,17 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   }
 
   /**
-   * The centre does everything that is ready: it loops every mission that is back and mines when
-   * the tools are ready, whatever its own mission is doing. Only with nothing to do does it list
-   * the big mission's divisions.
+   * The centre does everything that is ready: it loops every mission that is back, mines when the
+   * tools are ready, and swaps the DEF the game balance holds over your keep amount (set on the bank
+   * page) to TLM, whatever its own mission is doing. Only with nothing to do does it list the big
+   * mission's divisions.
    */
   const centreLoops = back.length > 0 && canLoop && !!plan
   const centreMines = mineReady
+  const dx = useDefSwap(account)
+  const centreSwaps = dx.ready && !!dx.route && !dx.spectating
   async function tapCentre() {
-    if (!centreLoops && !centreMines) {
+    if (!centreLoops && !centreMines && !centreSwaps) {
       orb.slosh(0.5)
       if (big) openList(big.missionId)
       return
@@ -488,6 +492,9 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     if (!mined && !latest.block && !latest.busy && !!latest.pick && !(latest.pickReadyAt !== null && latest.pickReadyAt > Date.now())) {
       await latest.mine()
     }
+    // Last: a loop may pay its entries in DEF from the game balance, so the swap reads the balance
+    // again after it and takes only what is still over the keep amount.
+    if (centreSwaps || centreLoops) await dx.swap()
     refreshToday(account)
   }
 
@@ -611,7 +618,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
       <main className="couch__stage" hidden={page !== 0}>
         <div
-          className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${centreLoops || centreMines ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
+          className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${centreLoops || centreMines || centreSwaps ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
           <div className="couch__halo" aria-hidden="true" />
           <KittenFrame theme={tint} animal={animal} />
@@ -643,15 +650,24 @@ export default function Couch({ onClose }: { onClose: () => void }) {
                 <em>No division is out</em>
               </>
             )}
+            {centreSwaps && dx.route && (
+              <small className="couch__swap num" title="DEF over your keep amount (set on the bank page): a tap withdraws and swaps it">
+                ⇄ {formatNumber(dx.over, dx.over >= 100 ? 0 : 1)} DEF → {formatNumber(dx.route.out, 0)} TLM
+              </small>
+            )}
           </div>
           <button
             type="button"
             className="couch__hit"
             onClick={() => void tapCentre()}
-            aria-disabled={!centreLoops && !centreMines && !big}
+            aria-disabled={!centreLoops && !centreMines && !centreSwaps && !big}
             aria-label={
-              centreLoops || centreMines
-                ? [centreLoops ? `loop all ${back.length} division${back.length === 1 ? '' : 's'} that are back` : '', centreMines ? 'mine' : '']
+              centreLoops || centreMines || centreSwaps
+                ? [
+                    centreLoops ? `loop all ${back.length} division${back.length === 1 ? '' : 's'} that are back` : '',
+                    centreMines ? 'mine' : '',
+                    centreSwaps ? `swap ${formatNumber(dx.over, 0)} DEF to TLM` : ''
+                  ]
                     .filter(Boolean)
                     .join(' and ')
                     .replace(/^./, (c) => c.toUpperCase())
