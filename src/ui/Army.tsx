@@ -163,6 +163,8 @@ export function Army({ account }: { account: string }) {
   /** "Unstake all" asks once more before it sends everything unused back. */
   const [confirmUnstakeAll, setConfirmUnstakeAll] = useState(false)
   const [confirmDisband, setConfirmDisband] = useState(false)
+  /** "Disband all" shows what it does and asks once more. */
+  const [confirmDisbandAll, setConfirmDisbandAll] = useState(false)
   /**
    * What is being dragged: a staked NFT from a list, or a mercenary out of its division. Kept in a
    * ref the moment the drag starts (Chrome cancels a drag when the page changes as it begins); the
@@ -318,6 +320,31 @@ export function Army({ account }: { account: string }) {
     )
     if (ok) {
       setConfirmDisband(false)
+      setDivId(null)
+    }
+  }
+  /** Divisions the contract lets go now: at home, with no reward waiting. */
+  const atHome = divisions.filter((d) => divisionState(d, unlockByDivision.get(d.id), now).editable)
+  const disbandAllCounts = {
+    units: atHome.reduce((n, d) => n + d.units.length, 0),
+    gear: atHome.reduce((n, d) => n + d.units.reduce((m, u) => m + GEAR_KINDS.filter((k) => u.gear[k]).length, 0), 0)
+  }
+  async function disbandAll() {
+    const list = atHome
+    if (!list.length) return
+    const ok = await run(
+      (a, p): AnyAction[] =>
+        list.flatMap((d) => [
+          ...d.units.flatMap((u) => GEAR_KINDS.filter((k) => u.gear[k]).map((k) => unassignGear(a, p, d.id, u.asset.assetId, u.gear[k]!.assetId))),
+          ...d.units.map((u) => removeUnit(a, p, u.asset.assetId)),
+          ...(d.leader ? [deleteDivision(a, p, d.leader.assetId)] : [])
+        ]),
+      `${list.length} division${list.length === 1 ? '' : 's'} disbanded`,
+      'disband-all',
+      { split: true }
+    )
+    if (ok) {
+      setConfirmDisbandAll(false)
       setDivId(null)
     }
   }
@@ -623,6 +650,47 @@ export function Army({ account }: { account: string }) {
             >
               <Icon name="chest" size={16} /> Presets
             </button>
+            {divisions.length > 0 &&
+              (confirmDisbandAll ? (
+                <div className="div-disall">
+                  <b>Disband all divisions?</b>
+                  <ul>
+                    <li>
+                      <b className="num">{atHome.length}</b> division{atHome.length === 1 ? '' : 's'} disbanded
+                    </li>
+                    <li>
+                      <b className="num">{disbandAllCounts.units}</b> mercenar{disbandAllCounts.units === 1 ? 'y' : 'ies'} back to the reserve
+                    </li>
+                    <li>
+                      <b className="num">{disbandAllCounts.gear}</b> piece{disbandAllCounts.gear === 1 ? '' : 's'} of gear taken off
+                    </li>
+                    {divisions.length > atHome.length && (
+                      <li className="muted">
+                        {divisions.length - atHome.length} out on a mission or with a reward to claim: they stay as they are.
+                      </li>
+                    )}
+                  </ul>
+                  <small className="muted">Everything stays staked, in your reserve, ready for new divisions.</small>
+                  <span className="div-disall__acts">
+                    <button type="button" className="btn btn--bad btn--sm" disabled={!atHome.length || spectating || !!pending} onClick={() => void disbandAll()}>
+                      {pending === 'disband-all' ? 'Signing…' : `Disband ${atHome.length}`}
+                    </button>
+                    <button type="button" className="btn btn--sm" disabled={pending === 'disband-all'} onClick={() => setConfirmDisbandAll(false)}>
+                      Cancel
+                    </button>
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="div-new div-opt div-bad"
+                  disabled={spectating}
+                  title={spectating ? 'Read-only: not your account' : 'Take every division at home apart: everything stays staked, in the reserve'}
+                  onClick={() => setConfirmDisbandAll(true)}
+                >
+                  <Icon name="x" size={16} /> Disband all
+                </button>
+              ))}
           </>
         )}
       </aside>

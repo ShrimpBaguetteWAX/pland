@@ -2049,6 +2049,39 @@ code {
 .div-opt.is-on {
   background: var(--accent-soft);
 }
+/* Disband all: red on hover, and the confirm box that replaces it. */
+.div-bad:hover {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+.div-new:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.div-disall {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid color-mix(in srgb, var(--bad) 55%, var(--line-2));
+  background: color-mix(in srgb, var(--bad) 6%, transparent);
+  font-size: 13px;
+}
+.div-disall ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+}
+.div-disall li .num {
+  color: var(--bad);
+}
+.div-disall__acts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 .board[hidden],
 .side[hidden] {
   display: none;
