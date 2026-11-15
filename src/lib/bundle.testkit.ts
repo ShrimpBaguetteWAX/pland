@@ -1,4 +1,4 @@
-import { evaluate, type Candidate, type Economy, type SlotKind, type SolveInput } from './bundle'
+import { evaluate, nftOf, type Candidate, type Economy, type SlotKind, type SolveInput } from './bundle'
 
 /** Shared by the solver tests: a seeded generator, a small Forge, and the brute-force optimum. */
 
@@ -57,6 +57,8 @@ export function bruteForce(input: SolveInput): number {
   const eco = input.economy
   for (let mask = 1; mask < 1 << n; mask++) {
     const chosen = input.items.filter((_, i) => mask & (1 << i))
+    // One NFT in two forms (a card and its ascended self) is never taken twice.
+    if (new Set(chosen.map(nftOf)).size < chosen.length) continue
     const count = (k: string) => chosen.filter((c) => c.kind === k).length
     const mercs = count('mercenary')
     if (!mercs) continue

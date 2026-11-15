@@ -6,7 +6,11 @@ import type { AnyAction } from '@wharfkit/session'
 import { atomic } from '@/chain/atomic'
 import { blendActions, type BlendRun } from '@/chain/actions/blend'
 import { buySalesActions, stakeBoughtAction } from '@/chain/actions/market'
-import { addUnit, assignGear as assignGearAction, buyShopItem, createDivision, payForgeLevel } from '@/chain/actions/pd'
+import { addUnit, assignGear as assignGearAction, buyShopItem, createDivision, payForgeLevel, unstakeAsset } from '@/chain/actions/pd'
+import { ascendAction } from '@/chain/actions/ascend'
+import { costKey, useAscensionConfig } from '@/data/ascension'
+import { findMinted, walletFragments, walletIdsOf } from '@/lib/ascendInPlace'
+import { acquireFragments, buyFragmentActions, fragmentSupply, unitSources, type Supply } from '@/lib/ascensionRoutes'
 import { toast } from '@/components/toast'
 import { makeAssetRef, type AssetRef } from '@/data/assets'
 import { useBlends, useCollectionTemplates, useOwnedBlendInputs, type Blend } from '@/data/blends'
@@ -80,6 +84,13 @@ type Source =
   | { from: 'division'; asset: AssetRef; division: number; locked: boolean }
   | { from: 'wallet'; asset: AssetRef }
   | { from: 'blend'; blend: Blend; asset: AssetRef }
+  /**
+   * A card raised `steps` stars before it goes in: `base` is where the card comes from (bought,
+   * or yours), `asset` the card it becomes, `fragments` what the climb takes.
+   */
+  | { from: 'ascend'; base: BaseSource; asset: AssetRef; steps: number; fragments: number }
+
+type BaseSource = Extract<Source, { from: 'market' | 'reserve' | 'division' | 'wallet' }>
 
 /** Copies of one recipe offered to the solver: plenty for one division. */
 const MAX_BLEND_COPIES = 12
@@ -290,7 +301,8 @@ function GoalPlanView({
   for (const r of plan.rows) {
     if (isKept(r)) continue
     for (const k of r.keys) {
-      const s = plan.sources.get(k)
+      const src = plan.sources.get(k)
+      const s = src?.from === 'ascend' ? src.base : src
       if (s?.from !== 'division') continue
       if (!taken.has(s.division)) taken.set(s.division, new Set())
       taken.get(s.division)!.add(s.asset.assetId)
@@ -331,6 +343,7 @@ function GoalPlanView({
             else if (s.from === 'wallet') add('From your wallet (staked with the build)', a.name)
             else if (s.from === 'market') add('Bought on the market', `${a.name} (${formatNumber(s.listing.price, 2)} WAX)`)
             else if (s.from === 'blend') add('Blended', a.name)
+            else if (s.from === 'ascend') add('Ascended', `${a.name} (${s.steps} star${s.steps === 1 ? '' : 's'} up, ${s.fragments} Fragments)`)
           }
           const slots = (Object.keys(b.slotsBought) as SlotKind[]).filter((k) => b.slotsBought[k].length)
           const forgeUp = b.level > level ? b.level : null
@@ -532,7 +545,7 @@ const assetOf = (s: Source) => (s.from === 'market' ? s.listing.asset : s.asset)
  */
 interface PurchaseStep {
   label: string
-  build: (account: string, permission: string) => AnyAction[]
+  build: (account: string, permission: string) => AnyAction[] | AnyAction | Promise<AnyAction[] | AnyAction>
 }
 
 /** Sales per transaction: 4 checks, 1 deposit and 4 purchases make 9 actions (each purchase moves an NFT and pays fees). */
@@ -624,6 +637,8 @@ export function MarketBuilder({
   const [useDivisions, setUseDivisions] = useState(false)
   const [useWallet, setUseWallet] = useState(true)
   const [useMaterials, setUseMaterials] = useState(true)
+  /** Cards (yours, or the cheapest listing) also count raised one or more stars, priced in Fragments. */
+  const [useAscend, setUseAscend] = useState(true)
   /** Rarities left out of the bundle: no listing, blend or owned NFT of these is offered. */
   const [excluded, setExcluded] = useState<Set<string>>(() => new Set())
   const excludedKey = [...excluded].sort().join('+') || 'all'
@@ -653,7 +668,7 @@ export function MarketBuilder({
   const forgeLevel = player.data?.forgeLevel ?? 0
 
   // Nothing is searched until the user asks: typing a target should not start a long search.
-  const paramsKey = `${atk}/${def}/${maxMove ?? '-'}/${useStaked}/${useDivisions}/${useWallet}/${useMaterials}/${excludedKey}`
+  const paramsKey = `${atk}/${def}/${maxMove ?? '-'}/${useStaked}/${useDivisions}/${useWallet}/${useMaterials}/${useAscend}/${excludedKey}`
   const scanning = !!scanKey && scanKey.startsWith(paramsKey + '#')
   /*
    * A scan works on a snapshot of the market and your NFTs taken when it starts. Pool prices refresh
@@ -834,6 +849,15 @@ export function MarketBuilder({
     [snap.listings, collection.data, snap.ownedInputs, useMaterials, account]
   )
 
+  // Ascension: the contract's costs, and the cheapest Fragments the market and your wallet have.
+  const ascCfg = useAscensionConfig()
+  const fragSupply = useMemo(() => {
+    if (!ascCfg.data || !blendMarket || !blends.data) return null
+    const climbs = new Map<string, number>()
+    for (const [k, v] of ascCfg.data.costs) climbs.set(k.split(':')[0], (climbs.get(k.split(':')[0]) ?? 0) + v)
+    return fragmentSupply(ascCfg.data, blendMarket, blends.data, Math.max(0, ...climbs.values()))
+  }, [ascCfg.data, blendMarket, blends.data])
+
   // The two Quantum Chest recipes, for the "open chests first?" forecast.
   const openings = useMemo(() => (blends.data ? openingsOf(blends.data) : null), [blends.data])
 
@@ -842,7 +866,7 @@ export function MarketBuilder({
     const sources = new Map<string, Source>()
     const items: Candidate[] = []
     const warlords: WarlordOption[] = []
-    const add = (key: string, source: Source, cost: number) => {
+    const add = (key: string, source: Source, cost: number, exclusive?: string) => {
       const a = assetOf(source)
       if (excluded.has(String(a.rarity ?? '').toLowerCase())) return
       const st = a.stats
@@ -875,7 +899,8 @@ export function MarketBuilder({
             }
           : {}),
         minLevel,
-        cost
+        cost,
+        ...(exclusive ? { exclusive } : {})
       })
     }
     for (const l of snap.listings ?? [])
@@ -892,6 +917,44 @@ export function MarketBuilder({
           add(`own:${a.assetId}`, { from: 'division', asset: a, division: d.id, locked: !!d.lock }, 0)
     if (useWallet) {
       for (const a of snap.wallet ?? []) add(`wal:${a.assetId}`, { from: 'wallet', asset: a }, 0)
+    }
+    // Ascended cards: every card above (yours, and the cheapest listing of each template) one star
+    // up, two stars up, and so on, for its own price plus the Fragments of the climb. A card and its
+    // raised forms are one NFT: the solver takes at most one of them.
+    if (useAscend && ascCfg.data && fragSupply && statsMap.data && templatesJson.data) {
+      const cfg = ascCfg.data
+      const cheapest = new Map<string, [string, BaseSource, number]>()
+      const bases: [string, BaseSource, number][] = []
+      for (const [key, src] of [...sources]) {
+        if (src.from === 'blend' || src.from === 'ascend') continue
+        const a = assetOf(src)
+        if (!cfg.next.has(a.templateId)) continue
+        if (src.from === 'market') {
+          const cur = cheapest.get(a.templateId)
+          if (!cur || src.listing.price < cur[2]) cheapest.set(a.templateId, [key, src, src.listing.price])
+        } else bases.push([key, src, 0])
+      }
+      bases.push(...cheapest.values())
+      for (const [baseKey, base, baseCost] of bases) {
+        const a = assetOf(base)
+        const stars = Number(a.stats?.min_forge_level ?? 0)
+        let t = a.templateId
+        let need = 0
+        for (let step = 1; cfg.next.has(t); step++) {
+          need += cfg.costs.get(costKey(a.rarity, stars + step - 1)) ?? Infinity
+          t = cfg.next.get(t)!
+          const wax = fragSupply.cost[need]
+          if (wax === undefined) break
+          const key = `asc:${baseKey}:${step}`
+          const schema = blendMarket?.templates.get(t)?.schema ?? ''
+          add(
+            key,
+            { from: 'ascend', base, steps: step, fragments: need, asset: makeAssetRef(key, { t, s: schema, c: 'planetdefnft' }, statsMap.data, templatesJson.data) },
+            baseCost + wax,
+            baseKey
+          )
+        }
+      }
     }
     // Blended NFTs: every recipe whose result goes into a division, a few copies each. Each copy is
     // priced by the materials it still needs (owned ones first), so later copies cost more.
@@ -968,6 +1031,9 @@ export function MarketBuilder({
     useStaked,
     useDivisions,
     useWallet,
+    useAscend,
+    ascCfg.data,
+    fragSupply,
     excluded,
     atk,
     def,
@@ -992,7 +1058,7 @@ export function MarketBuilder({
    */
   const [goalPlan, setGoalPlan] = useState<GoalPlan | null>(null)
   const [planning, setPlanning] = useState<string | null>(null)
-  const goalSig = `${goal.map(([id, n, m]) => `${id}x${n}m${m}`).join(',')}|${ownedSig}|${useStaked}${useDivisions}${useWallet}${useMaterials}|${excludedKey}`
+  const goalSig = `${goal.map(([id, n, m]) => `${id}x${n}m${m}`).join(',')}|${ownedSig}|${useStaked}${useDivisions}${useWallet}${useMaterials}${useAscend}|${excludedKey}`
   const planFresh = goalPlan?.sig === goalSig
 
   async function planGoal() {
@@ -1085,6 +1151,7 @@ export function MarketBuilder({
             const s = sources.get(key)
             if (key === r.bundle.warlord.key) continue
             if (s?.from === 'market') real += s.listing.price
+            else if (s?.from === 'ascend') real += assumed.get(key) ?? 0
             else if (s?.from === 'blend' && blendMarket) {
               const c = planBlend(blendMarket, s.blend, shared).cost
               const price = Number.isFinite(c) && c < UNMAKEABLE ? c : UNMAKEABLE
@@ -1207,6 +1274,7 @@ export function MarketBuilder({
     for (const key of keys) {
       const s = sources.get(key)
       if (s?.from === 'market') total += s.listing.price
+      if (s?.from === 'ascend') total += assumed.get(key) ?? 0
       if (s?.from !== 'blend' || !blendMarket) continue
       usesBlends = true
       const real = planBlend(blendMarket, s.blend, reserved).cost
@@ -1296,7 +1364,7 @@ export function MarketBuilder({
 
   const ready = !!(listings.data && player.data && army.data && forge.data && pools.data)
   const plan =
-    ready && shown ? summarize(shown, shownSources, player.data!, pools.data!, input?.economy ?? null, blendMarket) : null
+    ready && shown ? summarize(shown, shownSources, player.data!, pools.data!, input?.economy ?? null, blendMarket, fragSupply, shownInput) : null
 
   // The Chests & keys shelf forecasts against the materials of the bundle shown here.
   const buysSig = plan ? plan.materialBuys.map((l) => l.saleId).join(',') : '-'
@@ -1321,7 +1389,9 @@ export function MarketBuilder({
     if (!shown || !plan) return []
     const b = shown
     const purchases = [...plan.toBuy, ...plan.materialBuys]
-    const stakeIds = [...plan.toBuy.map((l) => l.assetId), ...plan.fromWallet.map((a) => a.assetId)]
+    // A card bought to be ascended is burned by the ascension: the card it becomes is staked with the build.
+    const ascendBases = new Set(plan.ascends.flatMap((x) => (x.source.base.from === 'market' ? [x.source.base.listing.assetId] : [])))
+    const stakeIds = [...plan.toBuy.map((l) => l.assetId).filter((id) => !ascendBases.has(id)), ...plan.fromWallet.map((a) => a.assetId)]
     const tlmContract = forge.data?.tokens?.tlm_contract || 'alien.worlds'
     const steps: PurchaseStep[] = []
     const slots = (Object.keys(b.slotsBought) as SlotKind[]).flatMap((k) => b.slotsBought[k])
@@ -1368,6 +1438,47 @@ export function MarketBuilder({
             group.map((r) => ({ blendId: r.blendId, assetIds: r.assetIds }))
           )
       })
+    // Ascensions: the Fragments first (crafted and sacrificed, then the listings bought with the
+    // first star), then every card one star per transaction; the raised card lands in the wallet and
+    // is staked with the build, like a blended one.
+    if (plan.ascends.length) {
+      const got = acquireFragments(plan.fragUnits, plan.fragNeed)
+      for (const part of got.parts) steps.push({ label: part.success, build: part.build })
+      let fragmentsIn = false
+      const fragmentsFor = async (a: string, n: number) => {
+        // The first ascension waits for the sacrifices' reveal; later ones read the wallet.
+        const ids = fragmentsIn ? await walletFragments(a) : await got.fragments(a)
+        fragmentsIn = true
+        return ids.slice(0, n)
+      }
+      let boughtFragments = false
+      for (const { source } of plan.ascends) {
+        const base = source.base
+        const first = assetOf(base)
+        const stars = Number(first.stats?.min_forge_level ?? 0)
+        const chain: string[] = [first.templateId]
+        for (let i = 0; i < source.steps; i++) chain.push(ascCfg.data!.next.get(chain[chain.length - 1])!)
+        if (base.from === 'reserve' || base.from === 'division')
+          steps.push({ label: `Unstake ${first.name} to ascend it`, build: (a, p) => [unstakeAsset(a, p, first.assetId)] })
+        let card = base.from === 'market' ? base.listing.assetId : first.assetId
+        let before = new Set<string>()
+        for (let i = 0; i < source.steps; i++) {
+          const at = i
+          steps.push({
+            label: `Ascend ${first.name} to ★${stars + at + 1}`,
+            build: async (a, p) => {
+              if (at > 0) card = (await findMinted(a, new Set([chain[at]]), before, 1))[0]
+              before = await walletIdsOf(a, chain[at + 1])
+              const need = ascCfg.data!.costs.get(costKey(first.rarity, stars + at)) ?? 0
+              // Fragment listings are bought with the first ascension that runs.
+              const buy = !boughtFragments ? buyFragmentActions(a, p, got.buys) : []
+              boughtFragments = true
+              return [...buy, ascendAction(a, p, card, await fragmentsFor(a, need))]
+            }
+          })
+        }
+      }
+    }
     for (const group of chunk(stakeIds, STAKE_PER_TX))
       steps.push({ label: `Stake ${group.length}`, build: (a, p) => [stakeBoughtAction(a, p, group)] })
     return steps
@@ -1376,7 +1487,7 @@ export function MarketBuilder({
   async function buy() {
     if (!shown || !plan) return
     // What of the blended templates is already in the wallet, so the build step can spot the new ones.
-    const blendedTemplates = new Set(plan.blendRuns.map((r) => r.templateId))
+    const blendedTemplates = new Set([...plan.blendRuns.map((r) => r.templateId), ...plan.ascends.map((x) => x.source.asset.templateId)])
     const known = new Set((wallet.data ?? []).filter((a) => blendedTemplates.has(a.templateId)).map((a) => a.assetId))
     const steps = purchaseSteps()
     const start: Locked = { bundle: shown, sources: shownSources, phase: 'buying', known, steps, done: 0 }
@@ -1417,12 +1528,12 @@ export function MarketBuilder({
     if (!locked || !account) return
     const b = locked.bundle
     const keys = [b.warlord.key, ...b.mercs.map((m) => m.key), ...GEAR_ORDER.flatMap((k) => b.gear[k].map((g) => g.key))]
-    const blended = keys.filter((k) => locked.sources.get(k)?.from === 'blend')
+    const blended = keys.filter((k) => locked.sources.get(k)?.from === 'blend' || locked.sources.get(k)?.from === 'ascend')
     const minted = new Map<string, string>()
     setLocked({ ...locked, phase: 'building' })
 
     if (blended.length) {
-      toast.info(`Waiting for ${blended.length} blended NFT${blended.length === 1 ? '' : 's'} to be minted…`)
+      toast.info(`Waiting for ${blended.length} blended or ascended NFT${blended.length === 1 ? '' : 's'} to be minted…`)
       for (let attempt = 0; attempt < 30 && minted.size < blended.length; attempt++) {
         const assets = await atomic.getOwnedAssets(account, 'planetdefnft').catch(() => [])
         const fresh = assets.filter(
@@ -1444,7 +1555,7 @@ export function MarketBuilder({
     }
     const idOf = (key: string) => {
       const s = locked.sources.get(key)!
-      return s.from === 'market' ? s.listing.assetId : s.from === 'blend' ? minted.get(key)! : s.asset.assetId
+      return s.from === 'market' ? s.listing.assetId : s.from === 'blend' || s.from === 'ascend' ? minted.get(key)! : s.asset.assetId
     }
 
     const leader = idOf(b.warlord.key)
@@ -1752,6 +1863,12 @@ export function MarketBuilder({
                 setUseMaterials,
                 'Blend materials in your wallet count as free when the bundle blends. Off: every material is bought.'
               )}
+              {toggle(
+                'Ascend',
+                useAscend,
+                setUseAscend,
+                'Cards also count raised one or more stars: yours, or the cheapest listing of each, plus the Fragments at today\'s cheapest (your own first, then bought, or cards bought or crafted and sacrificed). A raised card needs the Forge level of its star.'
+              )}
             </div>
             <span className="mb-rarities" role="group" aria-label="Rarities">
               {RARITY_LIST.map((r) => {
@@ -1961,6 +2078,19 @@ export function MarketBuilder({
                         <b className="num">{formatNumber(plan.blendWax, 2)}</b>
                       </li>
                     )}
+                    {plan.ascends.length > 0 && (
+                      <li title={`Raised before they go in: ${plan.fragUnits.length ? unitSources(plan.fragUnits, plan.fragNeed, blendMarket!).join(', ') : 'Fragments'}. One star per transaction; the raised card arrives in your wallet and is staked with the build.`}>
+                        <span>
+                          Ascensions{' '}
+                          <small>
+                            ({plan.ascends.length} card{plan.ascends.length === 1 ? '' : 's'}, {plan.fragNeed} Fragments)
+                          </small>
+                        </span>
+                        <b className={`num${Number.isFinite(plan.fragWax) ? '' : ' c-bad'}`}>
+                          {Number.isFinite(plan.fragWax) ? formatNumber(plan.fragWax, 2) : 'too few on the market'}
+                        </b>
+                      </li>
+                    )}
                     {!plan.blendsFeasible && (
                       <li className="c-bad">
                         <span>Two recipes need the same scarce material: one cannot be made right now.</span>
@@ -2113,6 +2243,12 @@ function FromPill({ source }: { source: Source }) {
       return <span className="pill">wallet</span>
     case 'blend':
       return <span className="pill mb-pill--blend">blend</span>
+    case 'ascend':
+      return (
+        <span className="pill mb-pill--blend" title={`${source.fragments} Fragments, from ${source.base.from === 'market' ? 'a listing' : `your ${source.base.from}`}`}>
+          ascend +{source.steps}★
+        </span>
+      )
   }
 }
 
@@ -2137,7 +2273,9 @@ function BundleRow({
       ? source.listing.price
       : source.from === 'blend'
         ? plan.blendRuns.find((r) => r.key === itemKey)?.cost
-        : null
+        : source.from === 'ascend'
+          ? plan.ascends.find((x) => x.key === itemKey)?.cost
+          : null
   return (
     <tr className={gear ? 'mb-gear' : ''}>
       <td>
@@ -2203,13 +2341,25 @@ function summarize(
   player: PlayerData,
   pools: SwapPools,
   economy: SolveInput['economy'] | null,
-  blendMarket: BlendMarket | null
+  blendMarket: BlendMarket | null,
+  supply: Supply | null,
+  solved: SolveInput | null
 ) {
   const keys = [b.warlord.key, ...b.mercs.map((m) => m.key), ...GEAR_ORDER.flatMap((k) => b.gear[k].map((g) => g.key))]
   const src = keys.map((k) => sources.get(k)!).filter(Boolean)
-  const toBuy = src.flatMap((s) => (s.from === 'market' ? [s.listing] : []))
+  // Ascended cards: their base is bought with the listings (when it is a listing), their Fragments
+  // are got together, the cheapest first.
+  const ascends = keys.flatMap((key) => {
+    const s = sources.get(key)
+    return s?.from === 'ascend' ? [{ key, source: s, cost: solved?.items.find((i) => i.key === key)?.cost ?? solved?.warlords.find((w) => w.key === key)?.cost ?? 0 }] : []
+  })
+  const bases = src.map((s) => (s.from === 'ascend' ? s.base : s))
+  const toBuy = bases.flatMap((s) => (s.from === 'market' ? [s.listing] : []))
   const fromWallet = src.flatMap((s) => (s.from === 'wallet' ? [s.asset] : []))
-  const fromDivisions = src.flatMap((s) => (s.from === 'division' ? [s] : []))
+  const fromDivisions = bases.flatMap((s) => (s.from === 'division' ? [s] : []))
+  const fragNeed = ascends.reduce((n, a) => n + a.source.fragments, 0)
+  const fragWax = !fragNeed ? 0 : (supply?.cost[fragNeed] ?? Infinity)
+  const fragUnits = fragNeed && supply && Number.isFinite(fragWax) ? supply.units.slice(0, supply.prefix[fragNeed]) : []
   // The chosen blends, planned together so two recipes never count the same material twice.
   const blendRuns: (BlendRun & { key: string; templateId: string; cost: number })[] = []
   const materialBuys: Listing[] = []
@@ -2260,9 +2410,13 @@ function summarize(
     tlmShort,
     levelSteps,
     // Swaps get the same slippage room the transaction gives them.
-    waxTotal: toBuy.reduce((n, l) => n + l.price, 0) + blendWax + swapWax * 1.02,
-    // What the bundle really costs: NFTs, blends as planned together, slots and Forge levels.
-    total: toBuy.reduce((n, l) => n + l.price, 0) + blendWax + b.slotCost + b.forgeCost,
+    ascends,
+    fragNeed,
+    fragWax,
+    fragUnits,
+    waxTotal: toBuy.reduce((n, l) => n + l.price, 0) + blendWax + fragWax + swapWax * 1.02,
+    // What the bundle really costs: NFTs, blends as planned together, Fragments, slots and Forge levels.
+    total: toBuy.reduce((n, l) => n + l.price, 0) + blendWax + fragWax + b.slotCost + b.forgeCost,
     gearCount: GEAR_ORDER.reduce((n, k) => n + b.gear[k].length, 0),
     needsBuild: true
   }
@@ -2275,6 +2429,7 @@ function buyLabel(plan: Plan): string {
   if (plan.toBuy.length) parts.push('Buy ' + n(plan.toBuy.length, 'card'))
   if (plan.materialBuys.length) parts.push(n(plan.materialBuys.length, 'material'))
   if (plan.blendRuns.length) parts.push('blend ' + plan.blendRuns.length)
+  if (plan.ascends.length) parts.push('ascend ' + plan.ascends.length)
   if (plan.slotCount) parts.push(n(plan.slotCount, 'slot'))
   if (parts.length) return parts.join(', ') + ' & stake'
   if (plan.levelSteps.length) return 'Upgrade the Forge & stake'

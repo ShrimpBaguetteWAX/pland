@@ -45,7 +45,15 @@ export interface Candidate {
   minLevel: number
   /** WAX. */
   cost: number
+  /**
+   * Candidates with the same value are one NFT in different forms (a card as it is and ascended a
+   * star or more): a bundle takes at most one of them. Unset: the candidate stands alone.
+   */
+  exclusive?: string
 }
+
+/** The NFT a candidate is: candidates that share it exclude each other. */
+export const nftOf = (c: Candidate) => c.exclusive ?? c.key
 
 export interface WarlordOption {
   key: string
@@ -250,31 +258,57 @@ interface Q {
 const step = (g: Grid, c: number, ua: number, ud: number) =>
   Math.min(g.ga, g.aOf[c] + ua) * (g.gd + 1) + Math.min(g.gd, g.dOf[c] + ud)
 
+/** Items grouped by the NFT they are (see Candidate.exclusive), in order of first appearance. */
+function groupsOf(items: Q[]): Q[][] {
+  const by = new Map<string, Q[]>()
+  for (const q of items) {
+    const id = nftOf(q.item)
+    const list = by.get(id)
+    if (list) list.push(q)
+    else by.set(id, [q])
+  }
+  return [...by.values()]
+}
+
+interface Trail {
+  /** The cell each improved state came from (+1; 0 = not improved by this group). */
+  cell: Int16Array
+  /** Which of the group's alternatives improved it (groups of one leave it out). */
+  alt: Int8Array | null
+}
+
 /**
- * 0/1 knapsack with an item count from `start`. Returns the cost layer per count 0…cap and, when
- * tracking, per item the cell each improved state came from (+1; 0 = not improved by it).
+ * Knapsack with an item count from `start`, taking at most one item per group (a group is one NFT in
+ * its different forms). Returns the cost layer per count 0…cap and, when tracking, per group where
+ * each improved state came from.
  */
-function countKnapsack(g: Grid, start: Float64Array, items: Q[], cap: number, track: boolean) {
+function countKnapsack(g: Grid, start: Float64Array, groups: Q[][], cap: number, track: boolean) {
   const layers: Float64Array[] = [Float64Array.from(start)]
   for (let j = 1; j <= cap; j++) layers.push(new Float64Array(g.cells).fill(Infinity))
-  const trail: Int16Array[] = []
-  items.forEach((q, i) => {
+  const trail: Trail[] = []
+  groups.forEach((group, i) => {
     const t = track ? new Int16Array((cap + 1) * g.cells) : null
+    const ta = track && group.length > 1 ? new Int8Array((cap + 1) * g.cells) : null
+    // Counts walk down, so every alternative extends the layer as it was before this group.
     for (let j = Math.min(cap - 1, i); j >= 0; j--) {
       const from = layers[j]
       const to = layers[j + 1]
-      for (let c = 0; c < g.cells; c++) {
-        const base = from[c]
-        if (base === Infinity) continue
-        const nc = step(g, c, q.ua, q.ud)
-        const cand = base + q.item.cost
-        if (cand < to[nc]) {
-          to[nc] = cand
-          if (t) t[(j + 1) * g.cells + nc] = c + 1
+      for (let a = 0; a < group.length; a++) {
+        const q = group[a]
+        for (let c = 0; c < g.cells; c++) {
+          const base = from[c]
+          if (base === Infinity) continue
+          const nc = step(g, c, q.ua, q.ud)
+          const cand = base + q.item.cost
+          if (cand < to[nc]) {
+            to[nc] = cand
+            if (t) t[(j + 1) * g.cells + nc] = c + 1
+            if (ta) ta[(j + 1) * g.cells + nc] = a
+          }
         }
       }
     }
-    if (t) trail.push(t)
+    if (t) trail.push({ cell: t, alt: ta })
   })
   return { layers, trail }
 }
@@ -297,14 +331,15 @@ function collapse(g: Grid, layers: Float64Array[], extra: (j: number) => number)
   return { best, at }
 }
 
-function backtrack(g: Grid, items: Q[], trail: Int16Array[], count: number, cell: number) {
+function backtrack(g: Grid, groups: Q[][], trail: Trail[], count: number, cell: number) {
   const chosen: Candidate[] = []
   let j = count
   let c = cell
-  for (let i = items.length - 1; i >= 0 && j > 0; i--) {
-    const prev = trail[i][j * g.cells + c]
+  for (let i = groups.length - 1; i >= 0 && j > 0; i--) {
+    const at = j * g.cells + c
+    const prev = trail[i].cell[at]
     if (prev) {
-      chosen.push(items[i].item)
+      chosen.push(groups[i][trail[i].alt ? trail[i].alt![at] : 0].item)
       c = prev - 1
       j--
     }
@@ -359,23 +394,27 @@ function prepareGrid(input: SolveInput, ta: number, td: number, L: number) {
     supply: slotPlan(eco, 'supply', L),
     creature: { available: Infinity, cost: () => 0 }
   }
-  const mercs = trim(
-    input.items.filter((i) => i.kind === 'mercenary' && allowed(i)),
-    maxSlots
+  const mercs = groupsOf(
+    trim(
+      input.items.filter((i) => i.kind === 'mercenary' && allowed(i)),
+      maxSlots
+    )
+      .map(quant)
+      .sort((a, b) => a.item.cost - b.item.cost)
   )
-    .map(quant)
-    .sort((a, b) => a.item.cost - b.item.cost)
   const gear = Object.fromEntries(
     ADDITIVE.map((k) => [
       k,
-      trim(
-        input.items.filter((i) => i.kind === k && allowed(i)),
-        Math.min(maxSlots, slots[k].available)
+      groupsOf(
+        trim(
+          input.items.filter((i) => i.kind === k && allowed(i)),
+          Math.min(maxSlots, slots[k].available)
+        )
+          .map(quant)
+          .sort((a, b) => a.item.cost - b.item.cost)
       )
-        .map(quant)
-        .sort((a, b) => a.item.cost - b.item.cost)
     ])
-  ) as Record<AdditiveGear, Q[]>
+  ) as Record<AdditiveGear, Q[][]>
 
   const K = Math.min(maxSlots, mercs.length)
   const warlordFor = (k: number) =>
@@ -389,7 +428,7 @@ function prepareGrid(input: SolveInput, ta: number, td: number, L: number) {
 /** How many mercenaries the grid search at level L may take: the counts it has to try. */
 export function gridCounts(input: SolveInput, L: number): number {
   const maxSlots = Math.max(0, ...input.warlords.filter((w) => w.minLevel <= L).map((w) => w.slots))
-  const mercs = input.items.filter((i) => i.kind === 'mercenary' && i.minLevel <= L).length
+  const mercs = new Set(input.items.filter((i) => i.kind === 'mercenary' && i.minLevel <= L).map(nftOf)).size
   return Math.min(maxSlots, mercs)
 }
 
@@ -473,7 +512,7 @@ export function buildAtCount(input: SolveInput, ta: number, td: number, L: numbe
   const c = prepareGrid(input, ta, td, L)
   if (k < 1 || k > c.K) return null
   const mercTracked = countKnapsack(c.g, c.start, c.mercs, k, true)
-  const stages: { kind: AdditiveGear; trail: Int16Array[]; at: Int16Array }[] = []
+  const stages: { kind: AdditiveGear; trail: Trail[]; at: Int16Array }[] = []
   let grid = mercTracked.layers[k]
   for (const kind of ADDITIVE) {
     const cap = c.capFor(kind, k)
@@ -605,11 +644,15 @@ function shed(b: Bundle, input: SolveInput): Bundle {
   return cur
 }
 
-/** One cheapest listing per template for kind, not already used: the moves worth trying. */
+/** The NFTs a bundle holds (keys and the NFTs they are), so no other form of them is added. */
+const usedIn = (b: Parts, except?: Candidate) =>
+  new Set(contents(b).flatMap((c) => (c === except ? [] : [c.key, nftOf(c)])))
+
+/** One cheapest listing per template for kind, not already used (nor another form of a used NFT): the moves worth trying. */
 function options(input: SolveInput, kind: ItemKind, used: Set<string>) {
   const best = new Map<string, Candidate>()
   for (const it of input.items) {
-    if (it.kind !== kind || used.has(it.key)) continue
+    if (it.kind !== kind || used.has(it.key) || used.has(nftOf(it))) continue
     const cur = best.get(it.group)
     if (!cur || it.cost < cur.cost) best.set(it.group, it)
   }
@@ -624,7 +667,7 @@ export function polish(b: Bundle, input: SolveInput): Bundle {
   let cur = shed(settle(parts(b), input) ?? b, input)
   for (let round = 0; round < 12; round++) {
     let improved = false
-    const used = new Set(contents(cur).map((c) => c.key))
+    const used = usedIn(cur)
 
     // Lava Lux: try each template on the division, keep the best that pays for itself.
     if (cur.gear.lavalux.length < cur.mercs.length) {
@@ -644,7 +687,8 @@ export function polish(b: Bundle, input: SolveInput): Bundle {
 
     // Swap an item for a cheaper one of the same kind that still meets the target.
     for (const it of contents(cur).sort((x, y) => y.cost - x.cost)) {
-      for (const alt of options(input, it.kind, used)) {
+      // The item itself may give way to another form of the same NFT.
+      for (const alt of options(input, it.kind, usedIn(cur, it))) {
         if (alt.cost >= it.cost) continue
         const swapped = settle(withItem(without(cur, it), alt), input)
         if (swapped && valid(swapped, input) && moveOk(swapped, cur, input) && swapped.cost < cur.cost) {
@@ -721,7 +765,7 @@ export function fitMoveLimit(b: Bundle, input: SolveInput): Bundle | null {
   let cur: Bundle | null = settle(parts(b), input)
   for (let round = 0; cur && !withinMove(cur, input) && round < 60; round++) {
     const now: Bundle = cur
-    const used = new Set(contents(now).map((c) => c.key))
+    const used = usedIn(now)
     let pick: Bundle | null = null
     let pickScore = Infinity
     const consider = (next: Bundle | null) => {
@@ -736,6 +780,9 @@ export function fitMoveLimit(b: Bundle, input: SolveInput): Bundle | null {
     for (const m of now.mercs) {
       consider(settle(without(now, m), input))
       for (const alt of swapIns) if (alt.move < m.move) consider(settle(withItem(without(now, m), alt), input))
+      // Another form of the same mercenary (a different star) with less move.
+      for (const alt of options(input, 'mercenary', usedIn(now, m)))
+        if (nftOf(alt) === nftOf(m) && alt.key !== m.key && alt.move < m.move) consider(settle(withItem(without(now, m), alt), input))
     }
     const supplies = options(input, 'supply', used)
     // A supply already in the bundle can give way to one that takes off more.

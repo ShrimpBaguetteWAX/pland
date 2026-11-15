@@ -130,4 +130,46 @@ describe('solveBundle', () => {
     expect(b.atk).toBe(150)
     expect(b.move).toBe(12)
   })
+
+  it('takes one NFT in at most one form (a card or its ascended self)', () => {
+    // Two cards you own, each also offered ascended (stronger, for Fragments).
+    const own = (key: string, atk: number) => merc(key, atk, 0, 0)
+    const asc = (base: string, star: number, atk: number, cost: number): Candidate => ({ ...merc(`${base}*${star}`, atk, 0, cost), exclusive: base, minLevel: 0 })
+    const input: SolveInput = {
+      atk: 130,
+      def: 0,
+      warlords: [{ key: 'w', slots: 3, minLevel: 0, cost: 0 }],
+      items: [own('a', 50), asc('a', 1, 70, 8), asc('a', 2, 90, 20), own('b', 40), asc('b', 1, 60, 9), merc('m', 45, 0, 30)],
+      economy: economy({ weapon: 0, supply: 0, lavalux: 0 }, 10, 100)
+    }
+    const b = solveBundle(input)!
+    expect(b.cost).toBeCloseTo(bruteForce(input), 6)
+    const nfts = b.mercs.map((m) => m.exclusive ?? m.key)
+    expect(new Set(nfts).size).toBe(nfts.length)
+    // a★1 (70) + b★1 (60) = 130 for 17 WAX beats buying m (30).
+    expect(b.cost).toBe(17)
+  })
+
+  it('matches the true optimum with ascended forms in the mix', () => {
+    for (let seed = 300; seed <= 360; seed++) {
+      const input = randomInput(seed, false)
+      const r = rng(seed * 7)
+      // Every mercenary also comes a star and two stars up: stronger, dearer, and the same NFT.
+      const extra: Candidate[] = []
+      for (const it of input.items)
+        if (it.kind === 'mercenary')
+          for (let star = 1; star <= 2 && extra.length < 5; star++)
+            extra.push({ ...it, key: `${it.key}*${star}`, group: `${it.group}*${star}`, exclusive: it.key, atk: it.atk + star * (Math.floor(r() * 15) + 5), cost: it.cost + star * (Math.floor(r() * 20) + 5) })
+      const withAsc = { ...input, items: [...input.items.slice(0, 9), ...extra].slice(0, 13) }
+      const expected = bruteForce(withAsc)
+      const got = solveBundle(withAsc)
+      if (!Number.isFinite(expected)) {
+        expect(got).toBeNull()
+        continue
+      }
+      const nfts = got!.mercs.map((m) => m.exclusive ?? m.key)
+      expect(new Set(nfts).size, `seed ${seed}`).toBe(nfts.length)
+      expect(got?.cost, `seed ${seed}`).toBeCloseTo(expected, 6)
+    }
+  })
 })
