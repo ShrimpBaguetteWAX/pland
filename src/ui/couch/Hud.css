@@ -1,0 +1,441 @@
+/*
+ * Couch mode, the HUD finish (on top of Kitten.css): a premium-game look over the same layout. Every
+ * frame is a thin metal hairline in the theme's rim colour with small corner brackets, panels are
+ * frosted glass, numbers and labels are in Oxanium, and the Mine is one big lit button. The orb's
+ * ring (ticks and the progress arc) is drawn in KittenFrame.tsx. All colours come from the theme's
+ * variables, so every colour scheme (Rose, Rainbow candy, Cotton candy, Blueberry night, Snow day)
+ * gets it; Snow, the light one, has its own glass below.
+ */
+
+.couch.is-kitten.is-hud {
+  --hud-font: 'Oxanium', var(--cz-cap);
+  --hud-metal: var(--kt-9);
+  --hud-line: color-mix(in srgb, var(--kt-9) 38%, transparent);
+  --hud-glass: linear-gradient(180deg, color-mix(in srgb, var(--cz-tx) 9%, transparent), color-mix(in srgb, var(--cz-tx) 3%, transparent));
+  --hud-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  --hud-accent: var(--cz-blood);
+  /* Text on the orb's glass: light on the dark glass, dark on Snow's light one. */
+  --hud-on-glass: var(--kt-23);
+  --hud-glow: color-mix(in srgb, var(--kt-9) 55%, transparent);
+}
+
+.couch.is-kitten.is-hud[data-kt='snow'] {
+  --hud-line: rgba(90, 127, 214, 0.35);
+  --hud-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.78));
+  --hud-shadow: 0 8px 20px rgba(60, 90, 160, 0.14);
+  --hud-glow: rgba(90, 127, 214, 0.35);
+}
+
+/* ---- Top: resource chips ------------------------------------------------------------------------- */
+
+.couch.is-kitten.is-hud .couch__orn {
+  display: none;
+}
+
+.couch.is-kitten.is-hud .couch__plaque {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 9px;
+  align-items: center;
+  padding: 7px 12px 7px 7px;
+  border-radius: 13px;
+  background: var(--hud-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent),
+    var(--hud-shadow);
+  text-align: left;
+  outline: none;
+}
+
+.couch.is-kitten.is-hud .couch__plaque::before,
+.couch.is-kitten.is-hud .couch__plaque::after {
+  display: none;
+}
+
+.couch.is-kitten.is-hud .couch__chip-ic {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hud-accent) 55%, #fff), var(--hud-accent));
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+  color: #fff;
+}
+
+.couch.is-kitten.is-hud .couch__plaque.is-mine .couch__chip-ic {
+  background: linear-gradient(180deg, #ffd0a6, var(--cz-lava));
+}
+
+.couch.is-kitten.is-hud .couch__chip-ic svg {
+  width: 17px;
+  height: 17px;
+}
+
+.couch.is-kitten.is-hud .couch__plaque small {
+  font-family: var(--hud-font);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cz-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.couch.is-kitten.is-hud .couch__plaque b,
+.couch.is-kitten.is-hud .couch__plaque.is-mine b {
+  font-family: var(--hud-font);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--cz-tx);
+  text-shadow: none;
+}
+
+.couch.is-kitten.is-hud .couch__plaque b i {
+  font-family: var(--hud-font);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cz-dim);
+}
+
+/* The page dots: small diamonds, the current one lit. */
+.couch.is-kitten.is-hud .couch__pages {
+  gap: 9px;
+}
+
+.couch.is-kitten.is-hud .couch__pages button {
+  width: 6px;
+  height: 6px;
+  border-radius: 1.5px;
+  transform: rotate(45deg);
+  background: color-mix(in srgb, var(--hud-metal) 35%, transparent);
+}
+
+.couch.is-kitten.is-hud .couch__pages button.is-on {
+  width: 7px;
+  height: 7px;
+  background: var(--hud-metal);
+  box-shadow: 0 0 8px var(--hud-glow);
+}
+
+/* The corner buttons: square keys with a hairline. */
+.couch.is-kitten.is-hud .couch__close {
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+  background: var(--hud-glass);
+}
+
+/* ---- The orb: the label inside the glass ----------------------------------------------------------- */
+/*
+ * The glass is a circle 53.33cqw across, centred in the label's box; each line is kept narrower
+ * than the circle is wide at its height, so nothing pokes out of the round glass: the mission's name
+ * (three lines at most) above, the big line in the middle, the small lines under it.
+ */
+
+.couch.is-kitten.is-hud .couch__label {
+  justify-items: center;
+  align-content: center;
+  gap: 0.8cqw;
+}
+
+.couch.is-kitten.is-hud .couch__label .couch__mis {
+  max-width: 38cqw;
+  margin: 0;
+  font-family: var(--hud-font);
+  font-size: max(8.5px, 2.5cqw);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--hud-metal);
+  opacity: 1;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.couch.is-kitten.is-hud[data-kt='snow'] .couch__label .couch__mis {
+  color: #5a7fd6;
+}
+
+.couch.is-kitten.is-hud .couch__label b {
+  max-width: 44cqw;
+  font-family: var(--hud-font);
+  font-size: 10cqw;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  color: var(--hud-on-glass);
+  text-shadow: 0 0 14px var(--hud-glow);
+}
+
+.couch.is-kitten.is-hud .couch__label b.is-clock {
+  font-family: var(--hud-font);
+  font-size: 9cqw;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: var(--hud-on-glass);
+  text-shadow: 0 0 14px var(--hud-glow);
+}
+
+.couch.is-kitten.is-hud .couch__label em,
+.couch.is-kitten.is-hud .couch__label small:not(.couch__mis):not(.couch__swap) {
+  max-width: 40cqw;
+  margin: 0;
+  font-family: var(--hud-font);
+  font-size: max(9.5px, 2.8cqw);
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--hud-on-glass);
+  opacity: 0.8;
+}
+
+.couch.is-kitten.is-hud .couch__label small.couch__swap {
+  max-width: 38cqw;
+  margin-top: 1cqw;
+  padding: 0.5cqw 2.2cqw;
+  border-radius: 999px;
+  font-family: var(--hud-font);
+  font-size: max(9px, 2.5cqw);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #b9c9ff;
+  background: rgba(157, 180, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(157, 180, 255, 0.4);
+  text-shadow: none;
+  opacity: 1;
+}
+
+.couch.is-kitten.is-hud[data-kt='snow'] .couch__label small.couch__swap {
+  color: #3d5fb8;
+  background: rgba(90, 127, 214, 0.1);
+}
+
+/* The ring's progress arc glows. */
+.couch.is-kitten.is-hud .couch__arc {
+  filter: drop-shadow(0 0 3px var(--hud-glow));
+}
+
+/* ---- Moons: medallions ----------------------------------------------------------------------------- */
+
+.couch.is-kitten.is-hud .couch__moon-glass {
+  stroke: var(--hud-metal);
+  stroke-width: 3;
+}
+
+.couch.is-kitten.is-hud .couch__moon-txt b,
+.couch.is-kitten.is-hud .couch__moon-txt small {
+  font-family: var(--hud-font);
+}
+
+.couch.is-kitten.is-hud .couch__moon-txt b {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.couch.is-kitten.is-hud .couch__moon.is-ready .couch__moon-txt b {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- Tablets: framed tiles with corner brackets ------------------------------------------------------ */
+
+.couch.is-kitten.is-hud .couch__tablet,
+.couch.is-kitten.is-hud .couch__card {
+  border-radius: 14px;
+  background: var(--hud-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    var(--hud-shadow);
+  outline: none;
+}
+
+.couch.is-kitten.is-hud .couch__tablet::before,
+.couch.is-kitten.is-hud .couch__tablet::after {
+  content: '';
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-color: var(--hud-metal);
+  border-style: solid;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.couch.is-kitten.is-hud .couch__tablet::before {
+  top: 0;
+  left: 0;
+  border-width: 1.5px 0 0 1.5px;
+  border-top-left-radius: 7px;
+}
+
+.couch.is-kitten.is-hud .couch__tablet::after {
+  right: 0;
+  bottom: 0;
+  border-width: 0 1.5px 1.5px 0;
+  border-bottom-right-radius: 7px;
+}
+
+.couch.is-kitten.is-hud .couch__tablet svg {
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 5px;
+  border-radius: 9px;
+  color: var(--hud-metal);
+  box-shadow: inset 0 0 0 1.5px var(--hud-line);
+}
+
+.couch.is-kitten.is-hud[data-kt='snow'] .couch__tablet svg {
+  color: #5a7fd6;
+}
+
+.couch.is-kitten.is-hud .couch__tablet b {
+  font-family: var(--hud-font);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.couch.is-kitten.is-hud .couch__tablet b small {
+  font-family: var(--hud-font);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.couch.is-kitten.is-hud .couch__tablet > span {
+  font-family: var(--hud-font);
+  font-size: 11.5px;
+}
+
+.couch.is-kitten.is-hud .couch__tablet.is-alert {
+  box-shadow:
+    inset 0 0 0 1.5px var(--cz-gold),
+    0 0 18px rgba(255, 210, 122, 0.3),
+    var(--hud-shadow);
+}
+
+/* ---- The Mine: one big button, lit when ready ------------------------------------------------------ */
+
+.couch.is-kitten.is-hud .couch__mine {
+  min-height: 60px;
+  border-radius: 16px;
+  background: var(--hud-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    var(--hud-shadow);
+  color: var(--cz-tx);
+  overflow: hidden;
+}
+
+/* While it cools down, the fill is the time gone by, in the accent, faint. */
+.couch.is-kitten.is-hud .couch__mine-fill {
+  inset: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--hud-accent) 32%, transparent);
+  box-shadow: none;
+}
+
+.couch.is-kitten.is-hud .couch__mine.is-ready {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hud-accent) 62%, #fff), var(--hud-accent) 58%, color-mix(in srgb, var(--hud-accent) 78%, #000));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #fff 45%, transparent),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+    0 10px 28px color-mix(in srgb, var(--hud-accent) 45%, transparent);
+  color: #fff;
+}
+
+.couch.is-kitten.is-hud .couch__mine.is-ready .couch__mine-fill {
+  background: none;
+}
+
+/* A shine sweeps across it while it is ready. */
+.couch.is-kitten.is-hud .couch__mine.is-ready::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-20deg);
+  animation: hud-shine 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes hud-shine {
+  0%,
+  55% {
+    left: -40%;
+  }
+  100% {
+    left: 130%;
+  }
+}
+
+.couch.is-kitten.is-hud .couch__mine b {
+  font-family: var(--hud-font);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-shadow: none;
+}
+
+.couch.is-kitten.is-hud .couch__mine span {
+  font-family: var(--hud-font);
+  font-size: 15px;
+  font-weight: 700;
+  text-shadow: none;
+  color: inherit;
+}
+
+.couch.is-kitten.is-hud .couch__mine svg {
+  color: inherit;
+}
+
+.couch.is-kitten.is-hud .couch__mine.is-ready b,
+.couch.is-kitten.is-hud .couch__mine.is-ready span,
+.couch.is-kitten.is-hud .couch__mine.is-ready svg {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch.is-kitten.is-hud .couch__mine.is-ready::after {
+    animation: none;
+    display: none;
+  }
+}
+
+/* A small orb (a small or short phone): smaller floors for the small print, the name on two lines. */
+@container (max-width: 280px) {
+  .couch.is-kitten.is-hud .couch__label .couch__mis {
+    font-size: max(7px, 2.5cqw);
+    -webkit-line-clamp: 2;
+  }
+  .couch.is-kitten.is-hud .couch__label em,
+  .couch.is-kitten.is-hud .couch__label small:not(.couch__mis):not(.couch__swap) {
+    font-size: max(7.5px, 2.8cqw);
+  }
+  .couch.is-kitten.is-hud .couch__label small.couch__swap {
+    max-width: 34cqw;
+    font-size: max(7px, 2.5cqw);
+  }
+}

@@ -4,8 +4,9 @@ import { furOf, type Animal } from './animals'
 import type { KittenTheme } from './themes'
 
 /*
- * The kitten's frame around Couch mode's orb, in the theme's colours (see themes.ts): a ring carved with tiny sigils (hearts, paw prints,
- * inverted pentagrams, moons, fish bones), a fluffy white kitten in a striped nightcap napping on a
+ * The kitten's frame around Couch mode's orb, in the theme's colours (see themes.ts): a dark band
+ * between two metal rims with a dial of tick marks and a glowing arc for how far the orb's mission
+ * is (the HUD look), a fluffy white kitten in a striped nightcap napping on a
  * cloud on top, its tail wrapped round the front of the cloud, and a collar bell at the bottom. The
  * napper can also be a fox, a wolf or an owl (see animals.ts), in the same place and pose. The kitten is the
  * status light; its moods are classes on the orb (in CSS): asleep while every division is out, eyes
@@ -36,46 +37,10 @@ const star = (r: number) =>
     .join('L') +
   'Z'
 
-const STAR = star(4.4)
-function Sigil({ i }: { i: number }) {
-  switch (i % 5) {
-    case 0:
-      return <path d="M0 3.4C-6.2-1.4-3.4-6.4 0-3C3.4-6.4 6.2-1.4 0 3.4Z" />
-    case 1:
-      return (
-        <>
-          <circle cx="0" cy="1.6" r="2.5" />
-          <circle cx="-2.8" cy="-1.5" r="1.15" />
-          <circle cx="-1" cy="-3.3" r="1.15" />
-          <circle cx="1" cy="-3.3" r="1.15" />
-          <circle cx="2.8" cy="-1.5" r="1.15" />
-        </>
-      )
-    case 2:
-      return <path d={STAR} fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
-    case 3:
-      return <path d="M1.6-4.2A4.4 4.4 0 1 0 1.6 4.2A3.3 3.3 0 1 1 1.6-4.2Z" />
-    default:
-      return (
-        <>
-          <path
-            d="M-4.6 0H3M-2.6-2.4V2.4M-.6-2.8V2.8M1.4-2.4V2.4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeLinecap="round"
-          />
-          <path d="M3 0L5.6-2.6V2.6Z" />
-        </>
-      )
-  }
-}
-
-const SIGIL_COUNT = 30
-const SIGILS = Array.from({ length: SIGIL_COUNT }, (_, i) => -90 + (i * 360) / SIGIL_COUNT)
-  // The kitten sits on top.
-  .map((deg, i) => ({ deg, i }))
-  .filter(({ deg }) => Math.abs(deg + 90) >= 20)
+/** The dial: a tick every 6°, a long one every 30°; none under the kitten at the top. */
+const TICKS = Array.from({ length: 60 }, (_, i) => ({ deg: -90 + i * 6, long: i % 5 === 0 })).filter(({ deg }) => Math.abs(deg + 90) >= 18)
+/** The progress arc runs along the middle of the band. */
+const ARC_LEN = 2 * Math.PI * R_SIG
 
 const BELL_Y = CY + R_OUT
 
@@ -192,14 +157,21 @@ function Kitten({ t, animal }: { t: Colours; animal: Animal }) {
   )
 }
 
-function Frame({ theme, animal }: { theme: KittenTheme; animal: Animal }) {
+function Frame({ theme, animal, progress = 0 }: { theme: KittenTheme; animal: Animal; progress?: number }) {
   const t = theme.kitten
+  const p = Math.max(0, Math.min(1, progress))
   return (
     <svg className="couch__frame" viewBox="0 0 300 300" aria-hidden="true">
       <defs>
         <linearGradient id="ck-band" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={t.band[0]} />
           <stop offset="1" stopColor={t.band[1]} />
+        </linearGradient>
+        <linearGradient id="ck-metal" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={t.rim} />
+          <stop offset=".45" stopColor={t.dots} />
+          <stop offset=".7" stopColor={t.rim} />
+          <stop offset="1" stopColor={t.dots} />
         </linearGradient>
         <radialGradient id="ck-aura" cx="50%" cy="50%" r="50%">
           <stop offset=".6" stopColor={t.aura} stopOpacity="0" />
@@ -210,29 +182,32 @@ function Frame({ theme, animal }: { theme: KittenTheme; animal: Animal }) {
       <g transform={`translate(150 160) scale(${(80 / R_IN).toFixed(4)}) translate(-${CX} -${CY})`}>
         <circle className="couch__aura" cx={CX} cy={CY} r={R_OUT + 30} fill="url(#ck-aura)" />
         <circle cx={CX} cy={CY} r={(R_OUT + R_IN) / 2} fill="none" stroke="url(#ck-band)" strokeWidth={R_OUT - R_IN} />
-        <circle cx={CX} cy={CY} r={R_OUT} fill="none" stroke={t.rim} strokeWidth="2" />
-        <circle cx={CX} cy={CY} r={R_IN} fill="none" stroke={t.rim} strokeWidth="2" />
-        <circle
-          cx={CX}
-          cy={CY}
-          r={R_OUT + 4}
-          fill="none"
-          stroke={t.dots}
-          strokeWidth="1"
-          strokeDasharray="1 5"
-          strokeLinecap="round"
-        />
+        <circle cx={CX} cy={CY} r={R_OUT} fill="none" stroke="url(#ck-metal)" strokeWidth="2.8" />
+        <circle cx={CX} cy={CY} r={R_IN} fill="none" stroke="url(#ck-metal)" strokeWidth="1.8" />
 
-        <g className="couch__runes" fill={t.rim} color={t.rim}>
-          {SIGILS.map(({ deg, i }) => {
-            const [x, y] = pt(deg, R_SIG)
-            return (
-              <g key={i} transform={`translate(${f1(x)} ${f1(y)}) rotate(${f1(deg + 90)})`}>
-                <Sigil i={i} />
-              </g>
-            )
+        <g className="couch__ticks" stroke={t.rim} strokeLinecap="round">
+          {TICKS.map(({ deg, long }) => {
+            const [x1, y1] = pt(deg, R_IN + 4)
+            const [x2, y2] = pt(deg, long ? R_OUT - 4 : R_OUT - 9)
+            return <line key={deg} x1={f1(x1)} y1={f1(y1)} x2={f1(x2)} y2={f1(y2)} strokeWidth={long ? 1.8 : 1.1} opacity={long ? 0.75 : 0.45} />
           })}
         </g>
+
+        {/* How far the orb's mission is: a lit arc from the top, clockwise. */}
+        {p > 0.005 && (
+          <circle
+            className="couch__arc"
+            cx={CX}
+            cy={CY}
+            r={R_SIG}
+            fill="none"
+            stroke={t.aura}
+            strokeWidth="4.5"
+            strokeLinecap="round"
+            strokeDasharray={`${f1(ARC_LEN * p)} ${f1(ARC_LEN)}`}
+            transform={`rotate(-90 ${CX} ${CY})`}
+          />
+        )}
 
         <g className="couch__kit-bell">
           <path d={`M150 ${BELL_Y}v6`} stroke={t.rim} strokeWidth="1.6" />

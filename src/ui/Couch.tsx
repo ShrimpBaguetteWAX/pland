@@ -26,6 +26,7 @@ import { KITTEN_THEMES, readTint, saveTint, type KittenTheme } from './couch/the
 
 import './Couch.css'
 import './couch/Kitten.css'
+import './couch/Hud.css'
 
 /*
  * Couch mode: one screen for the phone lying next to you. Today's TLM on two plaques at the top; in
@@ -50,9 +51,9 @@ const clock = (ms: number) => {
 }
 const tlm = (n: number | undefined) => (n === undefined ? '–' : formatNumber(n, n >= 100 ? 0 : 2))
 
-/** Couch mode's typefaces (Fredoka; Grenze Gotisch for Rose's big words), loaded only when it opens. */
+/** Couch mode's typefaces (Fredoka; Oxanium for the HUD's numbers and labels; Grenze Gotisch for Rose's big words), loaded only when it opens. */
 const FONT_HREF =
-  'https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Grenze+Gotisch:wght@600;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Oxanium:wght@500;600;700&family=Grenze+Gotisch:wght@600;700&display=swap'
 function useCouchFonts() {
   useEffect(() => {
     if (document.querySelector(`link[href="${FONT_HREF}"]`)) return
@@ -441,6 +442,8 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   // The orb brims while the big mission's divisions are back, and otherwise fills with its next return.
   const level = looping ? 0.05 : big?.back ? 0.94 : big?.next ? 0.04 + share(big.next) * 0.86 : 0.03
   const orb = useBloodOrb(level, tint.orb)
+  // The ring's arc: how far the orb's mission is (full while it is back), in steps of half a percent.
+  const progress = looping ? 0 : big?.back ? 1 : big?.next ? Math.round(share(big.next) * 200) / 200 : 0
 
   const openList = (missionId: number | null) => {
     setOnly(missionId)
@@ -503,7 +506,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className={`couch is-kitten${page !== 0 ? ' is-bank' : ''}`}
+      className={`couch is-kitten is-hud${page !== 0 ? ' is-bank' : ''}`}
       data-kt={tint.id}
       onPointerDown={(e) => e.pointerType !== 'touch' && e.button === 0 && swipeStart(e.clientX, e.clientY)}
       onPointerUp={(e) => e.pointerType !== 'touch' && swipeEnd(e.clientX, e.clientY)}
@@ -578,6 +581,11 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         </div>
         <div className="couch__plaques">
           <div className="couch__plaque">
+            <i className="couch__chip-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 19L19 5M15 5h4v4M5 5l14 14M9 19H5v-4" />
+              </svg>
+            </i>
             <small>Divisions · today</small>
             <b className="num">
               {tlm(today.data?.divisions)}
@@ -585,6 +593,12 @@ export default function Couch({ onClose }: { onClose: () => void }) {
             </b>
           </div>
           <div className="couch__plaque is-mine">
+            <i className="couch__chip-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M4 9.5c4-5 12-5 16 0" />
+                <path d="M12 6.5v14.5" />
+              </svg>
+            </i>
             <small>Mining · today</small>
             <b className="num">
               {tlm(today.data?.mining)}
@@ -621,14 +635,15 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${centreLoops || centreMines || centreSwaps ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
         >
           <div className="couch__halo" aria-hidden="true" />
-          <KittenFrame theme={tint} animal={animal} />
+          <KittenFrame theme={tint} animal={animal} progress={progress} />
           <canvas ref={orb.ref} className="couch__blood" />
           <div className="couch__foil" aria-hidden="true" />
           <div className="couch__label" aria-live="polite">
             {looping || big?.back ? (
               <>
+                {!looping && big && <small className="couch__mis">{big.title}</small>}
                 <b>LOOP</b>
-                <small>
+                <em>
                   {looping
                     ? 'The warband marches…'
                     : spectating
@@ -636,13 +651,13 @@ export default function Couch({ onClose }: { onClose: () => void }) {
                       : !plan?.funding.affordable
                         ? 'Not enough TLM'
                         : `${back.length} back${(plan?.earnedTlm ?? 0) > 0 ? ` · +${formatNumber(plan!.earnedTlm, 0)} TLM` : ''}`}
-                </small>
-                {!looping && big && <em>{big.title}</em>}
+                </em>
               </>
             ) : big?.next ? (
               <>
+                <small className="couch__mis">{big.title}</small>
                 <b className="num is-clock">{clock(big.next.unlockAt - now)}</b>
-                <em>until {big.title} returns</em>
+                <em>until it returns · {Math.round(progress * 100)} %</em>
               </>
             ) : (
               <>
