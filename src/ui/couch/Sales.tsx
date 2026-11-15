@@ -13,7 +13,8 @@ import { MARKET_FEES, waxOf } from './Chests'
 
 /*
  * Couch mode's screen left of the orb: your recent AtomicMarket sales, every collection. Where you
- * still hold more of what sold (in the wallet, not listed yet), one tap lists the next one: the
+ * have none of what sold listed right now and still hold at least two (so one always stays), one
+ * tap lists the next one, or one button lists the next of each in one transaction: the
  * highest mint number first (low mints are the ones worth keeping), at the lowest listing of its
  * kind, or at the price it just sold for when nobody lists it. Through shop.ale, like every listing
  * of this site.
@@ -45,6 +46,13 @@ export function Sales({ account }: { account: string }) {
   const [justListed, setJustListed] = useState<Set<string>>(() => new Set())
 
   /** Free copies of each template, highest mint first. */
+  /** Templates with a listing of yours right now (or one just listed here). */
+  const listedTemplates = useMemo(() => {
+    const m = new Set<string>()
+    for (const a of owned.data ?? [])
+      if (a.template && (offered.data?.has(a.asset_id) || justListed.has(a.asset_id))) m.add(a.template.template_id)
+    return m
+  }, [owned.data, offered.data, justListed])
   const free = useMemo(() => {
     const m = new Map<string, AtomicAsset[]>()
     for (const a of owned.data ?? []) {
@@ -57,9 +65,18 @@ export function Sales({ account }: { account: string }) {
   }, [owned.data, offered.data, justListed])
 
   const restock = useMemo(
-    () => [...new Set((sold.data ?? []).flatMap((s) => (s.assets.length === 1 && s.assets[0].template ? [s.assets[0].template.template_id] : [])))].filter((t) => free.has(t)),
-    [sold.data, free]
+    () => [...new Set((sold.data ?? []).flatMap((s) => (s.assets.length === 1 && s.assets[0].template ? [s.assets[0].template.template_id] : [])))].filter((t) => (free.get(t)?.length ?? 0) >= 2 && !listedTemplates.has(t)),
+    [sold.data, free, listedTemplates]
   )
+  /** Where the next one lists: the lowest listing of its kind, or what it last sold for. */
+  const lastSold = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const x of sold.data ?? []) {
+      const t = x.assets.length === 1 ? x.assets[0].template?.template_id : undefined
+      if (t && !m.has(t)) m.set(t, waxOf(x))
+    }
+    return m
+  }, [sold.data])
   const floors = useQuery({
     queryKey: ['couch-sales-floors', [...restock].sort().join(',')],
     enabled: restock.length > 0,
@@ -79,6 +96,21 @@ export function Sales({ account }: { account: string }) {
     void offered.refetch()
   }
 
+  /** The next of every template shown with a List button, all in one transaction. */
+  async function listAll() {
+    const items = restock.map((t) => ({ t, next: free.get(t)![0], price: floors.data?.get(t) ?? lastSold.get(t)! }))
+    if (!items.length) return
+    const ok = await run(
+      (a, p) => listSalesActions(a, p, items.map((x) => ({ assetId: x.next.asset_id, priceWax: x.price })), BUY_MARKETPLACE),
+      `Listed ${items.length}: the next of each, at the lowest listing`,
+      'sales-list-all'
+    )
+    if (!ok) return
+    setJustListed((x) => new Set([...x, ...items.map((i) => i.next.asset_id)]))
+    void offered.refetch()
+  }
+  const allWax = restock.reduce((n, t) => n + (floors.data?.get(t) ?? lastSold.get(t) ?? 0), 0)
+
   const busy = !!pending && pending.startsWith('sales-')
   const total = (sold.data ?? []).reduce((n, s) => n + waxOf(s) * (1 - MARKET_FEES - (Number(s.current_collection_fee ?? 0) || 0)), 0)
 
@@ -93,8 +125,17 @@ export function Sales({ account }: { account: string }) {
       </div>
       <p className="cb__note">
         The last {SHOWN} on AtomicMarket, every collection. Where you hold more, list the next one: the highest mint first, at the lowest listing of
-        its kind (or the price it sold for when nobody lists it), through shop.ale.
+        its kind (or the price it sold for when nobody lists it), through shop.ale. Shown where none of it is listed and you hold at least two.
       </p>
+
+      <button type="button" className="cb__go" disabled={spectating || busy || !restock.length || !floors.data} onClick={() => void listAll()}>
+        {pending === 'sales-list-all'
+          ? 'Signing…'
+          : restock.length
+            ? `List the next of each · ${restock.length} for ${formatNumber(allWax, 2)} WAX`
+            : 'Nothing to list again'}
+        <small>{restock.length ? 'one transaction, the highest mint of each, through shop.ale' : 'everything that sold is listed already, or you hold fewer than two'}</small>
+      </button>
 
       <ul className="cm__rows">
         {(sold.data ?? []).map((s) => {
@@ -104,7 +145,7 @@ export function Sales({ account }: { account: string }) {
           const price = waxOf(s)
           const when = Number(s.updated_at_time ?? 0)
           const more = t ? (free.get(t) ?? []) : []
-          const next = more[0]
+          const next = t && restock.includes(t) ? more[0] : undefined
           const listAt = t ? (floors.data?.get(t) ?? price) : price
           const fromFloor = !!t && floors.data?.has(t)
           const srcs = [
@@ -119,7 +160,7 @@ export function Sales({ account }: { account: string }) {
                 <small>
                   {when ? `${shortDuration(Date.now() - when)} ago` : ''}
                   {single && a?.template_mint ? ` · #${a.template_mint}` : ''}
-                  {t && owned.data ? ` · ${more.length ? `${more.length} more free` : 'none left'}` : ''}
+                  {t && owned.data ? ` · ${listedTemplates.has(t) ? 'one listed' : more.length ? `${more.length} held` : 'none left'}` : ''}
                 </small>
               </span>
               <span className="cm__low num">
