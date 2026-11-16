@@ -22,6 +22,7 @@ import { MiniLedger } from './couch/MiniLedger'
 import { Sales } from './couch/Sales'
 import { useBloodOrb } from './couch/bloodOrb'
 import { KittenFrame } from './couch/KittenFrame'
+import { Motifs } from './couch/Motifs'
 import { Moons, type MoonMission } from './couch/Moons'
 import { KITTEN_THEMES, readTint, saveTint, type KittenTheme } from './couch/themes'
 
@@ -54,7 +55,7 @@ const tlm = (n: number | undefined) => (n === undefined ? '–' : formatNumber(n
 
 /** Couch mode's typefaces (Fredoka; Oxanium for the HUD's numbers and labels; Grenze Gotisch for Rose's big words), loaded only when it opens. */
 const FONT_HREF =
-  'https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Oxanium:wght@500;600;700&family=Grenze+Gotisch:wght@600;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Oxanium:wght@500;600;700&family=Grenze+Gotisch:wght@600;700;800&family=Cinzel:wght@600;700&family=Cinzel+Decorative:wght@700&family=UnifrakturMaguntia&display=swap'
 function useCouchFonts() {
   useEffect(() => {
     if (document.querySelector(`link[href="${FONT_HREF}"]`)) return
@@ -541,6 +542,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
       }
     >
       <Night />
+      <Motifs id={tint.id} />
       <div className="couch__vignette" aria-hidden="true" />
 
       <button type="button" className="couch__close" onClick={close} aria-label="Close couch mode">

@@ -5,11 +5,13 @@ import type { OrbPalette } from './bloodOrb'
  * colours. Each theme gives the page its night colour, the kitten its fur, cap and cloud, the orb
  * its potion and the moons theirs; the rest of the screen (plaques, tablets, panels, text) is in
  * Kitten.css under [data-kt='<id>'], with the colours of the theme's stylesheet (Rose is the
- * default there). Rainbow candy also gives each moon its own colour.
+ * default there). Rainbow candy also gives each moon its own colour. The five gothic schemes (Blood
+ * moon, Absinthe crypt, Velvet requiem, Moonlit ossuary, Illuminated manuscript) add a night motif,
+ * drifting particles and their own display type (couch/Motifs.tsx and Hud.css).
  */
 
 export interface KittenTheme {
-  id: 'rose' | 'rainbow' | 'cotton' | 'blueberry' | 'snow'
+  id: 'rose' | 'rainbow' | 'cotton' | 'blueberry' | 'snow' | 'bloodmoon' | 'absinthe' | 'velvet' | 'ossuary' | 'manuscript'
   name: string
   /** The page behind the couch, so an overscroll shows the same night. */
   night: string
@@ -266,6 +268,216 @@ export const KITTEN_THEMES: KittenTheme[] = [
       ...calm
     },
     moon: { l1: '#e2edff', mid: '#a9c8ff', l2: '#9a8cf0', glass: '#fbfdff', rim: '#9fb9ec', ready: 'rgba(120, 150, 240, 0.4)' }
+  },
+  {
+    id: 'bloodmoon',
+    name: 'Blood moon',
+    night: '#070203',
+    swatch: ['#c4122f', '#d8d8e2', '#24181d'],
+    kitten: {
+      fur: '#24181d',
+      line: '#76606a',
+      rim: '#d8d8e2',
+      inner: '#8a1828',
+      eye: '#ff6a2a',
+      cheek: '#c4122f',
+      cap: '#7a0c1c',
+      stripes: ['#d8d8e2'],
+      cloud: '#3a2a30',
+      cloudLine: '#6e5560',
+      pom: '#d8d8e2',
+      band: ['#2a0a10', '#120406'],
+      aura: '#ff3348',
+      dots: '#6b6b78',
+      tailTip: ['#e0263f', '#5a0410']
+    },
+    orb: {
+      glass: ['#330c14', '#080203'],
+      back: 'rgba(255, 90, 106, 0.5)',
+      body: [
+        [0, '#ff5a6a'],
+        [0.5, '#c4122f'],
+        [1, '#5a0410']
+      ],
+      churn: 'rgba(255,255,255,.07)',
+      bubble: 'rgba(255,255,255,.5)',
+      sheen: 'rgba(255,255,255,.28)',
+      rim: 'rgba(216, 216, 226, 0.35)',
+      surface: 'rgba(255,255,255,.8)',
+      glow: 'rgba(196, 18, 47, 1)',
+      shade: 0.14,
+      hearts: '#ff5a6a',
+      ...calm
+    },
+    moon: { l1: '#ff5a6a', mid: '#c4122f', l2: '#5a0410', glass: '#080203', rim: '#d8d8e2', ready: 'rgba(255, 51, 72, 0.5)' }
+  },
+  {
+    id: 'absinthe',
+    name: 'Absinthe crypt',
+    night: '#030806',
+    swatch: ['#7fd13b', '#c4a662', '#cfd6cb'],
+    kitten: {
+      fur: '#cfd6cb',
+      line: '#6f7f68',
+      rim: '#c4a662',
+      inner: '#9fd27a',
+      eye: '#1d3a12',
+      cheek: '#9fd27a',
+      cap: '#1f4a24',
+      stripes: ['#c4a662'],
+      cloud: '#4a5a4c',
+      cloudLine: '#7e8e74',
+      pom: '#c4a662',
+      band: ['#16261a', '#08110b'],
+      aura: '#a6ff4a',
+      dots: '#5e4c24',
+      tailTip: ['#7fd13b', '#245a0e']
+    },
+    orb: {
+      glass: ['#16301c', '#030806'],
+      back: 'rgba(198, 255, 106, 0.5)',
+      body: [
+        [0, '#c6ff6a'],
+        [0.5, '#7fd13b'],
+        [1, '#245a0e']
+      ],
+      churn: 'rgba(255,255,255,.07)',
+      bubble: 'rgba(255,255,255,.5)',
+      sheen: 'rgba(255,255,255,.28)',
+      rim: 'rgba(196, 166, 98, 0.35)',
+      surface: 'rgba(255,255,255,.8)',
+      glow: 'rgba(127, 209, 59, 1)',
+      shade: 0.14,
+      hearts: '#c6ff6a',
+      ...calm
+    },
+    moon: { l1: '#c6ff6a', mid: '#7fd13b', l2: '#245a0e', glass: '#030806', rim: '#c4a662', ready: 'rgba(166, 255, 74, 0.45)' }
+  },
+  {
+    id: 'velvet',
+    name: 'Velvet requiem',
+    night: '#07040b',
+    swatch: ['#9b4fd6', '#cdb8ea', '#1c1024'],
+    kitten: {
+      fur: '#c9bfd6',
+      line: '#6c5a8a',
+      rim: '#cdb8ea',
+      inner: '#9b4fd6',
+      eye: '#2a1240',
+      cheek: '#b77fe0',
+      cap: '#1c1024',
+      stripes: ['#9b4fd6'],
+      cloud: '#3b2b4e',
+      cloudLine: '#6c5a8a',
+      pom: '#cdb8ea',
+      band: ['#24123a', '#0d0716'],
+      aura: '#c58cff',
+      dots: '#5c4a7a',
+      tailTip: ['#a65ae0', '#3e146a']
+    },
+    orb: {
+      glass: ['#2a1644', '#06030a'],
+      back: 'rgba(214, 166, 255, 0.5)',
+      body: [
+        [0, '#d6a6ff'],
+        [0.5, '#9b4fd6'],
+        [1, '#3e146a']
+      ],
+      churn: 'rgba(255,255,255,.07)',
+      bubble: 'rgba(255,255,255,.5)',
+      sheen: 'rgba(255,255,255,.28)',
+      rim: 'rgba(205, 184, 234, 0.35)',
+      surface: 'rgba(255,255,255,.8)',
+      glow: 'rgba(155, 79, 214, 1)',
+      shade: 0.14,
+      hearts: '#d6a6ff',
+      ...calm
+    },
+    moon: { l1: '#d6a6ff', mid: '#9b4fd6', l2: '#3e146a', glass: '#06030a', rim: '#cdb8ea', ready: 'rgba(197, 140, 255, 0.5)' }
+  },
+  {
+    id: 'ossuary',
+    name: 'Moonlit ossuary',
+    night: '#050608',
+    swatch: ['#7fb6ff', '#e4ddc9', '#9aa1ad'],
+    kitten: {
+      fur: '#9aa1ad',
+      line: '#4e5564',
+      rim: '#e4ddc9',
+      inner: '#e4ddc9',
+      eye: '#0e1a2e',
+      cheek: '#c7d8f0',
+      cap: '#2a2f3a',
+      stripes: ['#e4ddc9'],
+      cloud: '#4a5060',
+      cloudLine: '#80889a',
+      pom: '#e4ddc9',
+      band: ['#1d222c', '#0a0c10'],
+      aura: '#a8d0ff',
+      dots: '#6c7484',
+      tailTip: ['#7fb6ff', '#29466f']
+    },
+    orb: {
+      glass: ['#1e2636', '#04050a'],
+      back: 'rgba(210, 230, 255, 0.5)',
+      body: [
+        [0, '#d2e6ff'],
+        [0.5, '#7fb6ff'],
+        [1, '#29466f']
+      ],
+      churn: 'rgba(255,255,255,.07)',
+      bubble: 'rgba(255,255,255,.5)',
+      sheen: 'rgba(255,255,255,.28)',
+      rim: 'rgba(228, 221, 201, 0.35)',
+      surface: 'rgba(255,255,255,.8)',
+      glow: 'rgba(127, 182, 255, 1)',
+      shade: 0.14,
+      hearts: '#d2e6ff',
+      ...calm
+    },
+    moon: { l1: '#d2e6ff', mid: '#7fb6ff', l2: '#29466f', glass: '#04050a', rim: '#e4ddc9', ready: 'rgba(168, 208, 255, 0.45)' }
+  },
+  {
+    id: 'manuscript',
+    name: 'Illuminated manuscript',
+    night: '#e8dcc0',
+    swatch: ['#8e1b1b', '#b8862e', '#1f3a6b'],
+    kitten: {
+      fur: '#fffaf0',
+      line: '#5a3e24',
+      rim: '#b8862e',
+      inner: '#e8b4a0',
+      eye: '#2a1d14',
+      cheek: '#d98a7a',
+      cap: '#1f3a6b',
+      stripes: ['#d9a640'],
+      cloud: '#fbf4e2',
+      cloudLine: '#b8862e',
+      pom: '#d9a640',
+      band: ['#e6d4ac', '#c9b285'],
+      aura: '#8e1b1b',
+      dots: '#ecc96e',
+      tailTip: ['#8e1b1b', '#4a0808']
+    },
+    orb: {
+      glass: ['#fdf8ea', '#efe3c2'],
+      back: 'rgba(192, 57, 43, 0.5)',
+      body: [
+        [0, '#c0392b'],
+        [0.5, '#8e1b1b'],
+        [1, '#4a0808']
+      ],
+      churn: 'rgba(255,255,255,.07)',
+      bubble: 'rgba(255,255,255,.5)',
+      sheen: 'rgba(255,255,255,.28)',
+      rim: 'rgba(184, 134, 46, 0.35)',
+      surface: 'rgba(255,255,255,.8)',
+      glow: 'rgba(142, 27, 27, 1)',
+      shade: 0.14,
+      hearts: '#b8862e',
+      ...calm
+    },
+    moon: { l1: '#c0392b', mid: '#8e1b1b', l2: '#4a0808', glass: '#efe3c2', rim: '#b8862e', ready: 'rgba(142, 27, 27, 0.35)' }
   }
 ]
 

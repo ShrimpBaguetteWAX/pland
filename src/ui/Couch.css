@@ -1525,6 +1525,23 @@ html.is-couch .couch {
   --cb-def: #4a6fd6;
   --cb-nft: #b9801a;
 }
+.couch[data-kt='bloodmoon'],
+.couch[data-kt='velvet'] {
+  --cb-on: #ffffff;
+}
+.couch[data-kt='absinthe'] {
+  --cb-on: #0b1a06;
+}
+.couch[data-kt='ossuary'] {
+  --cb-on: #071222;
+}
+.couch[data-kt='manuscript'] {
+  --cb-on: #fff4e0;
+  --cb-good: #2f7a3a;
+  --cb-bad: #a3261b;
+  --cb-def: #2f4f8f;
+  --cb-nft: #9a6a12;
+}
 .couch__bankpage {
   position: relative;
   z-index: 1;
