@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { useGameBalance } from '@/data/game'
 import { useNftFloors, useSwapPools } from '@/data/market'
@@ -16,6 +16,9 @@ import { KEEP_MAX, KEEP_STEP, KEEP_UNLIMITED, useDefSwap, useKeepDef } from './d
  * what is deposited in the game, and how much DEF to keep there (a slider, unlimited by default):
  * what is over it is withdrawn and swapped to TLM in one signature, here or by tapping the orb.
  */
+
+/** How long the slider stays unlocked after the last change. */
+const RELOCK_MS = 6000
 
 const n0 = (n: number) => formatNumber(n, 0)
 const signed = (n: number, d = 0) => `${n >= 0 ? '+' : '−'}${formatNumber(Math.abs(n), d)}`
@@ -66,6 +69,14 @@ export function Bank({ account }: { account: string }) {
 
   const held = dx.held
   const slider = keep === null ? KEEP_UNLIMITED : Math.min(KEEP_MAX, keep)
+  /** The slider is locked until unlocked, so a swipe across it cannot move it; it locks again a few seconds after the last change. */
+  const [unlocked, setUnlocked] = useState(false)
+  const [touched, setTouched] = useState(0)
+  useEffect(() => {
+    if (!unlocked) return
+    const t = setTimeout(() => setUnlocked(false), RELOCK_MS)
+    return () => clearTimeout(t)
+  }, [unlocked, touched])
 
   return (
     <section className="couch__bankpage" aria-label="Bank: your day, the rate and your deposit">
@@ -140,10 +151,25 @@ export function Bank({ account }: { account: string }) {
         <b className="is-def">{bank.data ? formatNumber(held, held >= 100 ? 0 : 2) : '…'} DEF</b>
       </p>
 
-      <label className="cb__plaque cb__keep">
+      <div className={`cb__plaque cb__keep${unlocked ? ' is-unlocked' : ''}`}>
         <span className="cb__keep-hd">
           <small>Keep in the game</small>
-          <b className="num is-def">{keep === null ? 'Unlimited' : `${n0(keep)} DEF`}</b>
+          <span className="cb__keep-val">
+            <b className="num is-def">{keep === null ? 'Unlimited' : `${n0(keep)} DEF`}</b>
+            <button
+              type="button"
+              className="cb__lock"
+              aria-pressed={unlocked}
+              aria-label={unlocked ? 'Lock the slider' : 'Unlock the slider to change it'}
+              title={unlocked ? 'Locks again by itself a few seconds after your last change' : 'Unlock to change how much DEF is kept'}
+              onClick={() => setUnlocked((u) => !u)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="10" rx="2.5" />
+                <path d={unlocked ? 'M8 11V7.5a4 4 0 0 1 7.6-1.7' : 'M8 11V7.5a4 4 0 0 1 8 0V11'} />
+              </svg>
+            </button>
+          </span>
         </span>
         <input
           type="range"
@@ -151,11 +177,13 @@ export function Bank({ account }: { account: string }) {
           max={KEEP_UNLIMITED}
           step={KEEP_STEP}
           value={slider}
-          aria-label="DEF to keep in the game"
+          aria-label={unlocked ? 'DEF to keep in the game' : 'DEF to keep in the game (locked: unlock it first)'}
+          disabled={!unlocked}
           aria-valuetext={keep === null ? 'Unlimited' : `${keep} DEF`}
           onChange={(e) => {
             const v = Number(e.target.value)
             setKeep(v > KEEP_MAX ? null : v)
+            setTouched((n) => n + 1)
           }}
         />
         <span className="cb__keep-scale" aria-hidden="true">
@@ -166,12 +194,12 @@ export function Bank({ account }: { account: string }) {
         </span>
         <small className="cb__keep-note">
           {keep === null
-            ? 'All your DEF stays in the game. Slide left to swap what is over an amount to TLM.'
+            ? `All your DEF stays in the game. ${unlocked ? 'Slide left' : 'Unlock, then slide left'} to swap what is over an amount to TLM.`
             : dx.ready
               ? `${formatNumber(dx.over, dx.over >= 100 ? 0 : 2)} DEF over it: tap the orb (it is lit) or swap here.`
               : 'Nothing over it right now. When there is, the orb lights up and a tap swaps it.'}
         </small>
-      </label>
+      </div>
       <button type="button" className="cb__go" disabled={dx.spectating || dx.busy || !dx.ready || !dx.route} onClick={() => void dx.swap()}>
         {dx.busy ? (
           'Signing…'
