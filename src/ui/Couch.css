@@ -1496,32 +1496,6 @@ html.is-couch .couch {
 }
 
 /* ---- Screens: the orb and the bank (swipe left), with page dots ---- */
-.couch__pages {
-  position: absolute;
-  top: max(16px, calc(env(safe-area-inset-top, 0px) + 10px));
-  left: 50%;
-  z-index: 3;
-  display: flex;
-  gap: 6px;
-  transform: translateX(-50%) translateY(26px);
-}
-.couch__pages button {
-  all: unset;
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--cz-fr) 45%, transparent);
-  cursor: pointer;
-  transition: width 0.2s;
-}
-.couch__pages button.is-on {
-  width: 18px;
-  background: var(--cz-blood);
-}
-.couch__pages button:focus-visible {
-  outline: 2px solid var(--cz-tx);
-  outline-offset: 2px;
-}
 .couch {
   touch-action: pan-y;
 }

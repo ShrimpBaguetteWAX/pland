@@ -18,6 +18,7 @@ import { Bank } from './couch/Bank'
 import { Chests } from './couch/Chests'
 import { useDefSwap } from './couch/defKeep'
 import { Materials } from './couch/Materials'
+import { MiniLedger } from './couch/MiniLedger'
 import { Sales } from './couch/Sales'
 import { useBloodOrb } from './couch/bloodOrb'
 import { KittenFrame } from './couch/KittenFrame'
@@ -83,9 +84,21 @@ function usePinnedPage(night: string) {
 
 /** Couch mode's screens, in swipe order: the orb, the bank, the chests, the materials. */
 /** -1 = your recent sales (left of the orb), 0 = the orb, then bank, chests, materials. */
-type Page = -1 | 0 | 1 | 2 | 3
-const FIRST_PAGE = -1
-const LAST_PAGE = 3
+/** -1 sales, 0 the orb, 1 bank, 2 chests, 3 materials, 4 the mini ledger. */
+type Page = -1 | 0 | 1 | 2 | 3 | 4
+/**
+ * The pages left to right, as on the tab bar and for swiping: the orb in the middle, a swipe left
+ * from it opens the bank (as it always has), a swipe right the ledger, then the sales.
+ */
+const ORDER: Page[] = [-1, 4, 0, 1, 2, 3]
+const TABS: { page: Page; label: string; icon: string }[] = [
+  { page: -1, label: 'Sales', icon: 'M3 12l9-9h7v7l-9 9z M15.5 7.5h.01' },
+  { page: 4, label: 'Ledger', icon: 'M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z M6 19a2 2 0 0 1 2-2h11 M10 8h5M10 12h5' },
+  { page: 0, label: 'Orb', icon: '' },
+  { page: 1, label: 'Bank', icon: 'M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18' },
+  { page: 2, label: 'Chests', icon: 'M3 10h18v9H3z M3 10a9 5 0 0 1 18 0 M10 13h4' },
+  { page: 3, label: 'Mats', icon: 'M12 3l8 5v8l-8 5-8-5V8z M4 8l8 5 8-5 M12 13v8' }
+]
 
 /** The colour theme, remembered in this browser; a tap on the swatch moves on to the next one. */
 function useTint(): [KittenTheme, () => void] {
@@ -323,7 +336,10 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     const dx = x - s.x
     const dy = y - s.y
     if (Math.abs(dx) >= 60 && Math.abs(dx) >= Math.abs(dy) * 1.5) {
-      setPage((p) => (dx < 0 ? Math.min(LAST_PAGE, p + 1) : Math.max(FIRST_PAGE, p - 1)) as Page)
+      setPage((p) => {
+        const i = ORDER.indexOf(p)
+        return ORDER[Math.max(0, Math.min(ORDER.length - 1, i + (dx < 0 ? 1 : -1)))]
+      })
       return
     }
     // Pulled down from the top of the screen.
@@ -557,18 +573,12 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           <span aria-hidden="true" /> Refreshing…
         </div>
       )}
-      <nav className="couch__pages" aria-label="Screens">
-        <button type="button" className={page === -1 ? 'is-on' : ''} aria-pressed={page === -1} aria-label="Your recent sales" onClick={() => setPage(-1)} />
-        <button type="button" className={page === 0 ? 'is-on' : ''} aria-pressed={page === 0} aria-label="The orb" onClick={() => setPage(0)} />
-        <button type="button" className={page === 1 ? 'is-on' : ''} aria-pressed={page === 1} aria-label="The bank" onClick={() => setPage(1)} />
-        <button type="button" className={page === 2 ? 'is-on' : ''} aria-pressed={page === 2} aria-label="Your chests" onClick={() => setPage(2)} />
-        <button type="button" className={page === 3 ? 'is-on' : ''} aria-pressed={page === 3} aria-label="Your materials" onClick={() => setPage(3)} />
-      </nav>
 
       {page === -1 && account && <Sales account={account} />}
       {page === 1 && account && <Bank account={account} />}
       {page === 2 && account && <Chests account={account} />}
       {page === 3 && account && <Materials account={account} />}
+      {page === 4 && account && <MiniLedger account={account} />}
 
       <header className="couch__top" aria-label="Earned today" hidden={page !== 0}>
         <div className="couch__orn">
@@ -782,6 +792,38 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           <span className="num">{mineReady ? `≈ ${formatNumber(m.pick?.estimatedTlm ?? 0, 2)} TLM` : mineText}</span>
         </button>
       </section>
+
+      {/* The pages, always at the bottom: the orb raised in the middle, a dot where something waits. */}
+      <nav className="couch__tabbar" aria-label="Screens">
+        {TABS.map((t) => {
+          const on = page === t.page
+          const waiting = t.page === 1 && centreSwaps
+          return (
+            <button
+              key={t.page}
+              type="button"
+              className={`couch__tab${t.page === 0 ? ' is-home' : ''}${on ? ' is-on' : ''}${waiting ? ' is-waiting' : ''}`}
+              aria-current={on ? 'page' : undefined}
+              aria-label={waiting ? `${t.label}: DEF to swap` : t.label}
+              onClick={() => setPage(t.page)}
+            >
+              {t.page === 0 ? (
+                <span className="couch__tab-disc" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+                    <circle cx="12" cy="13" r="7" />
+                    <path d="M7 7L6 2.5L10 5M17 7L18 2.5L14 5" />
+                  </svg>
+                </span>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d={t.icon} />
+                </svg>
+              )}
+              <span>{t.label}</span>
+            </button>
+          )
+        })}
+      </nav>
 
       <div className={`couch__scrim${panel ? ' is-open' : ''}`} onClick={() => setPanel(null)} />
 

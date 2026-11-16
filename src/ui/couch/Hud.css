@@ -104,26 +104,6 @@
   color: var(--cz-dim);
 }
 
-/* The page dots: small diamonds, the current one lit. */
-.couch.is-kitten.is-hud .couch__pages {
-  gap: 9px;
-}
-
-.couch.is-kitten.is-hud .couch__pages button {
-  width: 6px;
-  height: 6px;
-  border-radius: 1.5px;
-  transform: rotate(45deg);
-  background: color-mix(in srgb, var(--hud-metal) 35%, transparent);
-}
-
-.couch.is-kitten.is-hud .couch__pages button.is-on {
-  width: 7px;
-  height: 7px;
-  background: var(--hud-metal);
-  box-shadow: 0 0 8px var(--hud-glow);
-}
-
 /* The corner buttons: square keys with a hairline. */
 .couch.is-kitten.is-hud .couch__close {
   border-radius: 10px;
@@ -438,4 +418,288 @@
     max-width: 34cqw;
     font-size: max(7px, 2.5cqw);
   }
+}
+
+/* ---- The tab bar: every page one tap away, the orb raised in the middle ------------------------------ */
+
+.couch__tabbar {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: end;
+  width: 100%;
+  max-width: 460px;
+  margin: 10px auto 0;
+  padding: 7px 4px 6px;
+  border-radius: 18px;
+  background: var(--hud-glass, rgba(255, 255, 255, 0.06));
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line, rgba(255, 255, 255, 0.2)),
+    var(--hud-shadow, 0 8px 22px rgba(0, 0, 0, 0.35));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.couch__tab {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 2px 0;
+  color: var(--cz-faint);
+  font-family: var(--hud-font, var(--cz-cap));
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch__tab svg {
+  width: 22px;
+  height: 22px;
+}
+
+.couch__tab span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.couch__tab.is-on {
+  color: var(--cz-blood);
+}
+
+/* The page you are on: a lit bar under its name. */
+.couch__tab.is-on:not(.is-home)::after {
+  content: '';
+  width: 18px;
+  height: 3px;
+  margin-top: 1px;
+  border-radius: 2px;
+  background: var(--cz-blood);
+  box-shadow: 0 0 8px var(--cz-blood);
+}
+
+.couch__tab:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* The orb: a raised round key in the middle. */
+.couch__tab.is-home {
+  margin-top: -20px;
+}
+
+.couch__tab .couch__tab-disc {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--cz-blood) 45%, #fff), var(--cz-blood) 60%, color-mix(in srgb, var(--cz-blood) 60%, #000));
+  box-shadow:
+    0 0 0 2px var(--kt-11, #1f0f18),
+    0 0 0 3.5px var(--hud-metal, var(--cz-fr)),
+    0 6px 18px color-mix(in srgb, var(--cz-blood) 50%, transparent);
+}
+
+.couch__tab.is-home:not(.is-on) .couch__tab-disc {
+  filter: saturate(0.6) brightness(0.85);
+}
+
+.couch__tab.is-home svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Something waits there (DEF to swap on the bank). */
+.couch__tab.is-waiting svg {
+  overflow: visible;
+}
+
+.couch__tab.is-waiting::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(50% + 8px);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cz-lava);
+  box-shadow: 0 0 6px var(--cz-lava);
+}
+
+/* ---- The mini ledger: the last three days -------------------------------------------------------------- */
+
+.cl__head {
+  display: grid;
+  gap: 2px;
+  padding: 2px 4px 4px;
+  font-family: var(--hud-font, var(--cz-cap));
+}
+
+.cl__head small {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cz-dim);
+}
+
+.cl__head b {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.cl__head b i {
+  margin-left: 4px;
+  font-size: 13px;
+  font-style: normal;
+  color: var(--cz-dim);
+}
+
+.cl__head > span {
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.cl .is-good {
+  color: var(--cb-good);
+}
+
+.cl .is-bad {
+  color: var(--cb-bad);
+}
+
+.cl__day {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 10px 13px 9px;
+  border-radius: 14px;
+  background: var(--hud-glass, rgba(255, 255, 255, 0.06));
+  box-shadow: inset 0 0 0 1px var(--hud-line, rgba(255, 255, 255, 0.2));
+  font-family: var(--hud-font, var(--cz-cap));
+}
+
+.cl__day::before,
+.cl__day::after {
+  content: '';
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-color: var(--hud-metal, var(--cz-fr));
+  border-style: solid;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.cl__day::before {
+  top: 0;
+  left: 0;
+  border-width: 1.5px 0 0 1.5px;
+  border-top-left-radius: 7px;
+}
+
+.cl__day::after {
+  right: 0;
+  bottom: 0;
+  border-width: 0 1.5px 1.5px 0;
+  border-bottom-right-radius: 7px;
+}
+
+.cl__day-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cl__day-hd span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hud-metal, var(--cz-fr));
+}
+
+.couch.is-kitten.is-hud[data-kt='snow'] .cl__day-hd span {
+  color: #5a7fd6;
+}
+
+.cl__day-hd span small {
+  margin-left: 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--cz-faint);
+}
+
+.cl__day-hd b {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.cl__ln {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--cz-dim);
+}
+
+.cl__ln > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cl__ln i {
+  font-style: normal;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cl__tok {
+  font-size: 10.5px;
+  color: var(--cz-faint);
+}
+
+.cl__v {
+  min-width: 58px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--cz-tx);
+}
+
+.cl__more {
+  all: unset;
+  justify-self: end;
+  padding: 2px 0;
+  font-size: 11px;
+  color: var(--cz-faint);
+  cursor: pointer;
+}
+
+.cl__more:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+
+.cl__none {
+  margin: 0;
+  font-size: 12px;
+  color: var(--cz-faint);
 }
