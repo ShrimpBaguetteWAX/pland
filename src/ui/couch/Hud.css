@@ -875,3 +875,10 @@
   color: #fff4e0;
   text-shadow: 0 1px 3px rgba(60, 10, 10, 0.85);
 }
+
+.cl__nc {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--cz-faint);
+  cursor: help;
+}

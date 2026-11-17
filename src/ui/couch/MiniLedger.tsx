@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
 
-import { useLedger, type Category, type LedgerEntry, type Token } from '@/data/ledger'
+import { priceAt, useLedger, usePriceHistory, type Category, type LedgerEntry, type Token } from '@/data/ledger'
 import { useSwapPools } from '@/data/market'
 import { formatNumber } from '@/lib/format'
 import { receiveFor } from '@/lib/pool'
 
-import { defToTlm } from './defKeep'
 
 /*
  * Couch mode's mini ledger: the last three days (today so far, yesterday, the day before), from the
- * same entries as the full Ledger page. The three days' net on top; then a card per day with its
- * net and every kind of entry that day, biggest first, each in its own token and in TLM at today's
- * prices. A long day shows its four biggest lines and folds the rest until tapped.
+ * same entries as the full Ledger page and valued the same way: WAX in TLM at that day's prices
+ * (CoinGecko's daily WAX and TLM; today's Alcor rate until they load), and DEF not counted where it
+ * is only paid or received (a Forge slot, an entry): it counts where it is bought or sold on Alcor,
+ * so DEF bought and then spent is not counted twice. The three days' net on top; then a card per
+ * day with its net and every kind of entry that day, biggest first. A long day shows its four
+ * biggest lines and folds the rest until tapped.
  */
 
 const DAYS = 3
@@ -39,6 +41,8 @@ interface Line {
   token: Token
   amount: number
   tlm: number
+  /** DEF only paid or received: listed, not counted (see the top of the file). */
+  counted: boolean
 }
 
 interface Day {
@@ -64,16 +68,24 @@ function dayStart(back: number): number {
 export function MiniLedger({ account }: { account: string }) {
   const ledger = useLedger(account)
   const pools = useSwapPools()
+  const prices = usePriceHistory()
   const [open, setOpen] = useState<Set<number>>(() => new Set())
 
-  // Today's prices: one WAX and one DEF in TLM (the spot rate, not a big swap's).
-  const rates = useMemo(() => {
+  /** An entry in TLM, as the full Ledger counts it: WAX at that day's prices, DEF not at all. */
+  const tlmOf = useMemo(() => {
     if (!pools.data) return null
-    return { WAX: receiveFor(pools.data.tlm, 'WAX', 1), DEF: defToTlm(pools.data, 1).rate, TLM: 1 } as Record<Token, number>
-  }, [pools.data])
+    const waxNow = receiveFor(pools.data.tlm, 'WAX', 1)
+    return (e: LedgerEntry): number => {
+      if (e.token === 'TLM') return e.amount
+      if (e.token === 'DEF') return 0
+      const w = prices.data ? priceAt(prices.data.wax, e.time) : null
+      const t = prices.data ? priceAt(prices.data.tlm, e.time) : null
+      return w && t ? (e.amount * w) / t : e.amount * waxNow
+    }
+  }, [pools.data, prices.data])
 
   const days = useMemo<Day[] | null>(() => {
-    if (!ledger.data || !rates) return null
+    if (!ledger.data || !tlmOf) return null
     return Array.from({ length: DAYS }, (_, back) => {
       const start = dayStart(back)
       const end = back === 0 ? Infinity : dayStart(back - 1)
@@ -81,12 +93,13 @@ export function MiniLedger({ account }: { account: string }) {
       for (const e of ledger.data as LedgerEntry[]) {
         if (e.time < start || e.time >= end) continue
         const key = `${e.category}|${e.token}|${e.direction}`
-        const line = lines.get(key) ?? { key, label: LABEL[e.category] ?? e.category, direction: e.direction, token: e.token, amount: 0, tlm: 0 }
+        const line = lines.get(key) ?? { key, label: LABEL[e.category] ?? e.category, direction: e.direction, token: e.token, amount: 0, tlm: 0, counted: e.token !== 'DEF' }
         line.amount += e.amount
-        line.tlm += e.amount * rates[e.token]
+        line.tlm += tlmOf(e)
         lines.set(key, line)
       }
-      const list = [...lines.values()].sort((a, b) => b.tlm - a.tlm)
+      // Counted lines biggest first, then the DEF that is only listed.
+      const list = [...lines.values()].sort((a, b) => Number(b.counted) - Number(a.counted) || b.tlm - a.tlm || b.amount - a.amount)
       const date = new Date(start).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
       const title = back === 0 ? 'Today' : back === 1 ? 'Yesterday' : new Date(start).toLocaleDateString(undefined, { weekday: 'long' })
       return {
@@ -98,7 +111,7 @@ export function MiniLedger({ account }: { account: string }) {
         outTlm: list.filter((l) => l.direction === 'out').reduce((n, l) => n + l.tlm, 0)
       }
     })
-  }, [ledger.data, rates])
+  }, [ledger.data, tlmOf])
 
   const inAll = days?.reduce((n, d) => n + d.inTlm, 0) ?? 0
   const outAll = days?.reduce((n, d) => n + d.outTlm, 0) ?? 0
@@ -112,7 +125,7 @@ export function MiniLedger({ account }: { account: string }) {
           {days ? signed(net) : '…'}
           <i>TLM</i>
         </b>
-        <span className="num">{days ? `in ${n0(inAll)} · out ${n0(outAll)} · at today's prices` : ledger.isError ? 'The history did not load. Swipe down to try again.' : 'Reading your history…'}</span>
+        <span className="num">{days ? `in ${n0(inAll)} · out ${n0(outAll)} · at each day's prices` : ledger.isError ? 'The history did not load. Swipe down to try again.' : 'Reading your history…'}</span>
       </div>
 
       {days?.map((d) => {
@@ -132,10 +145,16 @@ export function MiniLedger({ account }: { account: string }) {
             {!d.lines.length && <p className="cl__none">Nothing that day.</p>}
             {shown.map((l) => (
               <div key={l.key} className="cl__ln">
-                <i className={l.direction === 'in' ? 'is-good' : 'is-bad'}>{l.direction === 'in' ? '+' : '−'}</i>
+                <i className={!l.counted ? '' : l.direction === 'in' ? 'is-good' : 'is-bad'}>{l.direction === 'in' ? '+' : '−'}</i>
                 <span>{l.label}</span>
                 <span className="cl__tok num">{l.token === 'TLM' ? 'TLM' : `${formatNumber(l.amount, l.amount >= 100 ? 0 : 2)} ${l.token}`}</span>
-                <span className="cl__v num">{n0(l.tlm)}</span>
+                {l.counted ? (
+                  <span className="cl__v num">{n0(l.tlm)}</span>
+                ) : (
+                  <span className="cl__v cl__nc" title="DEF counts where it is bought or sold on Alcor, so it is not counted twice">
+                    not counted
+                  </span>
+                )}
               </div>
             ))}
             {(hidden > 0 || expanded) && d.lines.length > SHOWN && (
