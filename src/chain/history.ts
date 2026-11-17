@@ -108,8 +108,16 @@ export interface HistoryAction {
  * How many times an action really ran. Hyperion folds identical actions of one transaction into a
  * single entry (fourteen claims paying 5 TLM each come back as one transfer), keeping one receipt
  * per execution for the contract and each account it notified; the contract's own receipts count.
+ *
+ * Hyperion also sometimes returns one transfer twice: once with the token contract's receipt (and
+ * the sender's), and again as an entry holding only a later notification's receipt (Alcor's, on a
+ * swap). That second entry is the same transfer, so it counts 0, not 1: counting it doubled every
+ * swap paid in (20,000 TLM to Alcor read as 40,000). An entry without receipts at all counts once.
  */
-export const timesRun = (a: HistoryAction) => a.receipts?.filter((r) => r.receiver === a.act.account).length || 1
+export const timesRun = (a: HistoryAction) => {
+  if (!a.receipts?.length) return 1
+  return a.receipts.filter((r) => r.receiver === a.act.account).length
+}
 
 /**
  * Every action matching the query, oldest first. `params` are Hyperion's own, for example
