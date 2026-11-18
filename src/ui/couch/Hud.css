@@ -74,8 +74,9 @@
 /* The balances: one slim bar, three amounts split by hairlines. */
 .couch.is-kitten.is-hud .couch__purse {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 10px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.1fr) minmax(0, 0.75fr);
+  flex: 1;
+  min-width: 0;
   height: 40px;
   border-radius: 13px;
   background: var(--hud-glass);
@@ -1168,4 +1169,156 @@
 .couch.is-kitten.is-hud .couch__label b.is-clock::before,
 .couch.is-kitten.is-hud .couch__label b.is-clock::after {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- Top row: the balances and the menu key ------------------------------------------------------ */
+
+/* Above the orb stage, so the open menu covers the napper. */
+.couch.is-kitten.is-hud .couch__top {
+  z-index: 6;
+  padding-top: max(10px, env(safe-area-inset-top, 0px));
+}
+
+.couch.is-kitten.is-hud .couch__toprow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.couch.is-kitten.is-hud .couch__menu {
+  position: relative;
+  flex: none;
+}
+
+.couch.is-kitten.is-hud .couch__menu-key {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--hud-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    var(--hud-shadow);
+  color: var(--cz-dim);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch.is-kitten.is-hud .couch__menu-key svg {
+  width: 16px;
+  height: 16px;
+}
+
+.couch.is-kitten.is-hud .couch__menu-key.is-open {
+  background: color-mix(in srgb, var(--cz-tx) 14%, transparent);
+  color: var(--cz-tx);
+}
+
+.couch.is-kitten.is-hud .couch__menu-key:focus-visible,
+.couch.is-kitten.is-hud .couch__pop button:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+
+/* The panel: solid (not glass), so the orb does not show through it. */
+.couch.is-kitten.is-hud .couch__pop {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 10px;
+  width: min(250px, calc(100vw - 28px));
+  padding: 12px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--kt-11) 92%, var(--cz-tx) 8%);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    0 14px 30px rgba(0, 0, 0, 0.4);
+  font-family: var(--hud-font);
+  animation: couch-pop-in 0.18s ease-out;
+}
+
+@keyframes couch-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.couch.is-kitten.is-hud .couch__pop-cap {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .couch__pop-pets,
+.couch.is-kitten.is-hud .couch__pop-tints {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.couch.is-kitten.is-hud .couch__pop-pets button {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--cz-tx) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cz-tx) 14%, transparent);
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .couch__pop-pets svg {
+  width: 26px;
+  height: 26px;
+}
+
+.couch.is-kitten.is-hud .couch__pop-pets button.is-on {
+  box-shadow: inset 0 0 0 2px var(--hud-accent);
+}
+
+.couch.is-kitten.is-hud .couch__pop-tints button {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  background: conic-gradient(var(--t1) 0 33%, var(--t2) 0 66%, var(--t3) 0) padding-box;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .couch__pop-tints button.is-on {
+  box-shadow: 0 0 0 2px var(--hud-accent);
+}
+
+.couch.is-kitten.is-hud .couch__pop-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--cz-tx) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cz-tx) 14%, transparent);
+  color: var(--cz-tx);
+  font-family: var(--hud-font);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .couch__pop-close svg {
+  width: 13px;
+  height: 13px;
 }

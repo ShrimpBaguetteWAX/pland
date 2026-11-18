@@ -5,7 +5,6 @@ import { useToasts } from '@/components/toast'
 import { refreshPlayer, useGameBalance } from '@/data/game'
 import { refreshToday } from '@/data/today'
 import { formatNanites, useNaniteBalance } from '@/data/nanites'
-import { CHIME_FOR, chimeNow, useChimeSchedule, useChimeSetting, type ChimeEvent } from '@/lib/chime'
 import { formatNumber } from '@/lib/format'
 import type { PlanLine } from '@/lib/loop'
 import { useNow } from '@/lib/time'
@@ -38,7 +37,7 @@ import './couch/Hud.css'
  * it is back. Round it a moon per other mission, each with its own timer. Under them two tablets
  * (the divisions out, the idle ones, which open a panel to send them to their best TLM mission) and
  * the mine as a bar that fills toward the next mine. It keeps the screen awake and buzzes when
- * something becomes ready; with the bell on it chimes too, also in a background tab.
+ * something becomes ready.
  *
  * The kitten shows the state: asleep while everything is out, eyes open when something is back,
  * happy when the loop is ready. The colours come in themes (couch/themes.ts), switched with the
@@ -104,28 +103,24 @@ const TABS: { page: Page; label: string; icon: string }[] = [
   { page: 3, label: 'Mats', icon: 'M12 3l8 5v8l-8 5-8-5V8z M4 8l8 5 8-5 M12 13v8' }
 ]
 
-/** The colour theme, remembered in this browser; a tap on the swatch moves on to the next one. */
-function useTint(): [KittenTheme, () => void] {
+/** The colour theme, remembered in this browser; picked in the menu. */
+function useTint(): [KittenTheme, (t: KittenTheme) => void] {
   const [tint, setTint] = useState<KittenTheme>(readTint)
-  const next = () =>
-    setTint((t) => {
-      const n = KITTEN_THEMES[(KITTEN_THEMES.indexOf(t) + 1) % KITTEN_THEMES.length]
-      saveTint(n)
-      return n
-    })
-  return [tint, next]
+  const pick = (t: KittenTheme) => {
+    saveTint(t)
+    setTint(t)
+  }
+  return [tint, pick]
 }
 
-/** Who naps on the cloud, remembered in this browser; a tap on the little face moves on to the next one. */
-function useAnimal(): [Animal, () => void] {
+/** Who naps on the cloud, remembered in this browser; picked in the menu. */
+function useAnimal(): [Animal, (a: Animal) => void] {
   const [animal, setAnimal] = useState<Animal>(readAnimal)
-  const next = () =>
-    setAnimal((a) => {
-      const n = ANIMALS[(ANIMALS.indexOf(a) + 1) % ANIMALS.length]
-      saveAnimal(n)
-      return n
-    })
-  return [animal, next]
+  const pick = (a: Animal) => {
+    saveAnimal(a)
+    setAnimal(a)
+  }
+  return [animal, pick]
 }
 
 /** The switch's little face: the current napper's head and ears, in its own colours. */
@@ -355,9 +350,22 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   /** The Deployed list for one mission only (a moon or the orb opened it), or every mission. */
   const [only, setOnly] = useState<number | null>(null)
   const card = useDockedToast()
-  const [tint, nextTint] = useTint()
-  const [animal, nextAnimal] = useAnimal()
-  const nextName = ANIMALS[(ANIMALS.indexOf(animal) + 1) % ANIMALS.length].name
+  const [tint, pickTint] = useTint()
+  const [animal, pickAnimal] = useAnimal()
+  /** The menu at the top right: every napper, every colour scheme, and Close. */
+  const [menu, setMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menu) return
+    const away = (e: PointerEvent) => !menuRef.current?.contains(e.target as Node) && setMenu(false)
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false)
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', key)
+    }
+  }, [menu])
   useCouchFonts()
   useWakeLock()
   usePinnedPage(tint.night)
@@ -389,19 +397,6 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
   const mineLeft = m.pickReadyAt ? Math.max(0, m.pickReadyAt - now) : null
 
-  // The bell: a chime booked for the next mine and for every division's return.
-  const [sound, setSound] = useChimeSetting()
-  const chimes: ChimeEvent[] = [
-    ...(mineOn && !m.busy && m.pickReadyAt && m.pickReadyAt > now ? [{ kind: 'mine' as const, at: m.pickReadyAt }] : []),
-    ...out.map((d) => ({ kind: 'loop' as const, at: d.unlockAt }))
-  ]
-  useChimeSchedule(sound, chimes)
-  const toggleSound = () => {
-    const next = !sound
-    setSound(next)
-    // This tap unlocks sound in the browser; the chime says it works.
-    if (next) chimeNow(CHIME_FOR.loop)
-  }
 
   const nextOut = out[0]
   // A bar or orb that is on never drops below a small start, so it doesn't vanish right after a mine or loop.
@@ -549,31 +544,6 @@ export default function Couch({ onClose }: { onClose: () => void }) {
       <Motifs id={tint.id} />
       <div className="couch__vignette" aria-hidden="true" />
 
-      <button type="button" className="couch__close" onClick={close} aria-label="Close couch mode">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        className="couch__tint"
-        onClick={nextTint}
-        style={{ '--t1': tint.swatch[0], '--t2': tint.swatch[1], '--t3': tint.swatch[2] } as React.CSSProperties}
-        aria-label={`Colours: ${tint.name}. Switch to ${KITTEN_THEMES[(KITTEN_THEMES.indexOf(tint) + 1) % KITTEN_THEMES.length].name}`}
-        title={`${tint.name} · tap for ${KITTEN_THEMES[(KITTEN_THEMES.indexOf(tint) + 1) % KITTEN_THEMES.length].name}`}
-      />
-
-      <button
-        type="button"
-        className="couch__pet"
-        onClick={nextAnimal}
-        aria-label={`Napping: ${animal.name}. Switch to ${nextName}`}
-        title={`${animal.name} · tap for ${nextName}`}
-      >
-        <PetFace animal={animal} t={tint.kitten} />
-      </button>
-
       {refreshing && (
         <div className="couch__refresh" role="status">
           <span aria-hidden="true" /> Refreshing…
@@ -596,6 +566,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           </svg>
         </div>
         {/* One bar, as a strategy game's resource bar: deposited TLM and DEF, and nanites. */}
+        <div className="couch__toprow">
         <div className="couch__purse">
           <span className="couch__coin" title={bank.data ? `${formatNumber(bank.data.tlm, 4)} TLM deposited with core.pdef` : 'TLM deposited'}>
             <img src="./img/Logo_token_TLM.png" alt="" />
@@ -616,28 +587,64 @@ export default function Couch({ onClose }: { onClose: () => void }) {
             <small>Nanites</small>
           </span>
         </div>
-        <button
-          type="button"
-          className="couch__bell"
-          aria-pressed={sound}
-          aria-label={sound ? 'Chime when ready: on' : 'Chime when ready: off'}
-          title={sound ? 'Chimes when a mine or a division is ready' : 'No sound'}
-          onClick={toggleSound}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z" />
-            <path d="M10 20a2 2 0 0 0 4 0" />
-            <path className="couch__bell-off" d="M4 4l16 16" />
-          </svg>
-        </button>
+          <div className="couch__menu" ref={menuRef}>
+            <button
+              type="button"
+              className={`couch__menu-key${menu ? ' is-open' : ''}`}
+              aria-haspopup="dialog"
+              aria-expanded={menu}
+              aria-label="Menu: napper, colours, close"
+              onClick={() => setMenu((v) => !v)}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="12" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="19" cy="12" r="2" />
+              </svg>
+            </button>
+            {menu && (
+              <div className="couch__pop" role="dialog" aria-label="Couch settings">
+                <span className="couch__pop-cap">Napping</span>
+                <div className="couch__pop-pets">
+                  {ANIMALS.map((x) => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      className={x === animal ? 'is-on' : ''}
+                      aria-pressed={x === animal}
+                      aria-label={x.name}
+                      title={x.name}
+                      onClick={() => pickAnimal(x)}
+                    >
+                      <PetFace animal={x} t={tint.kitten} />
+                    </button>
+                  ))}
+                </div>
+                <span className="couch__pop-cap">Colours</span>
+                <div className="couch__pop-tints">
+                  {KITTEN_THEMES.map((x) => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      className={x === tint ? 'is-on' : ''}
+                      aria-pressed={x === tint}
+                      aria-label={x.name}
+                      title={x.name}
+                      style={{ '--t1': x.swatch[0], '--t2': x.swatch[1], '--t3': x.swatch[2] } as React.CSSProperties}
+                      onClick={() => pickTint(x)}
+                    />
+                  ))}
+                </div>
+                <button type="button" className="couch__pop-close" onClick={close}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                  Close couch mode
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
       <main className="couch__stage" hidden={page !== 0}>
