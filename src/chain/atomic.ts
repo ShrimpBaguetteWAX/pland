@@ -407,6 +407,25 @@ async function limited<T>(fn: () => Promise<T>): Promise<T> {
 const inflight = new Map<string, Promise<AtomicAsset[]>>()
 
 export const atomic = {
+  /**
+   * Every asset id in an open offer the account sent, from the AtomicAssets API: 100 offers a page
+   * (the most it takes), all pages read in parallel after one count. Lags the chain a little.
+   */
+  async getOpenOfferAssetIds(sender: string): Promise<Set<string>> {
+    const count = Number(await limited(() => get<string | number>(`/atomicassets/v1/offers/_count${toQuery({ sender, state: 0 })}`)))
+    const pages = Number.isFinite(count) ? Math.min(200, Math.ceil(count / 100)) : 0
+    const batches = await Promise.all(
+      Array.from({ length: pages }, (_, i) =>
+        limited(() =>
+          get<{ sender_name: string; sender_assets: { asset_id: string }[] }[]>(
+            `/atomicassets/v1/offers${toQuery({ sender, state: 0, limit: 100, page: i + 1, sort: 'created', order: 'asc' })}`
+          )
+        )
+      )
+    )
+    return new Set(batches.flat().flatMap((o) => (o.sender_name === sender ? o.sender_assets.map((a) => String(a.asset_id)) : [])))
+  },
+
   /** Assets by id, batched into one request per 100 ids; identical concurrent batches share a request. */
   async getAssetsByIds(ids: string[]): Promise<AtomicAsset[]> {
     const unique = [...new Set(ids.filter((id) => id && id !== '0'))].sort()

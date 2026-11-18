@@ -2,8 +2,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 
 import { useToasts } from '@/components/toast'
-import { refreshPlayer } from '@/data/game'
-import { refreshToday, useTodayEarnings } from '@/data/today'
+import { refreshPlayer, useGameBalance } from '@/data/game'
+import { refreshToday } from '@/data/today'
 import { formatNanites, useNaniteBalance } from '@/data/nanites'
 import { CHIME_FOR, chimeNow, useChimeSchedule, useChimeSetting, type ChimeEvent } from '@/lib/chime'
 import { formatNumber } from '@/lib/format'
@@ -52,7 +52,9 @@ const clock = (ms: number) => {
   const x = s % 60
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`
 }
-const tlm = (n: number | undefined) => (n === undefined ? '–' : formatNumber(n, n >= 100 ? 0 : 2))
+/** A balance that fits a third of a phone: 8,784 · 123k · 1.2M. */
+const short = (n: number | undefined) =>
+  n === undefined ? '–' : n >= 1e6 ? `${formatNumber(n / 1e6, 1)}M` : n >= 1e5 ? `${formatNumber(n / 1e3, 0)}k` : formatNumber(n, n >= 100 ? 0 : 2)
 
 /** Couch mode's typefaces (Fredoka; Oxanium for the HUD's numbers and labels; Grenze Gotisch for Rose's big words), loaded only when it opens. */
 const FONT_HREF =
@@ -309,7 +311,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const now = useNow(1000)
   const loop = useLoopPlan(account, readCashOut())
   const m = useMining(now)
-  const today = useTodayEarnings(account)
+  const bank = useGameBalance(account || null)
   const nanites = useNaniteBalance(account || null)
   /** Which screen: the orb (0), the bank (1, a swipe to the left), the chests (2) or the materials (3). */
   const [page, setPage] = useState<Page>(0)
@@ -584,7 +586,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
       {page === 3 && account && <Materials account={account} />}
       {page === 4 && account && <MiniLedger account={account} />}
 
-      <header className="couch__top" aria-label="Earned today" hidden={page !== 0}>
+      <header className="couch__top" aria-label="Deposited balances" hidden={page !== 0}>
         <div className="couch__orn">
           <svg viewBox="0 0 46 14" aria-hidden="true">
             <path d="M23 1l5 6-5 6-5-6z" fill="#0a0606" stroke="currentColor" />
@@ -593,42 +595,27 @@ export default function Couch({ onClose }: { onClose: () => void }) {
             <circle cx="32" cy="7" r="1.6" fill="currentColor" />
           </svg>
         </div>
-        <div className="couch__plaques">
-          <div className="couch__plaque">
-            <i className="couch__chip-ic" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 19L19 5M15 5h4v4M5 5l14 14M9 19H5v-4" />
-              </svg>
-            </i>
-            <small>Divisions · today</small>
-            <b className="num">
-              {tlm(today.data?.divisions)}
-              <i>TLM</i>
-            </b>
-          </div>
-          <div className="couch__plaque is-mine">
-            <i className="couch__chip-ic" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <path d="M4 9.5c4-5 12-5 16 0" />
-                <path d="M12 6.5v14.5" />
-              </svg>
-            </i>
-            <small>Mining · today</small>
-            <b className="num">
-              {tlm(today.data?.mining)}
-              <i>TLM</i>
-            </b>
-          </div>
-        </div>
-        {nanites !== undefined && (
-          <p className="couch__nan" title="Nanites on nanites.pdef: they restore your divisions' wear">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+        {/* One bar, as a strategy game's resource bar: deposited TLM and DEF, and nanites. */}
+        <div className="couch__purse">
+          <span className="couch__coin" title={bank.data ? `${formatNumber(bank.data.tlm, 4)} TLM deposited with core.pdef` : 'TLM deposited'}>
+            <img src="./img/Logo_token_TLM.png" alt="" />
+            <b className="num">{short(bank.data?.tlm)}</b>
+            <small>TLM</small>
+          </span>
+          <span className="couch__coin" title={bank.data ? `${formatNumber(bank.data.def, 4)} DEF deposited with core.pdef` : 'DEF deposited'}>
+            <img src="./img/Logo_token_DEF.webp" alt="" />
+            <b className="num">{short(bank.data?.def)}</b>
+            <small>DEF</small>
+          </span>
+          <span className="couch__coin is-nan" title={nanites !== undefined ? `${formatNanites(nanites)} nanites: they restore your divisions' wear` : 'Nanites'}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
-              <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
+              <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
             </svg>
-            <b className="num">{formatNanites(nanites)}</b> nanites
-          </p>
-        )}
+            <b className="num">{short(nanites)}</b>
+            <small>Nanites</small>
+          </span>
+        </div>
         <button
           type="button"
           className="couch__bell"
@@ -719,51 +706,50 @@ export default function Couch({ onClose }: { onClose: () => void }) {
       </main>
 
       <section className="couch__lower" hidden={page !== 0}>
+        {/* The battle button: two slim status pills on the left, one raised Mine button on the right. */}
         <div className={`couch__dock${card ? ' is-carding' : ''}`}>
-          <div className="couch__tablets" aria-hidden={!!card}>
-            <button type="button" className="couch__tablet" onClick={() => openList(null)}>
-              <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <path d="M6 26L24 8M24 4v4h4M26 26L8 8M8 4v4H4" />
-                <path d="M4 22l6 6M28 22l-6 6" opacity=".7" />
-              </svg>
-              <b className="num">
-                {out.length + back.length}
-                <small>Deployed</small>
-              </b>
-              <span>
-                {back.length ? (
-                  `${back.length} returned`
-                ) : nextOut ? (
-                  <>
-                    #{nextOut.divisionId} back in <em className="num">{clock(nextOut.unlockAt - now)}</em>
-                  </>
-                ) : (
-                  'None out'
-                )}
-              </span>
-            </button>
+          <div className="couch__bb" aria-hidden={!!card}>
+            <div className="couch__pills">
+              <button
+                type="button"
+                className="couch__pill"
+                style={{ '--p': back.length ? 1 : nextOut ? share(nextOut) : 0 } as React.CSSProperties}
+                onClick={() => openList(null)}
+                aria-label={`${out.length + back.length} deployed${back.length ? `, ${back.length} returned` : nextOut ? `, #${nextOut.divisionId} back in ${clock(nextOut.unlockAt - now)}` : ''}`}
+              >
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 26L24 8M24 4v4h4M26 26L8 8M8 4v4H4" />
+                </svg>
+                <b className="num">{out.length + back.length}</b>
+                <span>out</span>
+                <em className="num">{back.length ? `${back.length} back` : nextOut ? `#${nextOut.divisionId} · ${clock(nextOut.unlockAt - now)}` : 'none'}</em>
+              </button>
+              <button
+                type="button"
+                className={`couch__pill${sendable.length ? ' is-alert' : ''}`}
+                onClick={() => setPanel('idle')}
+                aria-label={`${loop.idle.length} idle${sendable.length ? ', ready for orders' : ''}`}
+              >
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 29V3" />
+                  <path d="M9 4h16l-4 6 4 6H9" fill="currentColor" fillOpacity=".25" />
+                </svg>
+                <b className="num">{loop.idle.length}</b>
+                <span>idle</span>
+                <em>{sendable.length ? 'Send' : loop.idle.length ? 'No mission' : 'All out'}</em>
+              </button>
+            </div>
             <button
               type="button"
-              className={`couch__tablet${sendable.length ? ' is-alert' : ''}`}
-              onClick={() => setPanel('idle')}
+              className={`couch__go${mineReady ? ' is-ready' : ''}${m.busy ? ' is-working' : ''}${!mineOn ? ' is-off' : ''}`}
+              style={{ '--p': mineProgress } as React.CSSProperties}
+              onClick={() => void doMine()}
+              disabled={!mineReady}
+              aria-label={mineReady ? `Mine, about ${formatNumber(m.pick?.estimatedTlm ?? 0, 2)} TLM` : `Mine: ${mineText}`}
             >
-              <svg
-                viewBox="0 0 32 32"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M8 29V3" />
-                <path d="M8 4h17l-4 6 4 6H8" fill="currentColor" fillOpacity=".25" />
-              </svg>
-              <b className="num">
-                {loop.idle.length}
-                <small>Idle</small>
-              </b>
-              <span>{sendable.length ? 'Ready for orders' : loop.idle.length ? 'No TLM mission open' : 'All are out'}</span>
+              <i className="couch__go-fill" aria-hidden="true" />
+              <b>Mine</b>
+              <span className="num">{mineReady ? `≈ ${formatNumber(m.pick?.estimatedTlm ?? 0, 2)} TLM` : mineText}</span>
             </button>
           </div>
           {card && (
@@ -788,22 +774,6 @@ export default function Couch({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </div>
-        <button
-          type="button"
-          className={`couch__mine${mineReady ? ' is-ready' : ''}${m.busy ? ' is-working' : ''}`}
-          style={{ '--f': mineProgress } as React.CSSProperties}
-          onClick={() => void doMine()}
-          disabled={!mineReady}
-          aria-label={mineReady ? `Mine, about ${formatNumber(m.pick?.estimatedTlm ?? 0, 2)} TLM` : `Mine: ${mineText}`}
-        >
-          <i className="couch__mine-fill" aria-hidden="true" />
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-            <path d="M4 9.5c4-5 12-5 16 0" />
-            <path d="M12 6.5v14.5" />
-          </svg>
-          <b>Mine</b>
-          <span className="num">{mineReady ? `≈ ${formatNumber(m.pick?.estimatedTlm ?? 0, 2)} TLM` : mineText}</span>
-        </button>
       </section>
 
       {/* The pages, always at the bottom: the orb raised in the middle, a dot where something waits. */}

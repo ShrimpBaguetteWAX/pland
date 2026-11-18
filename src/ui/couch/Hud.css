@@ -71,6 +71,65 @@
   background: linear-gradient(180deg, #ffd0a6, var(--cz-lava));
 }
 
+/* The balances: one slim bar, three amounts split by hairlines. */
+.couch.is-kitten.is-hud .couch__purse {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 10px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--hud-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent),
+    var(--hud-shadow);
+  font-family: var(--hud-font);
+}
+.couch.is-kitten.is-hud .couch__coin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+.couch.is-kitten.is-hud .couch__coin + .couch__coin {
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--cz-tx) 14%, transparent);
+}
+.couch.is-kitten.is-hud .couch__coin img,
+.couch.is-kitten.is-hud .couch__coin svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+/* The token logos are dark: a soft light disc behind them keeps them visible on every theme. */
+.couch.is-kitten.is-hud .couch__coin img {
+  width: 22px;
+  height: 22px;
+  padding: 2px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.92) 55%, rgba(255, 255, 255, 0.45));
+}
+.couch.is-kitten.is-hud .couch__coin.is-nan svg {
+  color: #6fd3f0;
+}
+.couch.is-kitten.is-hud .couch__coin b {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--cz-tx);
+}
+/* Icon and number only, as in a game's resource bar; the unit stays for screen readers. */
+.couch.is-kitten.is-hud .couch__coin small {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .couch.is-kitten.is-hud .couch__chip-ic svg {
   width: 17px;
   height: 17px;
@@ -881,4 +940,232 @@
   font-weight: 500;
   color: var(--cz-faint);
   cursor: help;
+}
+
+/* ---- The dock: battle button --------------------------------------------------------------------- */
+/* Two slim status pills and one raised Mine button in one row. No glow: state shows in fill and edge. */
+
+.couch.is-kitten.is-hud .couch__dock.is-carding .couch__bb {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.couch.is-kitten.is-hud .couch__bb {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px;
+  gap: 9px;
+  height: 68px;
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+
+.couch.is-kitten.is-hud .couch__pills {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 6px;
+  min-width: 0;
+}
+
+.couch.is-kitten.is-hud .couch__pill {
+  --p: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0 10px 0 9px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--hud-glass);
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+  color: var(--cz-dim);
+  font-family: var(--hud-font);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The fill: time gone by toward the next return, in the accent, with a solid leading edge. */
+.couch.is-kitten.is-hud .couch__pill::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--p) * 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--hud-accent) 26%, transparent), color-mix(in srgb, var(--hud-accent) 52%, transparent));
+  box-shadow: inset -2px 0 0 var(--hud-accent);
+  transition: width 1s linear;
+  pointer-events: none;
+}
+
+.couch.is-kitten.is-hud .couch__pill > * {
+  position: relative;
+}
+
+.couch.is-kitten.is-hud .couch__pill svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--cz-tx);
+}
+
+.couch.is-kitten.is-hud .couch__pill b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cz-tx);
+}
+
+.couch.is-kitten.is-hud .couch__pill em {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--cz-tx);
+}
+
+.couch.is-kitten.is-hud .couch__pill:active {
+  transform: translateY(1px);
+}
+
+.couch.is-kitten.is-hud .couch__pill:focus-visible,
+.couch.is-kitten.is-hud .couch__go:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+
+/* Divisions waiting for orders: an accent edge and a solid Send key. */
+.couch.is-kitten.is-hud .couch__pill.is-alert {
+  box-shadow: inset 0 0 0 1.5px var(--hud-accent);
+}
+
+.couch.is-kitten.is-hud .couch__pill.is-alert em {
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: var(--hud-accent);
+  color: #fff;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Mine: a raised key on a solid ledge; pressed, it sinks onto it. */
+.couch.is-kitten.is-hud .couch__go {
+  --p: 0;
+  --go: var(--cz-lava);
+  --go-ledge: color-mix(in srgb, var(--go) 62%, #000);
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--hud-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    0 5px 0 color-mix(in srgb, var(--cz-tx) 24%, transparent),
+    0 10px 16px rgba(0, 0, 0, 0.22);
+  color: var(--cz-tx);
+  font-family: var(--hud-font);
+  transform: translateY(-3px);
+  overflow: hidden;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch.is-kitten.is-hud .couch__go > * {
+  position: relative;
+}
+
+.couch.is-kitten.is-hud .couch__go b {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.couch.is-kitten.is-hud .couch__go span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Cooling: the key fills up from the bottom in solid lava, with a bright top edge. */
+.couch.is-kitten.is-hud .couch__go-fill {
+  position: absolute;
+  inset: auto 0 0;
+  height: calc(var(--p) * 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--go) 78%, transparent), color-mix(in srgb, var(--go) 52%, transparent));
+  box-shadow: inset 0 2px 0 var(--go);
+  transition: height 1s linear;
+}
+
+.couch.is-kitten.is-hud .couch__go.is-off .couch__go-fill {
+  display: none;
+}
+
+.couch.is-kitten.is-hud .couch__go.is-off {
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .couch__go.is-ready {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--go) 55%, #fff) 0%, var(--go) 58%, color-mix(in srgb, var(--go) 88%, #000) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.14),
+    0 5px 0 var(--go-ledge),
+    0 10px 16px rgba(0, 0, 0, 0.3);
+  color: #3a1406;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .couch__go.is-ready .couch__go-fill {
+  display: none;
+}
+
+.couch.is-kitten.is-hud .couch__go.is-ready span {
+  color: #5a2410;
+}
+
+.couch.is-kitten.is-hud .couch__go.is-ready:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.4),
+    0 1px 0 var(--go-ledge),
+    0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch.is-kitten.is-hud .couch__pill::before,
+  .couch.is-kitten.is-hud .couch__go-fill {
+    transition: none;
+  }
+}
+
+/* ---- Flat: no glow --------------------------------------------------------------------------------- */
+/* The night is one calm colour with a faint fall-off to the bottom: no radial bloom behind the orb, no
+   dark vignette, no halo around the orb, no glowing timer or progress arc. Themes keep their colours. */
+
+.couch.is-kitten.is-hud .couch__pit::before {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kt-11), #fff 4%), var(--kt-11) 60%);
+}
+
+.couch.is-kitten.is-hud .couch__vignette,
+.couch.is-kitten.is-hud .couch__halo {
+  display: none;
+}
+
+.couch.is-kitten.is-hud .couch__arc {
+  filter: none;
+}
+
+.couch.is-kitten.is-hud .couch__label b,
+.couch.is-kitten.is-hud .couch__label b.is-clock,
+.couch.is-kitten.is-hud .couch__label b.is-clock::before,
+.couch.is-kitten.is-hud .couch__label b.is-clock::after {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
