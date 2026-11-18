@@ -62,6 +62,8 @@ const REPRICE_PER_TX = 8
 /** AtomicMarket's cut besides the collection's: 1 % each to the listing and the buying marketplace. */
 const MARKET_FEES = 0.02
 
+/** Your own listings: up to 10,000 (pages of 100), read in parallel after one count. */
+const OWN_SALE_PAGES = 100
 const waxOf = (s: AtomicSale) => Number(s.price.amount) / 10 ** s.price.token_precision
 const nameOf = (a: AtomicAsset) => String(a.data?.name ?? `#${a.template?.template_id ?? a.asset_id}`)
 const chunk = <T,>(list: T[], size: number): T[][] => Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, (i + 1) * size))
@@ -115,7 +117,7 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
   })
   const mine = useQuery({
     queryKey: ['sell-mine', account, collection],
-    queryFn: () => atomic.getSales({ seller: account, collection_name: collection, symbol: 'WAX' }, 10),
+    queryFn: () => atomic.getSales({ seller: account, collection_name: collection, symbol: 'WAX' }, OWN_SALE_PAGES),
     staleTime: 30_000
   })
   // The chain's word on what is listed: the API above lags behind fresh listings.
@@ -611,7 +613,7 @@ function MyListings({ sales, floors, collection }: { sales: AtomicSale[]; floors
       <button type="button" className="ms__mine-hd" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <b>Your listings</b>
         <span className="muted">
-          {rows.length} · {formatNumber(total, 2)} WAX · dearest first
+          {formatNumber(rows.length, 0)} · {formatNumber(total, 2)} WAX · dearest first
         </span>
         <span className="ms__mine-chev" aria-hidden="true">
           {open ? '▴' : '▾'}

@@ -23,7 +23,7 @@ export function RepriceMine({ account }: { account: string }) {
   const mine = useQuery({
     queryKey: ['shop-listings', account],
     queryFn: async () =>
-      (await Promise.all(COLLECTIONS.map((c) => atomic.getSales({ seller: account, collection_name: c, symbol: 'WAX' }, 10)))).flat()
+      (await Promise.all(COLLECTIONS.map((c) => atomic.getSales({ seller: account, collection_name: c, symbol: 'WAX' }, 100)))).flat()
         .filter((s) => s.maker_marketplace === BUY_MARKETPLACE && s.assets.length === 1 && s.assets[0].template),
     staleTime: 30_000,
     refetchInterval: 60_000
