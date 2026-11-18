@@ -68,6 +68,32 @@ function setUpRecently(): boolean {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/*
+ * The same for a change of actions: right after this browser linked a new list, a read from a node
+ * a few blocks behind still shows the old one. Believing it would put the old list back here, and
+ * the newly ticked actions would go to the wallet again. For a few minutes the list linked here
+ * wins over a read that differs from it.
+ */
+const JUST_LINKED = 'pd-army.autosign.linkedAt'
+
+/** Called right after this browser linked `keys` on the chain. */
+export function markJustLinked(keys: string[]) {
+  try {
+    localStorage.setItem(JUST_LINKED, JSON.stringify({ at: Date.now(), keys }))
+  } catch {
+    /* storage blocked: the next read decides */
+  }
+}
+function linkedRecently(): string[] | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(JUST_LINKED) ?? 'null') as { at: number; keys: string[] } | null
+    return v && Date.now() - v.at < GRACE_MS && Array.isArray(v.keys) ? v.keys : null
+  } catch {
+    return null
+  }
+}
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((k) => b.includes(k))
+
 async function normaliseKey(key: unknown): Promise<string> {
   const { PublicKey } = await wharf()
   return String(PublicKey.from(String(key)))
@@ -129,10 +155,27 @@ export async function syncAutoSign(session: Session): Promise<AutoSignReading | 
     }
     if (!reading.active && setUpRecently()) reading = { ...reading, active: true, exists: true }
   }
+  const recent = linkedRecently()
+  if (reading.exists && recent && !sameSet(reading.links, recent)) reading = { ...reading, links: recent }
+
+  if (plugin && !reading.active) {
+    // Taken away in another browser: back to the wallet for everything, as WharfKit does on removal.
+    ;(session as unknown as { _walletPlugin: unknown })._walletPlugin = plugin.getPrimaryWallet()
+    await (session as unknown as { onPersist?: (s: Session) => Promise<void> }).onPersist?.(session)
+  }
+  if (reading.exists) await applyLinks(session, reading.links, reading.active)
+  return reading
+}
+
+/**
+ * Puts `links` in this browser's key wallet (what it signs by itself) and in WharfKit's key manager
+ * (what an update of the links compares the chain with), and keeps them as the picked actions.
+ */
+export async function applyLinks(session: Session, links: string[], active = true) {
   // WharfKit compares whitelist entries with .equals, so they must be its Name objects.
   const { Name } = await wharf()
   const byContract = new Map<string, string[]>()
-  for (const k of reading.links) {
+  for (const k of links) {
     const [contract, action] = k.split('::')
     byContract.set(contract, [...(byContract.get(contract) ?? []), ...(action ? [action] : [])])
   }
@@ -140,18 +183,15 @@ export async function syncAutoSign(session: Session): Promise<AutoSignReading | 
     contract: Name.from(contract),
     actions: actions.map((a) => Name.from(a))
   }))
-
-  if (plugin) {
-    if (reading.active) plugin.whitelist = list
-    // Taken away in another browser: back to the wallet for everything, as WharfKit does on removal.
-    else (session as unknown as { _walletPlugin: unknown })._walletPlugin = plugin.getPrimaryWallet()
+  const plugin = keyWallet(session)
+  if (plugin && active) {
+    plugin.whitelist = list
     await (session as unknown as { onPersist?: (s: Session) => Promise<void> }).onPersist?.(session)
   }
   const manager = (session as unknown as { sessionKeyManager?: { whitelist: unknown } }).sessionKeyManager
-  if (manager && reading.exists) manager.whitelist = list
+  if (manager) manager.whitelist = list
   // What Settings shows and the next setup starts from: the shared list, not this browser's memory.
-  if (reading.exists) saveActions(reading.links)
-  return reading
+  saveActions(links)
 }
 
 /** Whether the chain turned down who signed (a key no longer on the permission, an action unlinked). */

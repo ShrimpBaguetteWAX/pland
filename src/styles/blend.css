@@ -941,3 +941,27 @@
 .nn__acts {
   flex-wrap: nowrap;
 }
+
+.nn__buy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  margin: 4px 0 12px;
+}
+.nn__want {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.nn__want input {
+  width: 130px;
+  max-width: 100%;
+}
+.nn__go {
+  justify-self: start;
+}

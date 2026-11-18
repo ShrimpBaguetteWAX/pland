@@ -89,7 +89,7 @@ export function Settings() {
       'save',
       async () => {
         await reloadAutoSign()
-        if (on) await syncAutoSign()
+        if (on) await syncAutoSign(picked)
       },
       on ? 'Auto-sign actions updated' : 'Saved'
     )

@@ -4,7 +4,7 @@ import { APP_NAME, CHAIN_ID } from '@/chain/config'
 import { endpointPool } from '@/chain/endpoints'
 
 import { AUTO_SIGN_PERMISSION, savedActions, whitelistOf } from './autoSign'
-import { isAuthorityError, markJustSetUp, signsWithKey, syncAutoSign as matchChain, walletOnly } from './autoSignSync'
+import { applyLinks, isAuthorityError, markJustLinked, markJustSetUp, signsWithKey, syncAutoSign as matchChain, walletOnly } from './autoSignSync'
 
 let kit: Promise<SessionKit> | null = null
 let current: Session | undefined
@@ -74,7 +74,7 @@ export function isUserCancel(err: unknown): boolean {
   return /cancel|closed|rejected by user|user rejected|denied/i.test(message)
 }
 
-export async function restoreSession(): Promise<Session | undefined> {
+export async function restoreSession(match = true): Promise<Session | undefined> {
   if (!hasStoredSession()) return undefined
   const k = await getKit()
   try {
@@ -83,7 +83,7 @@ export async function restoreSession(): Promise<Session | undefined> {
     current = undefined
   }
   // Auto-sign may have been changed or turned off in another browser: let the chain decide.
-  if (current) void matchChain(current)
+  if (current && match) void matchChain(current)
   return current
 }
 
@@ -216,10 +216,16 @@ export async function enableAutoSign(): Promise<void> {
   markJustSetUp()
 }
 
-/** Brings the on-chain links in line with the picked actions: one wallet signature. */
-export async function syncAutoSign(): Promise<void> {
+/**
+ * Links exactly `keys` on the chain: one wallet signature (none when the chain has them already).
+ * The list is set right before the update, as WharfKit links only what differs from its own list,
+ * and a chain read finishing in between used to put the old list back: Save then did nothing.
+ */
+export async function syncAutoSign(keys: string[]): Promise<void> {
   const session = await currentSession()
+  await applyLinks(session, keys)
   await session.updateSessionKeyLinks()
+  markJustLinked(keys)
 }
 
 /** Removes the session key from the account: one wallet signature. */
@@ -232,5 +238,6 @@ export async function disableAutoSign(): Promise<void> {
 export async function reloadAutoSign(): Promise<void> {
   kit = null
   current = undefined
-  await restoreSession()
+  // No chain read here: it would put the chain's list back over the one just picked.
+  await restoreSession(false)
 }
