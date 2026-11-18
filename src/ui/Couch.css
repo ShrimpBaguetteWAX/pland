@@ -2193,3 +2193,28 @@ html.is-couch .couch {
   font-size: 11px;
   color: var(--cz-dim);
 }
+
+/* The nanite balance under the plaques: one quiet line. */
+.couch__nan {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: var(--cz-faint);
+  font-family: var(--cz-cap);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.couch__nan svg {
+  width: 13px;
+  height: 13px;
+  color: var(--cz-gold);
+}
+.couch__nan b {
+  color: var(--cz-tx);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 1px #000;
+}

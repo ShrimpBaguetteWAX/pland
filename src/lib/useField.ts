@@ -4,6 +4,7 @@ import { claimMission, deployActions } from '@/chain/actions/pd'
 import { useArmy, useDeployments, useGameBalance, useMarket, useMissionConfig, usePlayer, type Deployment, type Division } from '@/data/game'
 import { useTransaction } from '@/wallet/useTransaction'
 
+import { claimIfStillLocked } from './claimCheck'
 import { coveredBy, walletCosts, walletPart } from './deposit'
 import { formatNumber } from './format'
 import { missionEconomics, tlmPerHour, type MissionEconomics } from './loop'
@@ -128,7 +129,8 @@ export function useField(account: string): Field {
           settle: true,
           success: rest.length ? `${back.length} claimed, #${first.divisionId} sent back out` : `#${first.divisionId} claimed and sent back out`
         },
-        ...rest.map((x) => ({ build: (a: string, p: string) => out(a, p, x), success: `#${x.divisionId} sent back to ${econ.get(x.missionId)?.title ?? 'its mission'}` }))
+        // Each later join waits for its claim to show on the chain, and claims itself if it never does (claimCheck.ts).
+        ...rest.map((x) => ({ build: async (a: string, p: string) => [...(await claimIfStillLocked(a, p, x)), ...out(a, p, x)], success: `#${x.divisionId} sent back to ${econ.get(x.missionId)?.title ?? 'its mission'}` }))
       ],
       back.length === 1 ? `loop-${first.divisionId}` : 'loop-all',
       'Claim & redeploy'

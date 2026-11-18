@@ -7,6 +7,7 @@ import { chainDate, shortDuration } from '@/lib/time'
 import { useField } from '@/lib/useField'
 import { useMarket, useRewardPool } from '@/data/game'
 import { useNftFloors, useSwapPools } from '@/data/market'
+import { useNanitePrice } from '@/data/nanites'
 import { receiveFor } from '@/lib/pool'
 
 import { Portrait, rarityColor } from './Art'
@@ -156,6 +157,25 @@ export function Missions({ account, spectating }: { account: string; spectating:
     }
   }, [floors.data, pools.data])
 
+  // Every join wears the division down by the mission's attack plus defense requirement; a nanite
+  // restores points_per_nanite of it. The repair is priced at the cheapest nanite on the market
+  // (the refinery material with the lowest listing per nanite), as TLM through the WAX → TLM pool.
+  const nanite = useNanitePrice()
+  /** The TLM a cycle's repair costs; 0 before the nanite price is known. */
+  const repairTlm = useMemo(() => {
+    const tlmPool = pools.data?.tlm
+    const ppn = nanite.config?.pointsPerNanite ?? 0
+    const wpn = nanite.price?.waxPerNanite
+    return (e: MissionEconomics): number => (tlmPool && ppn > 0 && wpn ? receiveFor(tlmPool, 'WAX', ((e.minAtk + e.minDef) / ppn) * wpn) : 0)
+  }, [pools.data, nanite.config, nanite.price])
+  /** The repair, for the efficiency tooltip. */
+  const repairNote = (e: MissionEconomics): string | undefined => {
+    const ppn = nanite.config?.pointsPerNanite
+    if (!ppn || !nanite.price) return nanite.config ? undefined : 'Reading the nanite refinery…'
+    const n = (e.minAtk + e.minDef) / ppn
+    return `Repair counted: ${formatNumber(e.minAtk + e.minDef, 0)} wear a cycle = ${formatNumber(n, 2)} nanites at ${formatNumber(nanite.price.waxPerNanite, 2)} WAX each (the cheapest refinery material) ≈ ${formatNumber(repairTlm(e), 1)} TLM`
+  }
+
   /** How an NFT reward was valued, for the efficiency tooltip. */
   const nftNote = (e: MissionEconomics): string | undefined => {
     if (!e.rewardNft) return undefined
@@ -180,7 +200,8 @@ export function Missions({ account, spectating }: { account: string; spectating:
       // Tokens after swaps, plus the NFT at its floor when it has one; an NFT-only mission waits for its floor.
       const nft = nftTlm(e)
       const nftPerHour = nft && cycleSeconds(e, assumed) > 0 ? (nft / cycleSeconds(e, assumed)) * 3600 : 0
-      const efficiency = need > 0 && (isTokenLoop(e) || nft !== null && nft > 0) ? ((tlmPerHour(e, assumed, market) + nftPerHour) / need) * 100 : null
+      const repairPerHour = cycleSeconds(e, assumed) > 0 ? (repairTlm(e) / cycleSeconds(e, assumed)) * 3600 : 0
+      const efficiency = need > 0 && (isTokenLoop(e) || nft !== null && nft > 0) ? ((tlmPerHour(e, assumed, market) + nftPerHour - repairPerHour) / need) * 100 : null
       // Shards have no price: a shard-only mission gets its own score, in shards.
       const cycle = cycleSeconds(e, assumed)
       const shardEff = efficiency === null && need > 0 && e.rewardShards > 0 && cycle > 0 ? ((e.rewardShards / cycle) * 3600 * 100) / need : null
@@ -213,7 +234,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
     })
     // What the picked divisions earn first; missions they cannot take after, by efficiency.
     return shown.sort((a, b) => Number(b.fits) - Number(a.fits) || (b.perHour ?? -1e9) - (a.perHour ?? -1e9) || (b.efficiency ?? -1e9) - (a.efficiency ?? -1e9) || a.e.title.localeCompare(b.e.title))
-  }, [econ, home, chosen, market, movePer100, field, now, filter, nftTlm])
+  }, [econ, home, chosen, market, movePer100, field, now, filter, nftTlm, repairTlm])
   const bestEfficiency = rows.reduce((n, r) => Math.max(n, r.efficiency ?? 0), 0)
   const bestShardEff = rows.reduce((n, r) => Math.max(n, r.shardEff ?? 0), 0)
 
@@ -395,7 +416,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
                 </td>
                 <td>
                   {efficiency !== null ? (
-                    <EffRing score={efficiency} share={bestEfficiency > 0 ? efficiency / bestEfficiency : 0} note={nftNote(e)} />
+                    <EffRing score={efficiency} share={bestEfficiency > 0 ? efficiency / bestEfficiency : 0} note={[nftNote(e), repairNote(e)].filter(Boolean).join('. ') || undefined} />
                   ) : shardEff !== null ? (
                     <EffRing
                       unit="shards"

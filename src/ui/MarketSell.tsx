@@ -224,7 +224,8 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
   )
 
   // ---- The step list: listing, or moving listings to the lowest ----------------------------------
-  const [plan, setPlan] = useState<{ kind: 'list' | 'reprice'; steps: Step[] } | null>(null)
+  /** review: for a move to the lowest, every NFT with its price now and its new price, shown before signing. */
+  const [plan, setPlan] = useState<{ kind: 'list' | 'reprice'; steps: Step[]; review?: { name: string; from: number; to: number }[] } | null>(null)
   const [running, setRunning] = useState(false)
   const [stopAsked, setStopAsked] = useState(false)
   /** Read inside the signing loop, which a state change does not reach. */
@@ -250,6 +251,7 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
     })
     setPlan({
       kind: 'reprice',
+      review: items.map((x) => ({ name: x.name, from: x.from, to: x.priceWax })).sort((a, b) => b.from - b.to - (a.from - a.to) || a.name.localeCompare(b.name)),
       steps: chunk(items, REPRICE_PER_TX).map((part) => ({
         label: `Move ${part.length}: ${summary(part.map((p) => p.name))} to the lowest`,
         build: (a, p) => repriceSalesActions(a, p, part, BUY_MARKETPLACE),
@@ -435,6 +437,7 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
               )}
             </span>
           </div>
+          {plan.review && <RepriceReview rows={plan.review} />}
           <ol className="ms__steps">
             {plan.steps.map((s, i) => (
               <li key={i} className={`is-${s.state}`}>
@@ -449,6 +452,8 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
           <p className="help">Each step is one transaction for your wallet to sign. A refused or failed one stops the list; Go on picks it up again.</p>
         </section>
       )}
+
+      {(mine.data?.length ?? 0) > 0 && <MyListings sales={mine.data!} floors={myFloors.data} collection={collection} />}
 
       <div className="ms__filter">
         <button type="button" className={`ms__chip${notSellingOnly ? ' is-on' : ''}`} aria-pressed={notSellingOnly} onClick={() => setNotSellingOnly((v) => !v)}>
@@ -551,3 +556,119 @@ export function MarketSell({ account, spectating }: { account: string; spectatin
   )
 }
 
+
+/** Every listing a move to the lowest changes: listed at, new price, and the difference. */
+function RepriceReview({ rows }: { rows: { name: string; from: number; to: number }[] }) {
+  const from = rows.reduce((n, r) => n + r.from, 0)
+  const to = rows.reduce((n, r) => n + r.to, 0)
+  return (
+    <div className="ms__review">
+      <div className="ms__scroll">
+        <table className="num">
+          <thead>
+            <tr>
+              <th>NFT</th>
+              <th>Listed at</th>
+              <th>New price</th>
+              <th>Difference</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td className="ms__name">
+                  <b>{r.name}</b>
+                </td>
+                <td>{formatNumber(r.from, 2)}</td>
+                <td>{formatNumber(r.to, 2)}</td>
+                <td className="c-bad">
+                  −{formatNumber(r.from - r.to, 2)} <small className="muted">({formatNumber(r.from > 0 ? ((r.from - r.to) / r.from) * 100 : 0, 0)}%)</small>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>{rows.length} listings</th>
+              <th>{formatNumber(from, 2)} WAX</th>
+              <th>{formatNumber(to, 2)} WAX</th>
+              <th className="c-bad">−{formatNumber(from - to, 2)} WAX</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+/** Your listings in this collection, the dearest first, each against the lowest listing of its template. */
+function MyListings({ sales, floors, collection }: { sales: AtomicSale[]; floors: Map<string, number> | undefined; collection: string }) {
+  const [open, setOpen] = useState(true)
+  const rows = [...sales].sort((a, b) => waxOf(b) - waxOf(a))
+  const total = rows.reduce((n, x) => n + waxOf(x), 0)
+  return (
+    <section className="box ms__mine" aria-label="Your listings">
+      <button type="button" className="ms__mine-hd" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <b>Your listings</b>
+        <span className="muted">
+          {rows.length} · {formatNumber(total, 2)} WAX · dearest first
+        </span>
+        <span className="ms__mine-chev" aria-hidden="true">
+          {open ? '▴' : '▾'}
+        </span>
+      </button>
+      {open && (
+        <div className="ms__review">
+          <div className="ms__scroll">
+            <table className="num">
+              <thead>
+                <tr>
+                  <th>NFT</th>
+                  <th>Listed at</th>
+                  <th>Lowest</th>
+                  <th>Above it</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((x) => {
+                  const a = x.assets[0]
+                  const t = x.assets.length === 1 ? a?.template?.template_id : undefined
+                  const low = t ? floors?.get(t) : undefined
+                  const price = waxOf(x)
+                  const over = low !== undefined ? price - low : null
+                  const img = a?.data?.img ? String(a.data.img) : undefined
+                  const srcs = [...(collection === 'alien.worlds' && t ? [`./img/aw-cards/${t}.webp`] : []), ...(img ? imageSources(img) : [])]
+                  return (
+                    <tr key={x.sale_id}>
+                      <td className="ms__name">
+                        <Thumb srcs={srcs} />
+                        <span>
+                          <b>{x.assets.length > 1 ? `${x.assets.length} NFTs: ${nameOf(a)}…` : a ? nameOf(a) : `Sale ${x.sale_id}`}</b>
+                          <small>
+                            #{a?.asset_id}
+                            {a?.template_mint ? ` · mint ${a.template_mint}` : ''}
+                          </small>
+                        </span>
+                      </td>
+                      <td>{formatNumber(price, 2)}</td>
+                      <td>{low !== undefined ? formatNumber(low, 2) : <span className="muted">…</span>}</td>
+                      <td>
+                        {over === null ? (
+                          <span className="muted">–</span>
+                        ) : over > 1e-8 ? (
+                          <span className="c-bad">+{formatNumber(over, 2)}</span>
+                        ) : (
+                          <span className="c-good">lowest</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}

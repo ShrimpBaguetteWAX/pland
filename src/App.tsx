@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useMarket, usePlayer, useRewardPool } from '@/data/game'
+import { formatNanites, useNaniteBalance } from '@/data/nanites'
 import { formatNumber } from '@/lib/format'
 import { useSession } from '@/state/session'
 import { useTheme } from '@/state/theme'
@@ -62,8 +63,8 @@ async function connectOwn(login: () => Promise<boolean>) {
 }
 
 /**
- * The wallet name in the bar, with the balances, the Forge level and Sign out (or Connect wallet,
- * when viewing another account) in a dropdown under it, so the bar itself stays quiet.
+ * The wallet name in the bar with the nanite balance under it. The balances and Sign out (or Connect
+ * wallet, when viewing another account) are in a dropdown, so the bar itself stays quiet.
  */
 function AccountMenu({
   account,
@@ -87,6 +88,7 @@ function AccountMenu({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const pool = useRewardPool()
+  const nanites = useNaniteBalance(account)
   // What 1 DEF fetches in TLM on the TLM/DEF pool after its fee (as the Swap page's rates show it), for
   // the swap button; shown once the pool has been read.
   const market = useMarket()
@@ -118,7 +120,10 @@ function AccountMenu({
         </span>
         <span className="me__text">
           <b>{account}</b>
-          <small>{spectating ? 'Viewing read-only' : balances ? `Forge level ${balances.forge}` : '…'}</small>
+          <small title="Nanites on nanites.pdef: they restore your divisions' wear">
+            {spectating ? 'Read-only · ' : ''}
+            {nanites !== undefined ? `${formatNanites(nanites)} nanites` : '…'}
+          </small>
         </span>
         <span className="me__chev" aria-hidden="true">
           ▾

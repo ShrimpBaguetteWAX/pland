@@ -54,6 +54,8 @@ export const CONTRACTS = {
   ASCEND: 'ascend.pdef',
   /** Planetary sieges: worlds funded with DEF and held for a season by everyone's divisions. */
   SIEGE: 'siege.pdef',
+  /** Nanites: materials refined into nanites (NFT transfer, memo "refine"), spent to restore divisions' wear. */
+  NANITES: 'nanites.pdef',
   /** Alien Worlds mining: the land a player mines on, and the mine itself. */
   MINING: 'm.federation',
   /** WAX Mission Control's CPU payer, signed first in every mine it makes. */

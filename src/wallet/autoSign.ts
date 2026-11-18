@@ -69,7 +69,22 @@ export const AUTO_GROUPS: AutoGroup[] = [
   },
   {
     title: 'Market',
-    actions: [{ contract: 'atomicmarket', action: 'cancelsale', label: 'Take one of your listings off the market' }]
+    actions: [
+      { contract: 'atomicmarket', action: 'cancelsale', label: 'Take one of your listings off the market' },
+      {
+        contract: 'atomicmarket',
+        action: 'announcesale',
+        label: 'List an NFT for sale (announce the sale and its price)',
+        warning: 'Together with offering NFTs below, whoever holds this browser’s key could list your NFTs at any price, as low as they like, and buy them.'
+      },
+      {
+        contract: CONTRACTS.ATOMICASSETS,
+        action: 'createoffer',
+        label: 'Offer a listed NFT to the market (the second half of every listing and every new price)',
+        warning:
+          'An offer is not limited to the market: whoever holds this browser’s key could offer any of your NFTs to their own account and take it. Only on a device you trust, and turn it off when you are done listing.'
+      }
+    ]
   },
   {
     title: 'DEF',
@@ -85,15 +100,20 @@ export const AUTO_GROUPS: AutoGroup[] = [
 ]
 
 /*
- * Never offered: TLM, WAX and NFT transfers (staking, blends, ascension, market purchases and
- * listings, swaps on Alcor, Forge levels). A transaction with one of those always asks the wallet.
+ * Never offered: TLM, WAX and NFT transfers (staking, blends, ascension, market purchases, swaps on
+ * Alcor, Forge levels). A transaction with one of those always asks the wallet. Listing on
+ * AtomicMarket (announcesale + createoffer) is offered at the player's own request, with its risk
+ * spelled out, and is never ticked unless they tick it.
  */
 
 /** Every action that may be auto-signed. */
 const ALLOWED = new Set(AUTO_GROUPS.flatMap((g) => g.actions.map((a) => `${a.contract}::${a.action}`)))
 
-/** Without a choice saved: everything except moving DEF. */
-const DEFAULT = [...ALLOWED].filter((k) => k !== `${CONTRACTS.DEF}::transfer`)
+/** Actions with a warning are never ticked unless the player ticks them. */
+const RISKY = new Set(AUTO_GROUPS.flatMap((g) => g.actions.filter((a) => a.warning).map((a) => `${a.contract}::${a.action}`)))
+
+/** Without a choice saved: everything without a warning (not moving DEF, not listing NFTs). */
+const DEFAULT = [...ALLOWED].filter((k) => !RISKY.has(k))
 
 /** Actions the first version of this page offered: anything else is new and starts ticked. */
 const OFFERED_V1 = new Set([

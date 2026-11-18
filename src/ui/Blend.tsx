@@ -44,6 +44,7 @@ import { useTransaction } from '@/wallet/useTransaction'
 
 import { Portrait, rarityColor } from './Art'
 import { AscensionInfo, GainLine, StatLine } from './AscensionInfo'
+import { Nanites } from './Nanites'
 import { ChestValue } from './ChestValue'
 import { Icon } from './icons'
 import { StarRail } from './Stars'
@@ -56,12 +57,13 @@ import '@/styles/blend.css'
  * prices are AtomicMarket floors in WAX, and what you own is used first and counted as free.
  */
 
-type View = 'recipes' | 'materials' | 'chests' | 'ascension' | 'ascinfo'
+type View = 'recipes' | 'materials' | 'chests' | 'nanites' | 'ascension' | 'ascinfo'
 
 const VIEWS: { key: View; label: string }[] = [
   { key: 'recipes', label: 'Recipes' },
   { key: 'materials', label: 'Materials' },
   { key: 'chests', label: 'Chests & keys' },
+  { key: 'nanites', label: 'Nanites' },
   { key: 'ascension', label: 'Ascension' },
   { key: 'ascinfo', label: 'Ascension info' }
 ]
@@ -122,7 +124,7 @@ export function Blend({ account, spectating }: { account: string; spectating: bo
     if (v === 'recipes') return formatNumber(blends.data!.filter((b) => b.active && resultOf(b)).length, 0)
     if (v === 'materials') return formatNumber(values!.materials.length, 0)
     if (v === 'chests') return formatNumber(market!.owned.get(QUANTUM_CHEST)?.length ?? 0, 0)
-    if (v === 'ascinfo') return null
+    if (v === 'ascinfo' || v === 'nanites') return null
     return formatNumber(market!.owned.get(FRAGMENT_TEMPLATE)?.length ?? 0, 0)
   }
   const countTitle: Record<View, string> = {
@@ -130,7 +132,8 @@ export function Blend({ account, spectating }: { account: string; spectating: bo
     materials: 'Materials',
     chests: 'Quantum Chests you hold',
     ascension: 'Fragments you hold',
-    ascinfo: 'Every card that ascends'
+    ascinfo: 'Every card that ascends',
+    nanites: 'Materials refined into nanites'
   }
 
   return (
@@ -186,6 +189,8 @@ export function Blend({ account, spectating }: { account: string; spectating: bo
             pending={pending}
             spectating={spectating}
           />
+        ) : view === 'nanites' ? (
+          <Nanites account={account} market={market!} spectating={spectating} />
         ) : view === 'ascinfo' ? (
           <AscensionInfo market={market!} blends={blends.data!} spectating={spectating} />
         ) : (

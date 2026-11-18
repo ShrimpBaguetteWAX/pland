@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useToasts } from '@/components/toast'
 import { refreshPlayer } from '@/data/game'
 import { refreshToday, useTodayEarnings } from '@/data/today'
+import { formatNanites, useNaniteBalance } from '@/data/nanites'
 import { CHIME_FOR, chimeNow, useChimeSchedule, useChimeSetting, type ChimeEvent } from '@/lib/chime'
 import { formatNumber } from '@/lib/format'
 import type { PlanLine } from '@/lib/loop'
@@ -309,6 +310,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const loop = useLoopPlan(account, readCashOut())
   const m = useMining(now)
   const today = useTodayEarnings(account)
+  const nanites = useNaniteBalance(account || null)
   /** Which screen: the orb (0), the bank (1, a swipe to the left), the chests (2) or the materials (3). */
   const [page, setPage] = useState<Page>(0)
   /*
@@ -618,6 +620,15 @@ export default function Couch({ onClose }: { onClose: () => void }) {
             </b>
           </div>
         </div>
+        {nanites !== undefined && (
+          <p className="couch__nan" title="Nanites on nanites.pdef: they restore your divisions' wear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
+              <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
+            </svg>
+            <b className="num">{formatNanites(nanites)}</b> nanites
+          </p>
+        )}
         <button
           type="button"
           className="couch__bell"

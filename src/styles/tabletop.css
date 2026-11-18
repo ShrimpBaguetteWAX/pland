@@ -5948,6 +5948,72 @@ code {
   display: flex;
   gap: 6px;
 }
+.ms__mine {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+}
+.ms__mine-hd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ms__mine-chev {
+  margin-left: auto;
+  color: var(--faint);
+}
+.ms__review .ms__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ms__review .ms__name small {
+  display: block;
+  color: var(--faint);
+  font-size: 11px;
+}
+.ms__review .ms__scroll {
+  max-height: 320px;
+  overflow: auto;
+}
+.ms__review table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.ms__review th,
+.ms__review td {
+  padding: 5px 8px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+.ms__review th:first-child,
+.ms__review td:first-child {
+  text-align: left;
+  white-space: normal;
+}
+.ms__review thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  font-weight: 600;
+  color: var(--faint);
+}
+.ms__review tfoot th {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
+  border-bottom: 0;
+}
 .ms__steps {
   list-style: none;
   margin: 0;

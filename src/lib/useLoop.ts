@@ -13,6 +13,7 @@ import {
   usePlayer,
   type Deployment
 } from '@/data/game'
+import { claimIfStillLocked } from '@/lib/claimCheck'
 import { coveredBy, walletCosts, walletPart } from '@/lib/deposit'
 import { missionEconomics, planLoops, type MissionEconomics, type PlanLine } from '@/lib/loop'
 import { fundEntries, quoteFunding, sellDefAction, tlmForDef } from '@/lib/market'
@@ -137,7 +138,9 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
             : `#${first.divisionId} claimed and redeployed`
       },
       ...rest.map((x) => ({
-        build: (a: string, p: string) => out(a, p, x),
+        // The claim was in the first transaction: wait until the chain shows it. If it never does,
+        // it did not land, and this transaction claims the division itself before sending it out.
+        build: async (a: string, p: string) => [...(await claimIfStillLocked(a, p, x)), ...out(a, p, x)],
         success: `#${x.divisionId} sent back to ${econ.get(x.missionId)?.title ?? 'its mission'}`
       }))
     ]
