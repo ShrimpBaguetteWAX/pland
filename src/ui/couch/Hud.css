@@ -1055,7 +1055,7 @@
 /* Mine: a raised key on a solid ledge; pressed, it sinks onto it. */
 .couch.is-kitten.is-hud .couch__go {
   --p: 0;
-  --go: var(--cz-lava);
+  --go: var(--hud-accent);
   --go-ledge: color-mix(in srgb, var(--go) 62%, #000);
   position: relative;
   display: grid;
@@ -1094,7 +1094,7 @@
   font-weight: 700;
 }
 
-/* Cooling: the key fills up from the bottom in solid lava, with a bright top edge. */
+/* Cooling: the key fills up from the bottom in the theme accent, with a bright top edge. */
 .couch.is-kitten.is-hud .couch__go-fill {
   position: absolute;
   inset: auto 0 0;
@@ -1119,7 +1119,7 @@
     inset 0 -2px 0 rgba(0, 0, 0, 0.14),
     0 5px 0 var(--go-ledge),
     0 10px 16px rgba(0, 0, 0, 0.3);
-  color: #3a1406;
+  color: #fff;
   cursor: pointer;
 }
 
@@ -1128,7 +1128,7 @@
 }
 
 .couch.is-kitten.is-hud .couch__go.is-ready span {
-  color: #5a2410;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .couch.is-kitten.is-hud .couch__go.is-ready:active {
