@@ -12,7 +12,7 @@ import { useTransaction } from '@/wallet/useTransaction'
 import { MARKET_FEES, waxOf } from './Chests'
 
 /*
- * Couch mode's screen left of the orb: your recent AtomicMarket sales, every collection. Where you
+ * Couch mode's screen left of the orb: your AtomicMarket sales of the last 48 hours, every collection. Where you
  * have none of what sold listed right now and still hold at least two (so one always stays), one
  * tap lists the next one, or one button lists the next of each in one transaction: the
  * highest mint number first (low mints are the ones worth keeping), at the lowest listing of its
@@ -20,7 +20,23 @@ import { MARKET_FEES, waxOf } from './Chests'
  * of this site.
  */
 
-const SHOWN = 30
+/** How far back the list goes. */
+const WINDOW_MS = 48 * 3600_000
+/** Read 100 sales a page, newest first, until one is older than the window; at most this many pages. */
+const MAX_PAGES = 30
+
+/** Every sale of the account within the window, newest first. */
+async function salesSince(account: string, since: number): Promise<AtomicSale[]> {
+  const out: AtomicSale[] = []
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const batch = await atomic.getSales({ state: 3, seller: account, symbol: 'WAX', sort: 'updated', order: 'desc', limit: 100, page }, 1)
+    const fresh = batch.filter((x) => Number(x.updated_at_time ?? 0) >= since)
+    out.push(...fresh)
+    if (batch.length < 100 || fresh.length < batch.length) break
+  }
+  const seen = new Set<string>()
+  return out.filter((x) => !seen.has(x.sale_id) && seen.add(x.sale_id))
+}
 
 const nameOf = (a: AtomicAsset | undefined) => String(a?.data?.name ?? (a?.template ? `#${a.template.template_id}` : 'NFT'))
 const mintOf = (a: AtomicAsset) => Number(a.template_mint ?? 0) || 0
@@ -29,7 +45,7 @@ export function Sales({ account }: { account: string }) {
   const { run, pending, spectating } = useTransaction()
   const sold = useQuery({
     queryKey: ['couch-sales', account],
-    queryFn: () => atomic.getSales({ state: 3, seller: account, symbol: 'WAX', sort: 'updated', order: 'desc', limit: SHOWN }, 1),
+    queryFn: () => salesSince(account, Date.now() - WINDOW_MS),
     staleTime: 60_000,
     refetchInterval: 120_000
   })
@@ -115,16 +131,16 @@ export function Sales({ account }: { account: string }) {
   const total = (sold.data ?? []).reduce((n, s) => n + waxOf(s) * (1 - MARKET_FEES - (Number(s.current_collection_fee ?? 0) || 0)), 0)
 
   return (
-    <section className="couch__bankpage couch__chests" aria-label="Your recent sales">
+    <section className="couch__bankpage couch__chests" aria-label="Sold in the last 48 hours">
       <div className="cb__plaque cb__rate">
-        <small>Your recent sales</small>
+        <small>Sold in the last 48 hours</small>
         <span>
           <b className="num">{sold.data ? sold.data.length : '…'}</b>
           <i>≈ {formatNumber(total, 0)} WAX to you</i>
         </span>
       </div>
       <p className="cb__note">
-        The last {SHOWN} on AtomicMarket, every collection. Where you hold more, list the next one: the highest mint first, at the lowest listing of
+        Everything you sold on AtomicMarket in the last 48 hours, every collection. Where you hold more, list the next one: the highest mint first, at the lowest listing of
         its kind (or the price it sold for when nobody lists it), through shop.ale. Shown where none of it is listed and you hold at least two.
       </p>
 
@@ -183,7 +199,7 @@ export function Sales({ account }: { account: string }) {
             </li>
           )
         })}
-        {sold.data && !sold.data.length && <p className="cb__note">No sales yet.</p>}
+        {sold.data && !sold.data.length && <p className="cb__note">Nothing sold in the last 48 hours.</p>}
         {!sold.data && <p className="cb__note">Reading your sales…</p>}
       </ul>
       {spectating && <p className="cb__note">Read-only: not your account.</p>}
