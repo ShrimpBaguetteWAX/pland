@@ -80,14 +80,6 @@ export function Bank({ account }: { account: string }) {
 
   return (
     <section className="couch__bankpage" aria-label="Bank: your day, the rate and your deposit">
-      <div className="cb__hero">
-        <small>You earn a day</small>
-        <b className={`num ${surplus >= 0 ? 'is-good' : 'is-bad'}`}>
-          {f.loaded ? signed(surplus) : '…'}
-          <i>TLM</i>
-        </b>
-      </div>
-
       <div className="cb__plaque cb__receipt">
         <table className="num">
           <thead>

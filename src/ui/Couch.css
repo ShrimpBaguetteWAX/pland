@@ -1515,7 +1515,8 @@ html.is-couch .couch {
   width: 100%;
   max-width: 460px;
   margin: 0 auto;
-  padding: 64px 0 10px;
+  /* The top row (balances, menu) shows on the orb only: here the page starts near the top. */
+  padding: max(14px, calc(env(safe-area-inset-top, 0px) + 10px)) 0 10px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
