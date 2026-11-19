@@ -579,6 +579,57 @@
   filter: saturate(0.6) brightness(0.85);
 }
 
+/* Something waits on the orb page: the orb lights up to full and a badge says how many. */
+.couch__tab.is-home.is-lit .couch__tab-disc {
+  position: relative;
+  filter: none;
+  background: radial-gradient(circle at 35% 30%, #fff, color-mix(in srgb, var(--cz-blood) 40%, #fff) 35%, var(--cz-blood) 75%);
+}
+
+.couch__tab-badge {
+  position: absolute;
+  top: -6px;
+  right: -9px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--kt-11, #1f0f18);
+  color: color-mix(in srgb, var(--cz-blood) 70%, #000);
+  font-family: var(--hud-font, inherit);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+  animation: couch-badge-hop 2.4s ease-in-out infinite;
+}
+
+@keyframes couch-badge-hop {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  86% {
+    transform: translateY(-4px);
+  }
+  92% {
+    transform: translateY(0);
+  }
+  96% {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch__tab-badge {
+    animation: none;
+  }
+}
+
 .couch__tab.is-home svg {
   width: 24px;
   height: 24px;

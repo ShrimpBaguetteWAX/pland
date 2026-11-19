@@ -816,13 +816,17 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         {TABS.map((t) => {
           const on = page === t.page
           const waiting = t.page === 1 && centreSwaps
+          // On the orb key, seen from the other pages: how many divisions wait (back with a reward, or home
+          // and ready for orders), or ! when only the mining tools are ready.
+          const waitCount = back.length + sendable.length
+          const badge = t.page === 0 && page !== 0 ? (waitCount ? String(waitCount) : mineReady ? '!' : '') : ''
           return (
             <button
               key={t.page}
               type="button"
-              className={`couch__tab${t.page === 0 ? ' is-home' : ''}${on ? ' is-on' : ''}${waiting ? ' is-waiting' : ''}`}
+              className={`couch__tab${t.page === 0 ? ' is-home' : ''}${on ? ' is-on' : ''}${waiting ? ' is-waiting' : ''}${badge ? ' is-lit' : ''}`}
               aria-current={on ? 'page' : undefined}
-              aria-label={waiting ? `${t.label}: DEF to swap` : t.label}
+              aria-label={waiting ? `${t.label}: DEF to swap` : badge ? `${t.label}: ${waitCount ? `${waitCount} division${waitCount === 1 ? '' : 's'} waiting` : 'mining ready'}` : t.label}
               onClick={() => setPage(t.page)}
             >
               {t.page === 0 ? (
@@ -831,6 +835,11 @@ export default function Couch({ onClose }: { onClose: () => void }) {
                     <circle cx="12" cy="13" r="7" />
                     <path d="M7 7L6 2.5L10 5M17 7L18 2.5L14 5" />
                   </svg>
+                  {badge && (
+                    <b key={badge} className="couch__tab-badge num">
+                      {badge}
+                    </b>
+                  )}
                 </span>
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
