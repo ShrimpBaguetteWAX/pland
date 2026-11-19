@@ -17,7 +17,7 @@ import { ANIMALS, furOf, readAnimal, saveAnimal, type Animal } from './couch/ani
 import { Bank } from './couch/Bank'
 import { Chests } from './couch/Chests'
 import { useDefSwap } from './couch/defKeep'
-import { SellPage } from './couch/SellPage'
+import { SellPage, SellSwitch, type SellView } from './couch/SellPage'
 import { MiniLedger } from './couch/MiniLedger'
 import { Sales } from './couch/Sales'
 import { useBloodOrb } from './couch/bloodOrb'
@@ -85,22 +85,19 @@ function usePinnedPage(night: string) {
   }, [night])
 }
 
-/** Couch mode's screens, in swipe order: the orb, the bank, the chests, selling. */
-/** -1 = your recent sales (left of the orb), 0 = the orb, then bank, chests, sell. */
-/** -1 sales, 0 the orb, 1 bank, 2 chests, 3 sell, 4 the mini ledger. */
-type Page = -1 | 0 | 1 | 2 | 3 | 4
+/** Couch mode's screens: 0 the orb, 1 bank, 2 chests, 3 sell (and what sold), 4 the mini ledger. */
+type Page = 0 | 1 | 2 | 3 | 4
 /**
  * The pages left to right, as on the tab bar and for swiping: the orb in the middle, a swipe left
- * from it opens the bank (as it always has), a swipe right the ledger, then the sales.
+ * from it opens the bank (as it always has), a swipe right the ledger, then selling.
  */
-const ORDER: Page[] = [-1, 4, 0, 1, 2, 3]
+const ORDER: Page[] = [3, 4, 0, 1, 2]
 const TABS: { page: Page; label: string; icon: string }[] = [
-  { page: -1, label: 'Sales', icon: 'M3 12l9-9h7v7l-9 9z M15.5 7.5h.01' },
+  { page: 3, label: 'Sell', icon: 'M4 7h16l-1.5 12a2 2 0 0 1-2 1.7h-9a2 2 0 0 1-2-1.7z M9 7V5a3 3 0 0 1 6 0v2 M12 11v6 M9.5 14.5L12 17l2.5-2.5' },
   { page: 4, label: 'Ledger', icon: 'M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z M6 19a2 2 0 0 1 2-2h11 M10 8h5M10 12h5' },
   { page: 0, label: 'Orb', icon: '' },
   { page: 1, label: 'Bank', icon: 'M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18' },
-  { page: 2, label: 'Chests', icon: 'M3 10h18v9H3z M3 10a9 5 0 0 1 18 0 M10 13h4' },
-  { page: 3, label: 'Sell', icon: 'M4 7h16l-1.5 12a2 2 0 0 1-2 1.7h-9a2 2 0 0 1-2-1.7z M9 7V5a3 3 0 0 1 6 0v2 M12 11v6 M9.5 14.5L12 17l2.5-2.5' }
+  { page: 2, label: 'Chests', icon: 'M3 10h18v9H3z M3 10a9 5 0 0 1 18 0 M10 13h4' }
 ]
 
 /** The colour theme, remembered in this browser; picked in the menu. */
@@ -310,6 +307,8 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const nanites = useNaniteBalance(account || null)
   /** Which screen: the orb (0), the bank (1, a swipe to the left), the chests (2) or selling (3). */
   const [page, setPage] = useState<Page>(0)
+  /** The Sell tab's half: what to list, or what sold. */
+  const [sellView, setSellView] = useState<SellView>('sell')
   /*
    * Swipes: left goes one screen on (orb → bank → chests), right one back, down refreshes everything
    * on screen. Touch is read with touch events (a browser cancels the pointer once a move turns into
@@ -569,10 +568,10 @@ export default function Couch({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {page === -1 && account && <Sales account={account} />}
       {page === 1 && account && <Bank account={account} />}
       {page === 2 && account && <Chests account={account} />}
-      {page === 3 && account && <SellPage account={account} />}
+      {page === 3 && account && sellView === 'sell' && <SellPage account={account} head={<SellSwitch view={sellView} onView={setSellView} />} />}
+      {page === 3 && account && sellView === 'sold' && <Sales account={account} head={<SellSwitch view={sellView} onView={setSellView} />} />}
       {page === 4 && account && <MiniLedger account={account} />}
 
       <header className="couch__top" aria-label="Deposited balances" hidden={page !== 0}>

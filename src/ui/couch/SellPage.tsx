@@ -28,7 +28,28 @@ function Sheet({ host, children }: { host: Element | null; children: ReactNode }
   return host ? createPortal(children, host) : null
 }
 
-export function SellPage({ account }: { account: string }) {
+/** Sell or Sold: the two halves of the Sell tab, switched at its top. */
+export type SellView = 'sell' | 'sold'
+
+/** The switch at the top of the Sell tab: what to list, or what sold in the last 48 hours. */
+export function SellSwitch({ view, onView }: { view: SellView; onView: (v: SellView) => void }) {
+  return (
+    <div className="cs cs__seg cs__view" role="tablist" aria-label="Sell or sold">
+      {(
+        [
+          ['sell', 'Sell'],
+          ['sold', 'Sold · 48 h']
+        ] as const
+      ).map(([k, label]) => (
+        <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'is-on' : ''} onClick={() => onView(k)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function SellPage({ account, head }: { account: string; head?: ReactNode }) {
   const s = useSell(account)
   const { plan, done, running } = s
   const [cats, setCats] = useState(false)
@@ -50,6 +71,7 @@ export function SellPage({ account }: { account: string }) {
 
   return (
     <section className="couch__bankpage cs" aria-label="Sell" ref={page}>
+      {head}
       {showProgress && plan && (
         <div className="cs__prog" aria-label="Transactions">
           <div className="cs__prog-hd">

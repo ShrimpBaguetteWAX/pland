@@ -810,3 +810,8 @@
     transition: none;
   }
 }
+
+/* ---- Sell or Sold, at the top of the tab (also over the Sold half, which has no .cs of its own) ---- */
+.couch.is-kitten.is-hud .cs__view {
+  flex: none;
+}

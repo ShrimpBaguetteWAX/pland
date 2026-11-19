@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 
 import { BUY_MARKETPLACE, listSalesActions } from '@/chain/actions/market'
 import { atomic, type AtomicAsset, type AtomicSale } from '@/chain/atomic'
@@ -12,7 +12,7 @@ import { useTransaction } from '@/wallet/useTransaction'
 import { MARKET_FEES, waxOf } from './Chests'
 
 /*
- * Couch mode's screen left of the orb: your AtomicMarket sales of the last 48 hours, every collection. Where you
+ * Couch mode's Sell tab, its Sold half: your AtomicMarket sales of the last 48 hours, every collection. Where you
  * have none of what sold listed right now and still hold at least two (so one always stays), one
  * tap lists the next one, or one button lists the next of each in one transaction: the
  * highest mint number first (low mints are the ones worth keeping), at the lowest listing of its
@@ -41,7 +41,7 @@ async function salesSince(account: string, since: number): Promise<AtomicSale[]>
 const nameOf = (a: AtomicAsset | undefined) => String(a?.data?.name ?? (a?.template ? `#${a.template.template_id}` : 'NFT'))
 const mintOf = (a: AtomicAsset) => Number(a.template_mint ?? 0) || 0
 
-export function Sales({ account }: { account: string }) {
+export function Sales({ account, head }: { account: string; head?: ReactNode }) {
   const { run, pending, spectating } = useTransaction()
   const sold = useQuery({
     queryKey: ['couch-sales', account],
@@ -132,6 +132,7 @@ export function Sales({ account }: { account: string }) {
 
   return (
     <section className="couch__bankpage couch__chests" aria-label="Sold in the last 48 hours">
+      {head}
       <div className="cb__plaque cb__rate">
         <small>Sold in the last 48 hours</small>
         <span>
