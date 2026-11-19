@@ -10,6 +10,9 @@ import { formatNumber } from './format'
 import { missionEconomics, tlmPerHour, type MissionEconomics } from './loop'
 import { useClockFor } from './time'
 
+/** How long after its return time a division counts as back. */
+const CHAIN_MARGIN_MS = 2_000
+
 /*
  * The field: every division out on a mission, what is back, and the two things to do about it,
  * claim and claim-and-redeploy. Shared by the Missions page and the console strip under the menu,
@@ -69,8 +72,10 @@ export function useField(account: string): Field {
   }, [config.data, now])
   const byId = useMemo(() => new Map((army.data?.divisions ?? []).map((d) => [d.id, d])), [army.data])
   const field = useMemo(() => [...(deployments.data ?? [])].sort((a, b) => a.unlockAt - b.unlockAt), [deployments.data])
-  const ready = field.filter((d) => d.unlockAt <= now)
-  const running = field.filter((d) => d.unlockAt > now)
+  // Back a moment after its time (CHAIN_MARGIN_MS): a device clock a little ahead of the chain would
+  // otherwise claim before the chain allows it ("division cooldown not finished yet").
+  const ready = field.filter((d) => d.unlockAt + CHAIN_MARGIN_MS <= now)
+  const running = field.filter((d) => d.unlockAt + CHAIN_MARGIN_MS > now)
   const loopable = ready.filter((d) => econ.get(d.missionId)?.state === 'active')
   const nextReturnAt = running.length ? running[0].unlockAt : null
   const earning = field.reduce((n, d) => {

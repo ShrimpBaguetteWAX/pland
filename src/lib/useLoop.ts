@@ -19,6 +19,9 @@ import { missionEconomics, planLoops, type MissionEconomics, type PlanLine } fro
 import { fundEntries, quoteFunding, sellDefAction, tlmForDef } from '@/lib/market'
 import { chainDate, useClockFor } from '@/lib/time'
 
+/** How long after its return time a division counts as back. */
+const CHAIN_MARGIN_MS = 2_000
+
 /*
  * The claim-and-redeploy loop, shared by the Deployments page and the top bar's loop button:
  * which divisions are back, which can go straight out again, when the next one returns, and the
@@ -65,8 +68,10 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
   const divisionById = useMemo(() => new Map(army.data?.divisions.map((d) => [d.id, d]) ?? []), [army.data])
 
   const list = deployments.data ?? []
-  const ready = list.filter((d) => d.unlockAt <= now)
-  const running = list.filter((d) => d.unlockAt > now)
+  // Back a moment after its time (CHAIN_MARGIN_MS): a device clock a little ahead of the chain would
+  // otherwise claim before the chain allows it ("division cooldown not finished yet").
+  const ready = list.filter((d) => d.unlockAt + CHAIN_MARGIN_MS <= now)
+  const running = list.filter((d) => d.unlockAt + CHAIN_MARGIN_MS > now)
   /** Ready deployments whose mission is still open, so the division can go straight back out. */
   const loopable = ready.filter((d) => econ.get(d.missionId)?.state === 'active')
   const nextReturnAt = running.length ? Math.min(...running.map((d) => d.unlockAt)) : null

@@ -55,6 +55,25 @@ type Build = (account: string, permission: string) => AnyAction | AnyAction[] | 
  * With `refresh: false` the player's data is not read again afterwards; a sequence uses it for
  * all but its last transaction, so the next signature is asked for right away.
  */
+/*
+ * One run at a time for everything that moves divisions (loops, claims, deployments), app-wide:
+ * every page has its own useTransaction, and a second tap used to start a second loop next to the
+ * first. Its first transaction then claimed divisions the first run had just sent back out, and
+ * the chain refused it ("division cooldown not finished yet") while the first run went through.
+ * Taken synchronously, before anything awaits, so even two taps in one frame cannot both start.
+ */
+const busyGroups = new Set<string>()
+const groupOf = (key: string) => (/^(loop|claim|deploy)(-|$)/.test(key) ? 'divisions' : key)
+function takeGroup(key: string): string | null {
+  const g = groupOf(key)
+  if (busyGroups.has(g)) {
+    toast.info('Already signing: wait for it to finish.')
+    return null
+  }
+  busyGroups.add(g)
+  return g
+}
+
 export function useTransaction() {
   const { account, permission, spectating } = useSession(
     useShallow((s) => ({ account: s.account, permission: s.permission, spectating: s.spectating }))
@@ -92,11 +111,14 @@ export function useTransaction() {
       toast.info('You are viewing this account read-only. Sign in with your wallet to act.')
       return false
     }
+    const group = takeGroup(key)
+    if (!group) return false
     setPending(key)
     try {
       // The page is free again the moment the transaction lands; the refresh after it runs in the background.
       return await runOne(account, build, success, { ...opts, onLanded: () => setPending(null) })
     } finally {
+      busyGroups.delete(group)
       setPending(null)
     }
   }
@@ -169,6 +191,8 @@ export function useTransaction() {
       toast.info('You are viewing this account read-only. Sign in with your wallet to act.')
       return 0
     }
+    const group = takeGroup(key)
+    if (!group) return 0
     setPending(key)
     try {
       if (parts.length === 1) return (await runOne(account, parts[0].build, parts[0].success, {})) ? 1 : 0
@@ -200,6 +224,7 @@ export function useTransaction() {
       live.done(`${title ?? 'Transactions'}: done`, `All ${n} went through. ${parts[n - 1].success}.`)
       return n
     } finally {
+      busyGroups.delete(group)
       setPending(null)
     }
   }

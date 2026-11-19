@@ -472,10 +472,16 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   async function tapMission(missionId: number) {
     const isBack = missionId >= 0 && back.some((d) => d.missionId === missionId)
     if (!isBack || !canLoop || !plan) return openList(missionId >= 0 ? missionId : null)
-    navigator.vibrate?.(30)
-    const missions = new Set(back.map((d) => d.missionId)).size
-    await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'} on ${missions} mission${missions === 1 ? '' : 's'}`)
-    refreshToday(account)
+    if (tapping.current) return
+    tapping.current = true
+    try {
+      navigator.vibrate?.(30)
+      const missions = new Set(back.map((d) => d.missionId)).size
+      await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'} on ${missions} mission${missions === 1 ? '' : 's'}`)
+      refreshToday(account)
+    } finally {
+      tapping.current = false
+    }
   }
 
   /**
@@ -484,6 +490,8 @@ export default function Couch({ onClose }: { onClose: () => void }) {
    * page) to TLM, whatever its own mission is doing. Only with nothing to do does it list the big
    * mission's divisions.
    */
+  /** Set while a tap on the orb or a moon is at work. */
+  const tapping = useRef(false)
   const centreLoops = back.length > 0 && canLoop && !!plan
   const centreMines = mineReady
   const dx = useDefSwap(account)
@@ -494,6 +502,17 @@ export default function Couch({ onClose }: { onClose: () => void }) {
       if (big) openList(big.missionId)
       return
     }
+    // The mine is awaited before the loop starts, so the loop's own guard is not up yet: a second
+    // tap in that time used to start a second loop. One tap's work at a time.
+    if (tapping.current) return
+    tapping.current = true
+    try {
+      await centreWork()
+    } finally {
+      tapping.current = false
+    }
+  }
+  async function centreWork() {
     orb.slosh(1)
     navigator.vibrate?.(30)
     // Mine first: it is the one on a timer, and its wallet prompt then opens straight from the tap.
