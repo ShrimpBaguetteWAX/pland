@@ -819,12 +819,14 @@ export default function Couch({ onClose }: { onClose: () => void }) {
           // On the orb key, seen from the other pages: how many divisions wait (back with a reward, or home
           // and ready for orders), or ! when only the mining tools are ready.
           const waitCount = back.length + sendable.length
-          const badge = t.page === 0 && page !== 0 ? (waitCount ? String(waitCount) : mineReady ? '!' : '') : ''
+          // The orb is pink only while something waits there; the badge shows from the other pages.
+          const lit = t.page === 0 && (waitCount > 0 || mineReady)
+          const badge = lit && page !== 0 ? (waitCount ? String(waitCount) : '!') : ''
           return (
             <button
               key={t.page}
               type="button"
-              className={`couch__tab${t.page === 0 ? ' is-home' : ''}${on ? ' is-on' : ''}${waiting ? ' is-waiting' : ''}${badge ? ' is-lit' : ''}`}
+              className={`couch__tab${t.page === 0 ? ' is-home' : ''}${on ? ' is-on' : ''}${waiting ? ' is-waiting' : ''}${lit ? ' is-lit' : ''}`}
               aria-current={on ? 'page' : undefined}
               aria-label={waiting ? `${t.label}: DEF to swap` : badge ? `${t.label}: ${waitCount ? `${waitCount} division${waitCount === 1 ? '' : 's'} waiting` : 'mining ready'}` : t.label}
               onClick={() => setPage(t.page)}

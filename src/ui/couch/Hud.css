@@ -561,30 +561,41 @@
   margin-top: -20px;
 }
 
+/* Nothing to do: a dark key like the bar it sits on, with a metal rim and a grey cat, as the other tabs. */
 .couch__tab .couch__tab-disc {
   display: grid;
   place-items: center;
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  color: #fff;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--cz-blood) 45%, #fff), var(--cz-blood) 60%, color-mix(in srgb, var(--cz-blood) 60%, #000));
+  color: var(--cz-faint);
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--cz-tx) 14%, var(--kt-11, #1f0f18)), color-mix(in srgb, var(--cz-tx) 5%, var(--kt-11, #1f0f18)) 70%);
   box-shadow:
     0 0 0 2px var(--kt-11, #1f0f18),
-    0 0 0 3.5px var(--hud-metal, var(--cz-fr)),
-    0 6px 18px color-mix(in srgb, var(--cz-blood) 50%, transparent);
+    0 0 0 3.5px color-mix(in srgb, var(--hud-metal, var(--cz-fr)) 55%, transparent);
 }
 
-.couch__tab.is-home:not(.is-on) .couch__tab-disc {
-  filter: saturate(0.6) brightness(0.85);
+/* On the orb page: the rim and the cat take the theme colour, the way the other tabs show where you are. */
+.couch__tab.is-home.is-on .couch__tab-disc {
+  color: var(--cz-blood);
+  box-shadow:
+    0 0 0 2px var(--kt-11, #1f0f18),
+    0 0 0 3.5px var(--cz-blood);
 }
 
-/* Something waits on the orb page: the orb lights up to full and a badge says how many. */
+/* Something waits on the orb page: the pink orb; from the other pages a badge says how many. */
 .couch__tab.is-home.is-lit .couch__tab-disc {
   position: relative;
   /* The disc is a span: the label rule above would clip the badge. */
   overflow: visible;
-  filter: none;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--cz-blood) 45%, #fff), var(--cz-blood) 60%, color-mix(in srgb, var(--cz-blood) 60%, #000));
+  box-shadow:
+    0 0 0 2px var(--kt-11, #1f0f18),
+    0 0 0 3.5px var(--hud-metal, var(--cz-fr));
+}
+
+.couch__tab.is-home.is-lit:not(.is-on) .couch__tab-disc {
   background: radial-gradient(circle at 35% 30%, #fff, color-mix(in srgb, var(--cz-blood) 40%, #fff) 35%, var(--cz-blood) 75%);
 }
 
