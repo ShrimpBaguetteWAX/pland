@@ -2,13 +2,11 @@ import { useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'r
 
 import { useArmy, useMissionEntries, type Division } from '@/data/game'
 import { formatDuration, formatNumber } from '@/lib/format'
-import { costParts, cycleSeconds, isTokenLoop, meetsRequirements, rewardParts, tlmPerHour, type MissionEconomics } from '@/lib/loop'
+import { costParts, cycleSeconds, meetsRequirements, rewardParts, tlmPerHour, type MissionEconomics } from '@/lib/loop'
 import { chainDate, shortDuration } from '@/lib/time'
 import { useField } from '@/lib/useField'
+import { useMissionScores } from '@/lib/useMissionScores'
 import { useMarket, useRewardPool } from '@/data/game'
-import { useNftFloors, useSwapPools } from '@/data/market'
-import { useNanitePrice } from '@/data/nanites'
-import { receiveFor } from '@/lib/pool'
 
 import { Portrait, rarityColor } from './Art'
 import { Icon } from './icons'
@@ -29,8 +27,6 @@ import { Icon } from './icons'
  * division happens to be home; the TLM / h column is the figure for the picked divisions.
  */
 
-const MOVE_DEFAULT = 40
-const MOVE_MAX = 100
 const RING_R = 20
 const RING_C = 2 * Math.PI * RING_R
 
@@ -135,55 +131,8 @@ export function Missions({ account, spectating }: { account: string; spectating:
       return next
     })
 
-  // How much move the army carries for its strength: what the efficiency score assumes.
-  const movePer100 = useMemo(() => {
-    const strength = divisions.reduce((n, d) => n + Math.max(d.atk, d.def), 0)
-    return strength > 0 ? Math.min(MOVE_MAX, Math.round((divisions.reduce((n, d) => n + d.move, 0) / strength) * 100)) : MOVE_DEFAULT
-  }, [divisions])
-
-  // NFT rewards are valued at the floor (the cheapest WAX listing of the template), then as TLM
-  // through the WAX → TLM pool, so NFT missions get an efficiency too.
-  const pools = useSwapPools()
-  const nftIds = useMemo(() => [...econ.values()].flatMap((e) => (e.rewardNft ? [String(e.rewardNft.templateId)] : [])), [econ])
-  const floors = useNftFloors(nftIds)
-  /** The TLM a mission's NFT reward is worth per cycle; 0 without one, null while its floor is unknown. */
-  const nftTlm = useMemo(() => {
-    const tlmPool = pools.data?.tlm
-    return (e: MissionEconomics): number | null => {
-      if (!e.rewardNft) return 0
-      const wax = floors.data?.get(String(e.rewardNft.templateId))
-      if (wax === undefined || !tlmPool) return null
-      return receiveFor(tlmPool, 'WAX', wax * e.rewardNft.count)
-    }
-  }, [floors.data, pools.data])
-
-  // Every join wears the division down by the mission's attack plus defense requirement; a nanite
-  // restores points_per_nanite of it. The repair is priced at the cheapest nanite on the market
-  // (the refinery material with the lowest listing per nanite), as TLM through the WAX → TLM pool.
-  const nanite = useNanitePrice()
-  /** The TLM a cycle's repair costs; 0 before the nanite price is known. */
-  const repairTlm = useMemo(() => {
-    const tlmPool = pools.data?.tlm
-    const ppn = nanite.config?.pointsPerNanite ?? 0
-    const wpn = nanite.price?.waxPerNanite
-    return (e: MissionEconomics): number => (tlmPool && ppn > 0 && wpn ? receiveFor(tlmPool, 'WAX', ((e.minAtk + e.minDef) / ppn) * wpn) : 0)
-  }, [pools.data, nanite.config, nanite.price])
-  /** The repair, for the efficiency tooltip. */
-  const repairNote = (e: MissionEconomics): string | undefined => {
-    const ppn = nanite.config?.pointsPerNanite
-    if (!ppn || !nanite.price) return nanite.config ? undefined : 'Reading the nanite refinery…'
-    const n = (e.minAtk + e.minDef) / ppn
-    return `Repair counted: ${formatNumber(e.minAtk + e.minDef, 0)} wear a cycle = ${formatNumber(n, 2)} nanites at ${formatNumber(nanite.price.waxPerNanite, 2)} WAX each (the cheapest refinery material) ≈ ${formatNumber(repairTlm(e), 1)} TLM`
-  }
-
-  /** How an NFT reward was valued, for the efficiency tooltip. */
-  const nftNote = (e: MissionEconomics): string | undefined => {
-    if (!e.rewardNft) return undefined
-    const wax = floors.data?.get(String(e.rewardNft.templateId))
-    const tlm = nftTlm(e)
-    if (wax === undefined || tlm === null) return floors.isLoading ? 'Reading the NFT floor…' : 'The NFT has no listing, so it is not counted'
-    return `The NFT counts at its floor: ${formatNumber(wax, 2)} WAX${e.rewardNft.count > 1 ? ` each, ×${e.rewardNft.count}` : ''} ≈ ${formatNumber(tlm, 1)} TLM a cycle (the cheapest listing, before market fees)`
-  }
+  const econList = useMemo(() => [...econ.values()], [econ])
+  const { movePer100, score, nftNote, repairNote } = useMissionScores(divisions, econList)
 
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = []
@@ -195,16 +144,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
       // With none picked, the figure is for the quickest home division that fits; with picks, for all of them together.
       const counted = chosen.length ? fitting : fitting.sort((a, b) => a.move - b.move).slice(0, 1)
       const perHour = counted.length ? counted.reduce((n, d) => n + tlmPerHour(e, d.move, market), 0) : null
-      const need = Math.max(e.minAtk, e.minDef)
-      const assumed = Math.round((need * movePer100) / 100)
-      // Tokens after swaps, plus the NFT at its floor when it has one; an NFT-only mission waits for its floor.
-      const nft = nftTlm(e)
-      const nftPerHour = nft && cycleSeconds(e, assumed) > 0 ? (nft / cycleSeconds(e, assumed)) * 3600 : 0
-      const repairPerHour = cycleSeconds(e, assumed) > 0 ? (repairTlm(e) / cycleSeconds(e, assumed)) * 3600 : 0
-      const efficiency = need > 0 && (isTokenLoop(e) || nft !== null && nft > 0) ? ((tlmPerHour(e, assumed, market) + nftPerHour - repairPerHour) / need) * 100 : null
-      // Shards have no price: a shard-only mission gets its own score, in shards.
-      const cycle = cycleSeconds(e, assumed)
-      const shardEff = efficiency === null && need > 0 && e.rewardShards > 0 && cycle > 0 ? ((e.rewardShards / cycle) * 3600 * 100) / need : null
+      const { efficiency, shardEff } = score(e)
       const mine = field.filter((d) => d.missionId === e.id)
       const missing = chosen.filter((d) => !meetsRequirements(e, d.atk, d.def))
       const short =
@@ -234,7 +174,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
     })
     // What the picked divisions earn first; missions they cannot take after, by efficiency.
     return shown.sort((a, b) => Number(b.fits) - Number(a.fits) || (b.perHour ?? -1e9) - (a.perHour ?? -1e9) || (b.efficiency ?? -1e9) - (a.efficiency ?? -1e9) || a.e.title.localeCompare(b.e.title))
-  }, [econ, home, chosen, market, movePer100, field, now, filter, nftTlm, repairTlm])
+  }, [econ, home, chosen, market, field, now, filter, score])
   const bestEfficiency = rows.reduce((n, r) => Math.max(n, r.efficiency ?? 0), 0)
   const bestShardEff = rows.reduce((n, r) => Math.max(n, r.shardEff ?? 0), 0)
 

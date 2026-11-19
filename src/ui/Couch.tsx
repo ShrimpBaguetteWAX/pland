@@ -17,6 +17,8 @@ import { ANIMALS, furOf, readAnimal, saveAnimal, type Animal } from './couch/ani
 import { Bank } from './couch/Bank'
 import { Chests } from './couch/Chests'
 import { useDefSwap } from './couch/defKeep'
+import { ArmyPage } from './couch/ArmyPage'
+import { MissionsPage } from './couch/MissionsPage'
 import { SellPage, SellSwitch, type SellView } from './couch/SellPage'
 import { MiniLedger } from './couch/MiniLedger'
 import { Sales } from './couch/Sales'
@@ -85,17 +87,20 @@ function usePinnedPage(night: string) {
   }, [night])
 }
 
-/** Couch mode's screens: 0 the orb, 1 bank, 2 chests, 3 sell (and what sold), 4 the mini ledger. */
-type Page = 0 | 1 | 2 | 3 | 4
+/** Couch mode's screens: 0 the orb, 1 bank, 2 chests, 3 sell (and what sold), 4 the mini ledger, 5 missions, 6 the army. */
+type Page = 0 | 1 | 2 | 3 | 4 | 5 | 6
 /**
- * The pages left to right, as on the tab bar and for swiping: the orb in the middle, a swipe left
- * from it opens the bank (as it always has), a swipe right the ledger, then selling.
+ * The pages left to right, as on the tab bar and for swiping: the orb in the middle, the missions
+ * and the army either side of it, then the ledger and selling on the left, the bank and chests on
+ * the right.
  */
-const ORDER: Page[] = [3, 4, 0, 1, 2]
+const ORDER: Page[] = [3, 4, 5, 0, 6, 1, 2]
 const TABS: { page: Page; label: string; icon: string }[] = [
   { page: 3, label: 'Sell', icon: 'M4 7h16l-1.5 12a2 2 0 0 1-2 1.7h-9a2 2 0 0 1-2-1.7z M9 7V5a3 3 0 0 1 6 0v2 M12 11v6 M9.5 14.5L12 17l2.5-2.5' },
   { page: 4, label: 'Ledger', icon: 'M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z M6 19a2 2 0 0 1 2-2h11 M10 8h5M10 12h5' },
+  { page: 5, label: 'Missions', icon: 'M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16z M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3' },
   { page: 0, label: 'Orb', icon: '' },
+  { page: 6, label: 'Army', icon: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z M9 12l2 2 4-4' },
   { page: 1, label: 'Bank', icon: 'M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18' },
   { page: 2, label: 'Chests', icon: 'M3 10h18v9H3z M3 10a9 5 0 0 1 18 0 M10 13h4' }
 ]
@@ -309,6 +314,9 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const [page, setPage] = useState<Page>(0)
   /** The Sell tab's half: what to list, or what sold. */
   const [sellView, setSellView] = useState<SellView>('sell')
+  /** The army page stays mounted once opened, so an optimizer search keeps running on other pages. */
+  const [armySeen, setArmySeen] = useState(false)
+  if (page === 6 && !armySeen) setArmySeen(true)
   /*
    * Swipes: left goes one screen on (orb → bank → chests), right one back, down refreshes everything
    * on screen. Touch is read with touch events (a browser cancels the pointer once a move turns into
@@ -573,6 +581,8 @@ export default function Couch({ onClose }: { onClose: () => void }) {
       {page === 3 && account && sellView === 'sell' && <SellPage account={account} head={<SellSwitch view={sellView} onView={setSellView} />} />}
       {page === 3 && account && sellView === 'sold' && <Sales account={account} head={<SellSwitch view={sellView} onView={setSellView} />} />}
       {page === 4 && account && <MiniLedger account={account} />}
+      {page === 5 && account && <MissionsPage account={account} />}
+      {armySeen && account && <ArmyPage account={account} active={page === 6} />}
 
       <header className="couch__top" aria-label="Deposited balances" hidden={page !== 0}>
         <div className="couch__orn">
