@@ -49,6 +49,8 @@ export function ArmyPage({ account, active }: { account: string; active: boolean
   const army = useArmy(account)
   const f = useField(account)
   const [sheet, setSheet] = useState<'opt' | 'presets' | null>(null)
+  /** A preset to open straight in its load step: the optimizer's answer, applied as far as it can be now. */
+  const [loadNow, setLoadNow] = useState<Preset | null>(null)
   const page = useRef<HTMLElement>(null)
   const [host, setHost] = useState<Element | null>(null)
   useEffect(() => setHost(page.current?.closest('.couch') ?? null), [])
@@ -85,7 +87,10 @@ export function ArmyPage({ account, active }: { account: string; active: boolean
 
   const totals = divisions.reduce((n, d) => ({ atk: n.atk + d.atk, def: n.def + d.def }), { atk: 0, def: 0 })
   const outCount = f.field.length
-  const close = () => setSheet(null)
+  const close = () => {
+    setSheet(null)
+    setLoadNow(null)
+  }
   // Here, not in the sheet: a search keeps running with the sheet closed (and while another page is open).
   const o = useOptimizer(account, { sessionAccount: account, spectating, onDone: close, potential: false })
 
@@ -182,12 +187,20 @@ export function ArmyPage({ account, active }: { account: string; active: boolean
 
       {active && sheet === 'opt' && (
         <Sheet host={host} onClose={close} label="Optimize army">
-          <OptimizeSheet o={o} spectating={spectating} onClose={close} />
+          <OptimizeSheet
+            o={o}
+            spectating={spectating}
+            onClose={close}
+            onLoad={(p) => {
+              setLoadNow(p)
+              setSheet('presets')
+            }}
+          />
         </Sheet>
       )}
       {active && sheet === 'presets' && (
         <Sheet host={host} onClose={close} label="Presets">
-          <PresetsSheet account={account} divisions={divisions} editable={editable} spectating={spectating} onClose={close} />
+          <PresetsSheet account={account} divisions={divisions} editable={editable} spectating={spectating} onClose={close} initial={loadNow} />
         </Sheet>
       )}
     </section>
@@ -196,7 +209,18 @@ export function ArmyPage({ account, active }: { account: string; active: boolean
 
 /* ---- Optimize army ----------------------------------------------------------------------------- */
 
-function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOptimizer>; spectating: boolean; onClose: () => void }) {
+function OptimizeSheet({
+  o,
+  spectating,
+  onClose,
+  onLoad
+}: {
+  o: ReturnType<typeof useOptimizer>
+  spectating: boolean
+  onClose: () => void
+  /** All mode: the answer saved as a preset, opened in its load step. */
+  onLoad: (p: Preset) => void
+}) {
   const { search, result, mode, effort, alignMove, steps, state, finished, nothingToDo, busy, canSign, shown, kept, balanced, pick } = o
   const ready = o.divisions.length - o.away.length
   // With nothing at home there is nothing to rearrange: the comparison with everything home.
@@ -206,6 +230,11 @@ function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOpt
   }, [o.loading, ready, mode, search.running, setMode])
   const [saved, setSaved] = useState(false)
   useEffect(() => setSaved(false), [result, pick])
+  // Stopped before the balancing step: there is no balanced army, so show (and save, and apply) the best one.
+  const { setPick } = o
+  useEffect(() => {
+    if (!search.running && pick === 'balanced' && !balanced) setPick('best')
+  }, [search.running, pick, balanced, setPick])
   const phases = PHASES.filter((p) => alignMove || !p.balancingOnly)
   // Missions switched off are kept in this browser (shared with the Divisions page): say so, and let them back in.
   const [showMissions, setShowMissions] = useState(false)
@@ -420,7 +449,7 @@ function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOpt
                 const spread = values[0] - values[values.length - 1]
                 return (
                   <p className="ca-sheet__note num">
-                    {formatNumber(result.moves, 0)} changes tried in {formatNumber(result.ms / 1000, 0)} s. Best of {values.length} searches; the others reached{' '}
+                    {result.moves > 0 ? `${formatNumber(result.moves, 0)} changes tried in ${formatNumber(result.ms / 1000, 0)} s. ` : ''}Best of {values.length} searches; the others reached{' '}
                     {values
                       .slice(1)
                       .map((v) => formatNumber(o.keptPerHour + v, 1))
@@ -458,6 +487,20 @@ function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOpt
                   {busy ? 'Signing…' : state.failed ? `Resume at step ${steps.indexOf(state.failed) + 1}` : 'Apply'}
                 </button>
               )}
+              {mode === 'all' && (
+                <button
+                  type="button"
+                  className="ca__go"
+                  disabled={spectating || busy}
+                  title="Saves it as a preset and loads it: what can change now changes, divisions out on a mission stay as they are"
+                  onClick={() => {
+                    const p = o.savePreset()
+                    if (p) onLoad(p)
+                  }}
+                >
+                  Apply
+                </button>
+              )}
               {mode === 'ready' && (finished || nothingToDo) && (
                 <button type="button" className="ca__go" disabled={busy || !!o.walletShort || spectating} title={o.walletShort || undefined} onClick={() => void o.deployAll()}>
                   {o.pending === 'opt-deploy' ? 'Deploying…' : `Deploy ${shown.length}`}
@@ -482,7 +525,7 @@ function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOpt
             {spectating
               ? 'Read-only: not your account. The answer can still be saved as a preset in this browser.'
               : mode === 'all'
-                ? 'A comparison, as if every division were home: save it as a preset and load it once they are back.'
+                ? 'As if every division were home. Apply saves it as a preset and loads what can change now; divisions out on a mission change once they are back (load the preset again then).'
                 : nothingToDo
                   ? 'Your divisions at home already stand as the search would arrange them.'
                   : finished
@@ -510,15 +553,26 @@ function PresetsSheet({
   divisions,
   editable,
   spectating,
-  onClose
+  onClose,
+  initial
 }: {
   account: string
   divisions: Division[]
   editable: (d: Division) => boolean
   spectating: boolean
   onClose: () => void
+  /** Open this preset straight in its load step (once the army is read). */
+  initial: Preset | null
 }) {
   const p = usePresets(account, divisions, editable)
+  const opened = useRef(false)
+  const { startRestore, free } = p
+  useEffect(() => {
+    if (initial && free && !opened.current) {
+      opened.current = true
+      startRestore(initial)
+    }
+  }, [initial, free, startRestore])
   const [confirm, setConfirm] = useState<string | null>(null)
   const remove = (x: Preset) => {
     p.save(p.presets.filter((y) => y.id !== x.id))

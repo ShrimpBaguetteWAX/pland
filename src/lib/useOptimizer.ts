@@ -7,7 +7,7 @@ import { useArmy, useDeployments, useGameBalance, useMarket, useMissionConfig, u
 import { useNftFloors, useSwapPools } from '@/data/market'
 import { diffArmy } from '@/lib/armyDiff'
 import { bestLoop, candidateMissions, poolOf } from '@/lib/armyOptimizer'
-import { readPresets, snapshot, writePresets, type PresetDivision } from '@/lib/armyPresets'
+import { readPresets, snapshot, writePresets, type Preset, type PresetDivision } from '@/lib/armyPresets'
 import { EFFORTS, type EffortLevel, type PlannedDivision, type SearchInput } from '@/lib/armySearch'
 import type { SlotKind } from '@/lib/bundle'
 import { coveredBy, walletCosts, walletPart } from '@/lib/deposit'
@@ -301,7 +301,8 @@ export function useOptimizer(
   const gain = nowTotal !== null && bestTotal !== null ? bestTotal - nowTotal : null
 
   /** The shown answer (plus the divisions that stay as they are) kept as a preset of this account. */
-  function savePreset() {
+  /** Saves it and returns the preset (null when this browser would not keep it). */
+  function savePreset(): Preset | null {
     const planned: PresetDivision[] = shown.map((d) => ({
       leader: d.warlord.assetId,
       units: d.units.map((x) => ({
@@ -312,12 +313,14 @@ export function useOptimizer(
     const divisionsOf = [...snapshot(kept), ...planned]
     const list = readPresets(account)
     const name = presetName.trim() || `Optimized ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${showBalanced ? ' (balanced)' : ''}`
-    if (!writePresets(account, [{ id: `${Date.now()}`, name, savedAt: Date.now(), divisions: divisionsOf }, ...list])) {
+    const preset: Preset = { id: `${Date.now()}`, name, savedAt: Date.now(), divisions: divisionsOf }
+    if (!writePresets(account, [preset, ...list])) {
       toast.error('This browser would not keep the preset (storage blocked or full).')
-      return
+      return null
     }
     setPresetName('')
     toast.success(`"${name}" saved as a preset of ${account}: ${divisionsOf.length} division${divisionsOf.length === 1 ? '' : 's'}`)
+    return preset
   }
 
   // ---- Signing the result ------------------------------------------------------------------------
