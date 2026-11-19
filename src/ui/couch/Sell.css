@@ -1,0 +1,812 @@
+/*
+ * Couch mode's Sell tab. Flat: fills, hairlines and solid ledges, no glow. Every colour comes from
+ * the couch theme (--cz-*, --hud-*, --kt-11), so all ten schemes work, the light ones included.
+ */
+
+.couch.is-kitten.is-hud .cs {
+  --cs-panel: color-mix(in srgb, var(--kt-11) 90%, var(--cz-tx) 10%);
+  --cs-soft: color-mix(in srgb, var(--cz-tx) 14%, transparent);
+  --cs-good: #4cbf86;
+  --cs-bad: #ef5b6a;
+  font-family: var(--hud-font);
+}
+
+.couch.is-kitten.is-hud .couch__bankpage.cs {
+  gap: 10px;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.couch.is-kitten.is-hud .cs button {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch.is-kitten.is-hud .cs button:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+}
+
+.couch.is-kitten.is-hud .cs .num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Segmented switches: collection, how much of each ---- */
+.couch.is-kitten.is-hud .cs__seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  flex: none;
+  padding: 3px;
+  border-radius: 12px;
+  background: color-mix(in srgb, #000 20%, transparent);
+  box-shadow: inset 0 0 0 1px var(--cs-soft);
+}
+
+.couch.is-kitten.is-hud .cs__seg button {
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--cz-dim);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .cs__seg.is-small button {
+  height: 28px;
+  font-size: 11px;
+}
+
+.couch.is-kitten.is-hud .cs__seg button.is-on {
+  background: var(--cz-tx);
+  color: var(--kt-11);
+}
+
+/* ---- Categories: one line ---- */
+.couch.is-kitten.is-hud .cs__pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--cs-panel);
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+  color: var(--cz-tx);
+  text-align: left;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .cs__pick > span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.couch.is-kitten.is-hud .cs__pick b {
+  font-size: 14px;
+}
+
+.couch.is-kitten.is-hud .cs__pick small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--cz-dim);
+}
+
+.couch.is-kitten.is-hud .cs__pick > i {
+  font-style: normal;
+  font-size: 20px;
+  color: var(--cz-faint);
+}
+
+/* ---- Four figures ---- */
+.couch.is-kitten.is-hud .cs__sum {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: none;
+  gap: 1px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--cs-soft);
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+}
+
+.couch.is-kitten.is-hud .cs__sum > div {
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px;
+  background: var(--cs-panel);
+  min-width: 0;
+}
+
+.couch.is-kitten.is-hud .cs__sum small,
+.couch.is-kitten.is-hud .cs__tot small {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__sum b {
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.couch.is-kitten.is-hud .cs__sum b i {
+  margin-left: 3px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--cz-dim);
+}
+
+.couch.is-kitten.is-hud .cs .is-good {
+  color: var(--cs-good);
+}
+
+.couch.is-kitten.is-hud .cs .is-bad {
+  color: var(--cs-bad);
+}
+
+/* ---- The big key: on a solid ledge ---- */
+.couch.is-kitten.is-hud .cs__go {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  flex: none;
+  min-height: 52px;
+  margin-bottom: 4px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hud-accent) 70%, #fff), var(--hud-accent));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 0 color-mix(in srgb, var(--hud-accent) 62%, #000);
+  color: #fff;
+  text-align: center;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .cs__go b {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.couch.is-kitten.is-hud .cs__go span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.couch.is-kitten.is-hud .cs__go:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 1px 0 color-mix(in srgb, var(--hud-accent) 62%, #000);
+}
+
+.couch.is-kitten.is-hud .cs__go:disabled {
+  background: var(--hud-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    0 4px 0 color-mix(in srgb, var(--cz-tx) 14%, transparent);
+  color: var(--cz-faint);
+  cursor: default;
+}
+
+.couch.is-kitten.is-hud .cs__go:disabled span {
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__go.is-flat {
+  min-height: 46px;
+  margin: 0;
+  background: color-mix(in srgb, var(--cz-tx) 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+  color: var(--cz-tx);
+}
+
+/* ---- Small keys ---- */
+.couch.is-kitten.is-hud .cs__btn {
+  flex: none;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--cz-tx) 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+  color: var(--cz-tx);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .cs__btn.is-acc {
+  background: var(--hud-accent);
+  box-shadow: none;
+  color: #fff;
+}
+
+.couch.is-kitten.is-hud .cs__btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ---- Your listings line ---- */
+.couch.is-kitten.is-hud .cs__mine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--cs-panel);
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+}
+
+.couch.is-kitten.is-hud .cs__mine > span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.couch.is-kitten.is-hud .cs__mine b {
+  font-size: 14px;
+}
+
+.couch.is-kitten.is-hud .cs__mine small {
+  font-size: 11px;
+  color: var(--cz-dim);
+}
+
+.couch.is-kitten.is-hud .cs__mine small .is-bad {
+  font-weight: 700;
+}
+
+.couch.is-kitten.is-hud .cs__cap {
+  flex: none;
+  margin-top: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cz-faint);
+}
+
+/* ---- Template cards ---- */
+.couch.is-kitten.is-hud .cs__row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 9px 10px 9px 9px;
+  border-radius: 14px;
+  background: var(--cs-panel);
+  box-shadow: inset 0 0 0 1px var(--cs-soft);
+}
+
+.couch.is-kitten.is-hud .cs__pic {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, #000 22%, transparent);
+  box-shadow: inset 0 0 0 1px var(--cs-soft);
+}
+
+.couch.is-kitten.is-hud .cs__pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.couch.is-kitten.is-hud .cs__info {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.couch.is-kitten.is-hud .cs__info b,
+.couch.is-kitten.is-hud .cs__info small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.couch.is-kitten.is-hud .cs__info b {
+  font-size: 13.5px;
+}
+
+.couch.is-kitten.is-hud .cs__info small {
+  font-size: 11px;
+  color: var(--cz-dim);
+}
+
+.couch.is-kitten.is-hud .cs__side {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+}
+
+.couch.is-kitten.is-hud .cs__price {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.couch.is-kitten.is-hud .cs__price i {
+  margin-left: 2px;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__step {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+  overflow: hidden;
+}
+
+.couch.is-kitten.is-hud .cs__step button {
+  width: 30px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: color-mix(in srgb, var(--cz-tx) 7%, transparent);
+  color: var(--cz-tx);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .cs__step button:disabled {
+  color: var(--cz-faint);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.couch.is-kitten.is-hud .cs__step b {
+  min-width: 40px;
+  text-align: center;
+  font-size: 12.5px;
+}
+
+.couch.is-kitten.is-hud .cs__step b small {
+  font-weight: 600;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__none {
+  margin: 0;
+  padding: 6px 2px;
+  font-size: 12px;
+  color: var(--cz-dim);
+  text-align: center;
+}
+
+/* ---- Lists: your listings, the price check ---- */
+.couch.is-kitten.is-hud .cs__list {
+  display: grid;
+  flex: none;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--cs-panel);
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+}
+
+.couch.is-kitten.is-hud .cs__list-hd {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 10px 12px 6px;
+}
+
+.couch.is-kitten.is-hud .cs__list-hd b {
+  font-size: 14px;
+}
+
+.couch.is-kitten.is-hud .cs__list-hd small {
+  font-size: 11px;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--cs-soft);
+  font-size: 12.5px;
+}
+
+.couch.is-kitten.is-hud .cs__n {
+  min-width: 0;
+  display: grid;
+}
+
+.couch.is-kitten.is-hud .cs__n b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.couch.is-kitten.is-hud .cs__n small {
+  font-size: 10.5px;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__p {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.couch.is-kitten.is-hud .cs__p s {
+  margin-right: 4px;
+  font-size: 11px;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__d {
+  min-width: 62px;
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--cs-bad);
+}
+
+.couch.is-kitten.is-hud .cs__d.is-ok {
+  color: var(--cs-good);
+}
+
+.couch.is-kitten.is-hud .cs__d small {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__more {
+  height: 40px;
+  border: 0;
+  border-top: 1px solid var(--cs-soft);
+  background: none;
+  color: var(--cz-dim);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---- Progress, at the top while a run signs ---- */
+.couch.is-kitten.is-hud .cs__prog {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  flex: none;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--cs-panel);
+  box-shadow:
+    inset 0 0 0 1px var(--hud-line),
+    0 8px 16px rgba(0, 0, 0, 0.22);
+}
+
+.couch.is-kitten.is-hud .cs__prog-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.couch.is-kitten.is-hud .cs__prog-hd b {
+  font-size: 14px;
+}
+
+.couch.is-kitten.is-hud .cs__prog-acts {
+  display: flex;
+  gap: 6px;
+}
+
+.couch.is-kitten.is-hud .cs__bar {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, #000 28%, transparent);
+  box-shadow: inset 0 0 0 1px var(--cs-soft);
+}
+
+.couch.is-kitten.is-hud .cs__bar i {
+  display: block;
+  height: 100%;
+  background: var(--hud-accent);
+  box-shadow: inset -2px 0 0 var(--cz-tx);
+  transition: width 0.4s ease-out;
+}
+
+.couch.is-kitten.is-hud .cs__steps {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.couch.is-kitten.is-hud .cs__steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--cz-dim);
+}
+
+.couch.is-kitten.is-hud .cs__steps li small {
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__tick {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--hud-line);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.couch.is-kitten.is-hud .cs__steps li.is-done .cs__tick {
+  background: var(--cs-good);
+  box-shadow: none;
+  color: #0f2d1c;
+}
+
+.couch.is-kitten.is-hud .cs__steps li.is-failed .cs__tick {
+  background: var(--cs-bad);
+  box-shadow: none;
+  color: #fff;
+}
+
+.couch.is-kitten.is-hud .cs__steps li.is-now {
+  color: var(--cz-tx);
+  font-weight: 600;
+}
+
+.couch.is-kitten.is-hud .cs__steps li.is-now .cs__tick {
+  background: var(--hud-accent);
+  box-shadow: none;
+  color: #fff;
+}
+
+/* ---- Sheets: categories, the price check ---- */
+.couch.is-kitten.is-hud .cs__sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 3, 6, 0.6);
+}
+
+.couch.is-kitten.is-hud .cs__sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 86%;
+  padding: 8px max(14px, env(safe-area-inset-right, 0px)) max(14px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
+  border-radius: 22px 22px 0 0;
+  background: color-mix(in srgb, var(--kt-11) 88%, var(--cz-tx) 12%);
+  box-shadow:
+    inset 0 1px 0 var(--hud-line),
+    0 -10px 30px rgba(0, 0, 0, 0.3);
+  color: var(--cz-tx);
+  font-family: var(--hud-font);
+  animation: cs-sheet-in 0.22s ease-out;
+}
+
+.couch.is-kitten.is-hud .cs__sheet.is-tall {
+  height: 86%;
+}
+
+@keyframes cs-sheet-in {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+}
+
+.couch.is-kitten.is-hud .cs__grab {
+  flex: none;
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 4px;
+  border-radius: 2px;
+  background: var(--hud-line);
+}
+
+.couch.is-kitten.is-hud .cs__sheet h3 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.couch.is-kitten.is-hud .cs__sheet h3 span {
+  display: flex;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__sheet h3 span button {
+  border: 0;
+  background: none;
+  padding: 4px 6px;
+  color: var(--cz-dim);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .cs__sub {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--cz-dim);
+}
+
+.couch.is-kitten.is-hud .cs__sw-list {
+  display: grid;
+  overflow-y: auto;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--cs-soft);
+}
+
+.couch.is-kitten.is-hud .cs__sw {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--cz-tx);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .cs__sw + .cs__sw {
+  border-top: 1px solid var(--cs-soft);
+}
+
+.couch.is-kitten.is-hud .cs__sw span {
+  flex: 1;
+}
+
+.couch.is-kitten.is-hud .cs__sw small {
+  font-size: 11.5px;
+  color: var(--cz-faint);
+}
+
+.couch.is-kitten.is-hud .cs__sw i {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--cz-tx) 16%, transparent);
+  transition: background 0.15s;
+}
+
+.couch.is-kitten.is-hud .cs__sw i::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--cz-dim);
+  transition: left 0.15s;
+}
+
+.couch.is-kitten.is-hud .cs__sw.is-on i {
+  background: var(--hud-accent);
+}
+
+.couch.is-kitten.is-hud .cs__sw.is-on i::after {
+  left: 19px;
+  background: #fff;
+}
+
+.couch.is-kitten.is-hud .cs__tot {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  flex: none;
+  gap: 1px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--cs-soft);
+}
+
+.couch.is-kitten.is-hud .cs__tot > div {
+  display: grid;
+  gap: 1px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, #000 14%, transparent);
+}
+
+.couch.is-kitten.is-hud .cs__tot b {
+  font-size: 14px;
+}
+
+.couch.is-kitten.is-hud .cs__review {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.couch.is-kitten.is-hud .cs__review .cs__li:first-child {
+  border-top: 0;
+}
+
+.couch.is-kitten.is-hud .cs__review .cs__li {
+  padding: 8px 10px 8px 2px;
+}
+
+.couch.is-kitten.is-hud .cs__review {
+  scrollbar-width: thin;
+}
+
+.couch.is-kitten.is-hud .cs__acts {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  flex: none;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.couch.is-kitten.is-hud .cs__acts .cs__go {
+  min-height: 46px;
+  margin: 0 0 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch.is-kitten.is-hud .cs__sheet,
+  .couch.is-kitten.is-hud .cs__bar i,
+  .couch.is-kitten.is-hud .cs__sw i,
+  .couch.is-kitten.is-hud .cs__sw i::after {
+    animation: none;
+    transition: none;
+  }
+}

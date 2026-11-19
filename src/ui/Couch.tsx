@@ -17,7 +17,7 @@ import { ANIMALS, furOf, readAnimal, saveAnimal, type Animal } from './couch/ani
 import { Bank } from './couch/Bank'
 import { Chests } from './couch/Chests'
 import { useDefSwap } from './couch/defKeep'
-import { Materials } from './couch/Materials'
+import { SellPage } from './couch/SellPage'
 import { MiniLedger } from './couch/MiniLedger'
 import { Sales } from './couch/Sales'
 import { useBloodOrb } from './couch/bloodOrb'
@@ -85,9 +85,9 @@ function usePinnedPage(night: string) {
   }, [night])
 }
 
-/** Couch mode's screens, in swipe order: the orb, the bank, the chests, the materials. */
-/** -1 = your recent sales (left of the orb), 0 = the orb, then bank, chests, materials. */
-/** -1 sales, 0 the orb, 1 bank, 2 chests, 3 materials, 4 the mini ledger. */
+/** Couch mode's screens, in swipe order: the orb, the bank, the chests, selling. */
+/** -1 = your recent sales (left of the orb), 0 = the orb, then bank, chests, sell. */
+/** -1 sales, 0 the orb, 1 bank, 2 chests, 3 sell, 4 the mini ledger. */
 type Page = -1 | 0 | 1 | 2 | 3 | 4
 /**
  * The pages left to right, as on the tab bar and for swiping: the orb in the middle, a swipe left
@@ -100,7 +100,7 @@ const TABS: { page: Page; label: string; icon: string }[] = [
   { page: 0, label: 'Orb', icon: '' },
   { page: 1, label: 'Bank', icon: 'M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18' },
   { page: 2, label: 'Chests', icon: 'M3 10h18v9H3z M3 10a9 5 0 0 1 18 0 M10 13h4' },
-  { page: 3, label: 'Mats', icon: 'M12 3l8 5v8l-8 5-8-5V8z M4 8l8 5 8-5 M12 13v8' }
+  { page: 3, label: 'Sell', icon: 'M4 7h16l-1.5 12a2 2 0 0 1-2 1.7h-9a2 2 0 0 1-2-1.7z M9 7V5a3 3 0 0 1 6 0v2 M12 11v6 M9.5 14.5L12 17l2.5-2.5' }
 ]
 
 /** The colour theme, remembered in this browser; picked in the menu. */
@@ -308,7 +308,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const m = useMining(now)
   const bank = useGameBalance(account || null)
   const nanites = useNaniteBalance(account || null)
-  /** Which screen: the orb (0), the bank (1, a swipe to the left), the chests (2) or the materials (3). */
+  /** Which screen: the orb (0), the bank (1, a swipe to the left), the chests (2) or selling (3). */
   const [page, setPage] = useState<Page>(0)
   /*
    * Swipes: left goes one screen on (orb → bank → chests), right one back, down refreshes everything
@@ -572,7 +572,7 @@ export default function Couch({ onClose }: { onClose: () => void }) {
       {page === -1 && account && <Sales account={account} />}
       {page === 1 && account && <Bank account={account} />}
       {page === 2 && account && <Chests account={account} />}
-      {page === 3 && account && <Materials account={account} />}
+      {page === 3 && account && <SellPage account={account} />}
       {page === 4 && account && <MiniLedger account={account} />}
 
       <header className="couch__top" aria-label="Deposited balances" hidden={page !== 0}>
