@@ -915,3 +915,75 @@
     transition: none;
   }
 }
+
+/* ---- Optimizer: the missions it may use ---- */
+.couch.is-kitten.is-hud .ca-sheet__pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ca-well);
+  box-shadow: inset 0 0 0 1px var(--ca-soft);
+  color: var(--cz-tx);
+  text-align: left;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__pick > span {
+  display: grid;
+  gap: 2px;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__pick b {
+  font-size: 13px;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__pick.is-warn b {
+  color: var(--ca-bad);
+}
+
+.couch.is-kitten.is-hud .ca-sheet__pick > i {
+  color: var(--cz-faint);
+  font-size: 18px;
+  font-style: normal;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__chips button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--ca-soft);
+  color: var(--cz-faint);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: line-through;
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__chips button.is-on {
+  background: color-mix(in srgb, var(--cz-tx) 12%, transparent);
+  box-shadow: none;
+  color: var(--cz-tx);
+  text-decoration: none;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cz-tx);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -7,7 +7,7 @@ import type { EffortLevel } from '@/lib/armySearch'
 import { formatDuration, formatNumber } from '@/lib/format'
 import { formatDateTimeShort } from '@/lib/time'
 import { useField } from '@/lib/useField'
-import { EFFORT_LEVELS, PHASES, STORE_ALIGN, useOptimizer, write } from '@/lib/useOptimizer'
+import { EFFORT_LEVELS, PHASES, STORE_ALIGN, STORE_OFF, useOptimizer, write } from '@/lib/useOptimizer'
 import { count, usePresets } from '@/lib/usePresets'
 import { useTransaction } from '@/wallet/useTransaction'
 
@@ -207,6 +207,13 @@ function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOpt
   const [saved, setSaved] = useState(false)
   useEffect(() => setSaved(false), [result, pick])
   const phases = PHASES.filter((p) => alignMove || !p.balancingOnly)
+  // Missions switched off are kept in this browser (shared with the Divisions page): say so, and let them back in.
+  const [showMissions, setShowMissions] = useState(false)
+  const allowed = o.candidates.filter((m) => !o.off.has(m.id)).length
+  const allowAll = () => {
+    o.setOff(new Set())
+    write(STORE_OFF, [])
+  }
   const at = search.running ? phases.findIndex((p) => p.id === search.progress?.phase) : phases.length
 
   const missionsOf = useMemo(() => {
@@ -249,6 +256,44 @@ function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOpt
             ))}
           </div>
           <p>{EFFORT_LEVELS.find((l) => l.key === effort)?.what}</p>
+        </div>
+        <div className="ca-sheet__field">
+          <button type="button" className={`ca-sheet__pick${allowed < o.candidates.length ? ' is-warn' : ''}`} onClick={() => setShowMissions((v) => !v)} aria-expanded={showMissions}>
+            <span>
+              <span className="ca__cap">Missions</span>
+              <b className="num">
+                {allowed} of {o.candidates.length} allowed
+              </b>
+            </span>
+            <i aria-hidden="true">{showMissions ? '−' : '+'}</i>
+          </button>
+          {allowed < o.candidates.length && !showMissions && (
+            <p className="ca-sheet__warn">
+              Only {allowed} of the paying missions may be used, so the answer can only use those.{' '}
+              <button type="button" className="ca-sheet__link" onClick={allowAll}>
+                Allow all
+              </button>
+            </p>
+          )}
+          {showMissions && (
+            <>
+              <span className="ca-sheet__chips">
+                {o.candidates.map((m) => (
+                  <button key={m.id} type="button" className={o.off.has(m.id) ? '' : 'is-on'} aria-pressed={!o.off.has(m.id)} onClick={() => o.toggleMission(m.id)}>
+                    {m.title}
+                  </button>
+                ))}
+              </span>
+              <p>
+                Tap a mission to leave it out of the search.{' '}
+                {o.off.size > 0 && (
+                  <button type="button" className="ca-sheet__link" onClick={allowAll}>
+                    Allow all
+                  </button>
+                )}
+              </p>
+            </>
+          )}
         </div>
         <label className="ca-sheet__sw">
           <span>
@@ -296,7 +341,25 @@ function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOpt
               </li>
             ))}
           </ol>
+          {search.progress && (
+            <p className="ca-sheet__note num">
+              {formatNumber(search.progress.moves, 0)} changes tried by {search.seeds.length} searches side by side
+            </p>
+          )}
         </>
+      )}
+      {search.error && <p className="ca-sheet__warn">{search.error}</p>}
+      {allowed < o.candidates.length && (
+        <p className="ca-sheet__warn">
+          Searched with {allowed} of {o.candidates.length} missions allowed.{' '}
+          <button type="button" className="ca-sheet__link" disabled={search.running} onClick={() => (allowAll(), search.stop())}>
+            Allow all
+          </button>{' '}
+          and search again for the whole picture.
+        </p>
+      )}
+      {search.stale && (search.running || search.done) && (
+        <p className="ca-sheet__warn">Prices or cards changed since this search started: search again for today’s numbers.</p>
       )}
 
       {result && (
@@ -351,6 +414,21 @@ function OptimizeSheet({ o, spectating, onClose }: { o: ReturnType<typeof useOpt
                 </div>
               )}
               {result.reason && <p className="ca-sheet__note">{result.reason}</p>}
+              {(() => {
+                const values = search.seeds.map((x) => x.result?.perHour).filter((v): v is number => v !== undefined).sort((a, b) => b - a)
+                if (values.length < 2) return null
+                const spread = values[0] - values[values.length - 1]
+                return (
+                  <p className="ca-sheet__note num">
+                    {formatNumber(result.moves, 0)} changes tried in {formatNumber(result.ms / 1000, 0)} s. Best of {values.length} searches; the others reached{' '}
+                    {values
+                      .slice(1)
+                      .map((v) => formatNumber(o.keptPerHour + v, 1))
+                      .join(', ')}
+                    {spread < 0.05 ? ': all agree.' : spread < values[0] * 0.02 ? ': close, a solid answer.' : ': they differ, Thorough may find more.'}
+                  </p>
+                )
+              })()}
             </div>
           )}
         </>
