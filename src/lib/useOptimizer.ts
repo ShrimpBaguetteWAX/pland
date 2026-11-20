@@ -492,5 +492,36 @@ export function useOptimizer(
       return next
     })
 
-  return { mode, setMode, alignMove, setAlignMove, effort, setEffort, off, setOff, includeWallet, setIncludeWallet, weightIx, setWeightIx, matchWeight, goalIx, setGoalIx, goalMin, matchGoal, withinIx, setWithinIx, withinGoalWeight, runState, setRunState, presetName, setPresetName, pick, setPick, army, player, deployments, config, market, balance, walletNfts, walletCards, walletIds, run, runSequence, pending, nftTlm, missions, candidates, chosen, unlockByDivision, now, divisions, away, kept, rearrange, keptRate, keptPerHour, loading, input, allInput, inPlay, search, potential, result, balanced, showBalanced, balancedPending, shown, nowRows, pageNow, nowTotal, bestTotal, gain, savePreset, own, diff, toStake, steps, state, finished, nothingToDo, busy, canSign, stepLabel, execute, deployAll, walletShort, triedRows, groups, toggleMission }
+  /**
+   * The missions by what they pay, to switch on and off together. A mission that pays two kinds is in
+   * both. Shard-only missions are never in the search (shards have no price), so Shards lists the
+   * allowed missions that pay shards on top.
+   */
+  const categories = useMemo(() => {
+    const ownTlm = (m: MissionEconomics) => m.rewardTlm - (nftTlm.get(m.id) ?? 0) > 1e-9
+    const of = (test: (m: MissionEconomics) => boolean) => candidates.filter(test).map((m) => m.id)
+    return [
+      { key: 'tlm', label: 'TLM', ids: of(ownTlm) },
+      { key: 'def', label: 'DEF', ids: of((m) => m.rewardDef > 0) },
+      { key: 'nft', label: 'NFT', ids: of((m) => !!m.rewardNft) },
+      { key: 'shards', label: 'Shards', ids: of((m) => m.rewardShards > 0) }
+    ].map((c) => {
+      const on = c.ids.filter((id) => !off.has(id)).length
+      return { ...c, state: !c.ids.length ? ('none' as const) : on === c.ids.length ? ('on' as const) : on === 0 ? ('off' as const) : ('some' as const) }
+    })
+  }, [candidates, nftTlm, off])
+  /** All of a kind on; or, when all of them already are, all of them off. */
+  const toggleCategory = (key: string) => {
+    const c = categories.find((x) => x.key === key)
+    if (!c || !c.ids.length) return
+    setOff((prev) => {
+      const next = new Set(prev)
+      if (c.state === 'on') for (const id of c.ids) next.add(id)
+      else for (const id of c.ids) next.delete(id)
+      write(STORE_OFF, [...next])
+      return next
+    })
+  }
+
+  return { categories, toggleCategory, mode, setMode, alignMove, setAlignMove, effort, setEffort, off, setOff, includeWallet, setIncludeWallet, weightIx, setWeightIx, matchWeight, goalIx, setGoalIx, goalMin, matchGoal, withinIx, setWithinIx, withinGoalWeight, runState, setRunState, presetName, setPresetName, pick, setPick, army, player, deployments, config, market, balance, walletNfts, walletCards, walletIds, run, runSequence, pending, nftTlm, missions, candidates, chosen, unlockByDivision, now, divisions, away, kept, rearrange, keptRate, keptPerHour, loading, input, allInput, inPlay, search, potential, result, balanced, showBalanced, balancedPending, shown, nowRows, pageNow, nowTotal, bestTotal, gain, savePreset, own, diff, toStake, steps, state, finished, nothingToDo, busy, canSign, stepLabel, execute, deployAll, walletShort, triedRows, groups, toggleMission }
 }

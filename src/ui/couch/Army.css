@@ -987,3 +987,26 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* By what they pay: all, some or none of a kind allowed. */
+.couch.is-kitten.is-hud .ca-sheet__cats button {
+  font-weight: 800;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__cats button.is-some {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--cz-dim);
+  color: var(--cz-tx);
+  text-decoration: none;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__cats button:disabled {
+  opacity: 0.45;
+  text-decoration: none;
+  cursor: default;
+}
+
+.couch.is-kitten.is-hud .ca-sheet__cats small {
+  font-weight: 600;
+  opacity: 0.75;
+}

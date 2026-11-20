@@ -63,7 +63,7 @@ export function OptimizePanel({
   const [accountText, setAccountText] = useState(initialAccount)
   const [account, setAccount] = useState(initialAccount)
   const o = useOptimizer(account, { sessionAccount, spectating, onDone, potential: true })
-  const { mode, setMode, alignMove, setAlignMove, effort, setEffort, off, setOff, includeWallet, setIncludeWallet, weightIx, setWeightIx, matchWeight, goalIx, setGoalIx, goalMin, matchGoal, withinIx, setWithinIx, withinGoalWeight, presetName, setPresetName, pick, setPick, army, walletNfts, walletCards, walletIds, pending, nftTlm, candidates, divisions, away, kept, keptPerHour, loading, input, inPlay, search, potential, result, balanced, showBalanced, balancedPending, shown, nowRows, nowTotal, bestTotal, gain, savePreset, own, diff, steps, state, finished, nothingToDo, busy, canSign, stepLabel, execute, deployAll, walletShort, triedRows, groups, toggleMission } = o
+  const { categories, toggleCategory, mode, setMode, alignMove, setAlignMove, effort, setEffort, off, setOff, includeWallet, setIncludeWallet, weightIx, setWeightIx, matchWeight, goalIx, setGoalIx, goalMin, matchGoal, withinIx, setWithinIx, withinGoalWeight, presetName, setPresetName, pick, setPick, army, walletNfts, walletCards, walletIds, pending, nftTlm, candidates, divisions, away, kept, keptPerHour, loading, input, inPlay, search, potential, result, balanced, showBalanced, balancedPending, shown, nowRows, nowTotal, bestTotal, gain, savePreset, own, diff, steps, state, finished, nothingToDo, busy, canSign, stepLabel, execute, deployAll, walletShort, triedRows, groups, toggleMission } = o
   walletIdsForRows = walletIds
   /** Find the best army with a new account typed: look it up, then start as soon as it is read. */
   const [startWhenReady, setStartWhenReady] = useState(false)
@@ -232,8 +232,30 @@ export function OptimizePanel({
           {candidates.length > 0 && (
             <details className="opt__more">
               <summary>
-                Missions: {candidates.length - off.size} of {candidates.length} allowed
+                Missions: {candidates.filter((m) => !off.has(m.id)).length} of {candidates.length} allowed
               </summary>
+              <span className="opt__chips opt__cats" role="group" aria-label="Missions by what they pay">
+                {categories.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={`opt__chip opt__cat${c.state === 'on' ? ' is-on' : c.state === 'some' ? ' is-some' : ''}`}
+                    disabled={c.state === 'none'}
+                    aria-pressed={c.state === 'on' ? true : c.state === 'some' ? 'mixed' : false}
+                    title={
+                      c.state === 'none'
+                        ? c.key === 'shards'
+                          ? 'Missions that pay only shards are not in the search: shards have no price to weigh'
+                          : 'No mission of this kind is on offer'
+                        : `${c.ids.length} mission${c.ids.length === 1 ? '' : 's'} pay ${c.label}: ${c.state === 'on' ? 'click to leave them all out' : 'click to allow them all'}`
+                    }
+                    onClick={() => toggleCategory(c.key)}
+                  >
+                    {c.label}
+                    <small> {c.state === 'none' ? '–' : `${c.ids.filter((id) => !off.has(id)).length}/${c.ids.length}`}</small>
+                  </button>
+                ))}
+              </span>
               <span className="opt__chips">
                 <button
                   type="button"

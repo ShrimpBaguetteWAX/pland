@@ -304,6 +304,24 @@ function OptimizeSheet({
               </button>
             </p>
           )}
+          <span className="ca-sheet__chips ca-sheet__cats" role="group" aria-label="Missions by what they pay">
+            {o.categories.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                className={c.state === 'on' ? 'is-on' : c.state === 'some' ? 'is-some' : ''}
+                disabled={c.state === 'none'}
+                aria-pressed={c.state === 'on' ? true : c.state === 'some' ? 'mixed' : false}
+                onClick={() => o.toggleCategory(c.key)}
+              >
+                {c.label}
+                <small className="num">{c.state === 'none' ? ' –' : ` ${c.ids.filter((id) => !o.off.has(id)).length}/${c.ids.length}`}</small>
+              </button>
+            ))}
+          </span>
+          {o.categories.find((c) => c.key === 'shards')?.state === 'none' && (
+            <p>Shards: missions that pay only shards are never in the search, they have no price to weigh.</p>
+          )}
           {showMissions && (
             <>
               <span className="ca-sheet__chips">
