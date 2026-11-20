@@ -29,7 +29,8 @@ export const AUTO_GROUPS: AutoGroup[] = [
     title: 'Missions',
     actions: [
       { contract: CONTRACTS.MISSIONS, action: 'join', label: 'Send a division on a mission' },
-      { contract: CONTRACTS.MISSIONS, action: 'claim', label: 'Claim a mission’s reward' }
+      { contract: CONTRACTS.MISSIONS, action: 'claim', label: 'Claim a mission’s reward' },
+      { contract: CONTRACTS.NANITES, action: 'restore', label: 'Repair a division with nanites (couch mode does it after each claim)' }
     ]
   },
   {

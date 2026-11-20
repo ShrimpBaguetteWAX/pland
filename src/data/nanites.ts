@@ -92,6 +92,43 @@ export function useNaniteAccount(account: string | null, perNanite: number | und
   })
 }
 
+/** Restores a division's wear: `amount` is in chain units (thousandths of a nanite), so less than one nanite works. */
+export const restoreAction = (account: string, permission: string, divisionId: number, amount: number): AnyAction => ({
+  account: CONTRACTS.NANITES,
+  name: 'restore',
+  authorization: [{ actor: account, permission }],
+  data: { owner: account, division_id: divisionId, amount }
+})
+
+/**
+ * The repairs to make right now, read fresh from the chain: each division's wear (the integrity
+ * table, scoped by owner) and the nanite balance, in chain units. Every listed division that is
+ * worn gets fully repaired, in order, while the balance covers the whole repair; one it cannot
+ * cover is left as it is. Wear only shows for accounts the contract records it for (all of them once
+ * it is live, the testers before).
+ */
+export async function planRepairs(account: string, divisionIds: number[], config: NaniteConfig): Promise<Map<number, number>> {
+  const out = new Map<number, number>()
+  if (!divisionIds.length || config.pointsPerNanite <= 0) return out
+  const code = CONTRACTS.NANITES
+  const [integrity, accounts] = await Promise.all([
+    getRows<{ division_id: number | string; worn: number | string }>({ code, scope: account, table: 'integrity' }),
+    getRows<{ owner: string; nanites: number | string }>({ code, scope: code, table: 'accounts', lower_bound: account, upper_bound: account, limit: 1 })
+  ])
+  const worn = new Map(integrity.map((r) => [Number(r.division_id), Number(r.worn)]))
+  let budget = Number(accounts.find((r) => r.owner === account)?.nanites ?? 0)
+  for (const id of divisionIds) {
+    const points = worn.get(id) ?? 0
+    if (points <= 0) continue
+    // Rounded down: never more than the wear needs (a part of a point may stay; at 5 units a point it is exact).
+    const need = Math.floor((points * config.perNanite) / config.pointsPerNanite)
+    if (need <= 0 || need > budget) continue
+    out.set(id, need)
+    budget -= need
+  }
+  return out
+}
+
 /** Refines materials into nanites: they go to nanites.pdef with the memo "refine" and are burned. */
 export const refineAction = (account: string, permission: string, assetIds: string[]): AnyAction => ({
   account: CONTRACTS.ATOMICASSETS,

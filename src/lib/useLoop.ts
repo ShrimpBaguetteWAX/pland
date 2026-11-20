@@ -13,6 +13,8 @@ import {
   usePlayer,
   type Deployment
 } from '@/data/game'
+import { planRepairs, restoreAction, useNaniteConfig } from '@/data/nanites'
+import { savedActions } from '@/wallet/autoSign'
 import { claimIfStillLocked } from '@/lib/claimCheck'
 import { coveredBy, walletCosts, walletPart } from '@/lib/deposit'
 import { missionEconomics, planLoops, type MissionEconomics, type PlanLine } from '@/lib/loop'
@@ -53,6 +55,7 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
   const player = usePlayer(account)
   const market = useMarket()
   const game = useGameBalance(account)
+  const nanites = useNaniteConfig()
 
   // Re-render as each division's cooldown ends.
   const unlocks = useMemo(() => deployments.data?.map((d) => d.unlockAt) ?? [], [deployments.data])
@@ -99,6 +102,10 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
    * pay the new entries. The contract takes one join per transaction, so the first division sent
    * back out goes with the claims and every further one is a transaction of its own. The swaps
    * are built from a pool quote read at signing time, so their minimum output is current.
+   *
+   * Repairs (couch mode, where this loop runs): each claimed division's wear is restored with
+   * nanites between its claim and its next join, while the nanite balance covers the whole repair.
+   * Wear and balance are read when the first transaction is signed, so they are current.
    */
   function cycle(claims: Deployment[], redeploy: Deployment[]) {
     const sum = (items: Deployment[], f: (e: MissionEconomics) => number) =>
@@ -113,10 +120,27 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
     const funding = quoteFunding(market, cost, after)
     const surplusDef = cashOut ? Math.max(0, earnedDef - cost.def) : 0
     const sold = surplusDef > 0 ? tlmForDef(market, surplusDef) : 0
+    /** Nanite units per division to restore, worked out when the first transaction is signed. */
+    let repairs = new Map<number, number>()
+    const repair = (a: string, p: string, divisionId: number) => {
+      const amount = repairs.get(divisionId)
+      return amount ? [restoreAction(a, p, divisionId, amount)] : []
+    }
+    const outIds = new Set(redeploy.map((x) => x.divisionId))
+    // A loop that is auto-signed stays auto-signed: with joins picked for auto-signing but not the
+    // repair, the repair is left out rather than sending every loop to the wallet.
+    const picked = savedActions()
+    const repairable = !picked.includes('miss.pdef::join') || picked.includes('nanites.pdef::restore')
     const head = async (a: string, p: string) => {
-      const m = await freshMarket(market)
+      const [m, planned] = await Promise.all([
+        freshMarket(market),
+        nanites.data && repairable ? planRepairs(a, claims.map((d) => d.divisionId), nanites.data).catch(() => new Map<number, number>()) : Promise.resolve(new Map<number, number>())
+      ])
+      repairs = planned
       return [
         ...claims.map((d) => claimMission(a, p, d.missionId, d.divisionId)),
+        // Claimed divisions that stay home are repaired here; the ones going back out just before their join.
+        ...claims.filter((d) => !outIds.has(d.divisionId)).flatMap((d) => repair(a, p, d.divisionId)),
         ...fundEntries(a, p, m, cost, after).actions,
         ...(surplusDef > 0 ? [sellDefAction(a, p, m, surplusDef).action] : [])
       ]
@@ -133,7 +157,7 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
     const [first, ...rest] = redeploy
     const parts: LoopPart[] = [
       {
-        build: async (a, p) => [...(await head(a, p)), ...(first ? out(a, p, first) : [])],
+        build: async (a, p) => [...(await head(a, p)), ...(first ? [...repair(a, p, first.divisionId), ...out(a, p, first)] : [])],
         // The claims free the divisions the joins after it send out.
         settle: true,
         success: !first
@@ -145,7 +169,7 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
       ...rest.map((x) => ({
         // The claim was in the first transaction: wait until the chain shows it. If it never does,
         // it did not land, and this transaction claims the division itself before sending it out.
-        build: async (a: string, p: string) => [...(await claimIfStillLocked(a, p, x)), ...out(a, p, x)],
+        build: async (a: string, p: string) => [...(await claimIfStillLocked(a, p, x)), ...repair(a, p, x.divisionId), ...out(a, p, x)],
         success: `#${x.divisionId} sent back to ${econ.get(x.missionId)?.title ?? 'its mission'}`
       }))
     ]
