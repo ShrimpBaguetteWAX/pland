@@ -332,6 +332,166 @@
   animation: ck-jingle 1.1s ease-in-out infinite;
 }
 
+/* ---- The tap reaction (Couch.tsx: react) ------------------------------------------------------------ */
+/* The orb squashes the moment it is touched; the napper jolts awake with a "!", bobs with the bell
+   jingling while the wallet and the chain work, then hops happy with a tick, or shakes its head with a
+   cross. Its usual face comes back after. */
+.couch__orb.is-react-start {
+  animation: ck-press 0.22s ease-out;
+}
+
+@keyframes ck-press {
+  35% {
+    transform: scale(0.95, 0.92);
+  }
+  70% {
+    transform: scale(1.02, 1.03);
+  }
+}
+
+.couch__nap {
+  transform-box: view-box;
+  transform-origin: 50% 0;
+}
+
+.couch__orb.is-react-start .couch__nap {
+  animation: ck-startle 0.38s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.couch__orb.is-react-work .couch__nap {
+  animation: ck-bob 0.5s ease-in-out infinite alternate;
+}
+
+.couch__orb.is-react-work .couch__kit-bell {
+  animation: ck-jingle 0.5s ease-in-out infinite;
+}
+
+.couch__orb.is-react-work .couch__kit-tip {
+  animation-duration: 0.6s;
+}
+
+.couch__orb.is-react-ok .couch__nap {
+  animation: ck-hop 0.5s cubic-bezier(0.3, 1.5, 0.5, 1) 2;
+}
+
+.couch__orb.is-react-fail .couch__nap {
+  animation: ck-shake 0.45s ease-in-out;
+}
+
+@keyframes ck-startle {
+  40% {
+    transform: translateY(-9%) scale(1.04);
+  }
+}
+
+@keyframes ck-bob {
+  to {
+    transform: translateY(-2.6%);
+  }
+}
+
+@keyframes ck-hop {
+  50% {
+    transform: translateY(-6%);
+  }
+}
+
+@keyframes ck-shake {
+  20% {
+    transform: translateX(-3%) rotate(-4deg);
+  }
+  40% {
+    transform: translateX(3%) rotate(4deg);
+  }
+  60% {
+    transform: translateX(-2%) rotate(-2deg);
+  }
+  80% {
+    transform: translateX(1%);
+  }
+}
+
+/* What it says, next to its head: !, three dots while it works, a tick or a cross. */
+.couch__say {
+  position: absolute;
+  z-index: 4;
+  left: 63%;
+  top: -6%;
+  display: grid;
+  place-items: center;
+  min-width: max(30px, 9cqw);
+  height: max(26px, 7.5cqw);
+  padding: 0 max(9px, 2.6cqw);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--kt-11, #1f0f18);
+  color: color-mix(in srgb, var(--cz-blood) 75%, #000);
+  font: 800 max(15px, 4.4cqw) / 1 var(--hud-font, inherit);
+  pointer-events: none;
+  transform-origin: 10% 100%;
+  animation: ck-say 0.2s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.couch__say::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 6px;
+  bottom: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.couch__say.is-work {
+  width: max(44px, 13cqw);
+}
+
+.couch__say.is-work::before {
+  content: '';
+  position: absolute;
+  inset: 0 max(9px, 2.6cqw);
+  background: radial-gradient(circle, color-mix(in srgb, var(--cz-blood) 75%, #000) 2.6px, transparent 3px) 0 50% / 33.3% 100% repeat-x;
+  animation: ck-dots 1s steps(4) infinite;
+}
+
+.couch__say.is-ok {
+  background: #7fd6a4;
+  color: #10301f;
+}
+
+.couch__say.is-fail {
+  background: #ff8a8a;
+  color: #3a0d12;
+}
+
+@keyframes ck-say {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@keyframes ck-dots {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 -34% 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .couch__orb[class*='is-react-'],
+  .couch__orb[class*='is-react-'] .couch__nap,
+  .couch__say,
+  .couch__say::before {
+    animation: none;
+  }
+}
+
 @keyframes ck-jingle {
   25% {
     transform: rotate(10deg);

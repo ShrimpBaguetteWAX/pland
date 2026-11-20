@@ -499,6 +499,19 @@ export default function Couch({ onClose }: { onClose: () => void }) {
    */
   /** Set while a tap on the orb or a moon is at work. */
   const tapping = useRef(false)
+  /**
+   * The napper's reaction to a tap that sets something off: 'start' (it jolts awake with a !),
+   * 'work' (it bobs while the wallet and the chain work), then 'ok' (happy, a tick) or 'fail' (a head
+   * shake, a cross) for a moment, then back to its usual face.
+   */
+  const [react, setReact] = useState<'start' | 'work' | 'ok' | 'fail' | null>(null)
+  const reactTimers = useRef<number[]>([])
+  const reactTo = (next: 'start' | 'work' | 'ok' | 'fail' | null, after = 0) => reactTimers.current.push(window.setTimeout(() => setReact(next), after))
+  const reactClear = () => {
+    reactTimers.current.forEach(clearTimeout)
+    reactTimers.current = []
+  }
+  useEffect(() => () => reactTimers.current.forEach(clearTimeout), [])
   const centreLoops = back.length > 0 && canLoop && !!plan
   const centreMines = mineReady
   const dx = useDefSwap(account)
@@ -513,34 +526,48 @@ export default function Couch({ onClose }: { onClose: () => void }) {
     // tap in that time used to start a second loop. One tap's work at a time.
     if (tapping.current) return
     tapping.current = true
+    reactClear()
+    setReact('start')
+    reactTo('work', 420)
+    let ok = false
     try {
-      await centreWork()
+      ok = await centreWork()
     } finally {
       tapping.current = false
+      reactClear()
+      setReact(ok ? 'ok' : 'fail')
+      reactTo(null, 2200)
     }
   }
-  async function centreWork() {
+  /** Everything the centre has to do; true when all of it went through. */
+  async function centreWork(): Promise<boolean> {
     orb.slosh(1)
     navigator.vibrate?.(30)
+    let ok = true
     // Mine first: it is the one on a timer, and its wallet prompt then opens straight from the tap.
     let mined = false
     if (centreMines) {
-      await m.mine()
+      ok = (await m.mine()) && ok
       mined = true
     }
     if (centreLoops && plan) {
       const missions = new Set(back.map((d) => d.missionId)).size
-      await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'} on ${missions} mission${missions === 1 ? '' : 's'}`)
+      const done = await runSequence(plan.parts, 'loop-all', `Looping ${back.length} division${back.length === 1 ? '' : 's'} on ${missions} mission${missions === 1 ? '' : 's'}`)
+      ok = done === plan.parts.length && ok
     }
     // The cooldown may have run out while the loop was being signed: mine then too, with today's state.
     const latest = mineRef.current
     if (!mined && !latest.block && !latest.busy && !!latest.pick && !(latest.pickReadyAt !== null && latest.pickReadyAt > Date.now())) {
-      await latest.mine()
+      ok = (await latest.mine()) && ok
     }
     // Last: a loop may pay its entries in DEF from the game balance, so the swap reads the balance
     // again after it and takes only what is still over the keep amount.
-    if (centreSwaps || centreLoops) await dx.swap()
+    if (centreSwaps || centreLoops) {
+      const swapped = await dx.swap()
+      if (centreSwaps) ok = swapped && ok
+    }
     refreshToday(account)
+    return ok
   }
 
   const comingTlm = [...back, ...out].reduce((n, d) => n + (loop.econ.get(d.missionId)?.rewardTlm ?? 0), 0)
@@ -677,10 +704,15 @@ export default function Couch({ onClose }: { onClose: () => void }) {
 
       <main className="couch__stage" hidden={page !== 0}>
         <div
-          className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${centreLoops || centreMines || centreSwaps ? 'eager' : back.length || looping ? 'awake' : 'asleep'}`}
+          className={`couch__orb${orbit.length ? ' has-moons' : ''}${big?.back && !looping ? ' is-ready' : ''} is-${react === 'ok' ? 'eager' : react ? 'awake' : centreLoops || centreMines || centreSwaps ? 'eager' : back.length || looping ? 'awake' : 'asleep'}${react ? ` is-react-${react}` : ''}`}
         >
           <div className="couch__halo" aria-hidden="true" />
           <KittenFrame theme={tint} animal={animal} progress={progress} />
+          {react && (
+            <b className={`couch__say is-${react}`} aria-hidden="true">
+              {react === 'start' ? '!' : react === 'ok' ? '✓' : react === 'fail' ? '✕' : ''}
+            </b>
+          )}
           <canvas ref={orb.ref} className="couch__blood" />
           <div className="couch__foil" aria-hidden="true" />
           <div className="couch__label" aria-live="polite">

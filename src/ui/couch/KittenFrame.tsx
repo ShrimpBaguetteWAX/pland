@@ -223,10 +223,13 @@ function Frame({ theme, animal, progress = 0 }: { theme: KittenTheme; animal: An
           />
         </g>
 
-        <Kitten t={t} animal={animal} />
+        {/* The napper and its tail: one group, so the tap reaction (Kitten.css) moves them together. */}
+        <g className="couch__nap">
+          <Kitten t={t} animal={animal} />
 
-        {/* The tail, wrapped round the front of the cloud the way a cat sits with its tail round its feet. */}
-        <Svg html={animal.tail(furOf(animal, t), t)} />
+          {/* The tail, wrapped round the front of the cloud the way a cat sits with its tail round its feet. */}
+          <Svg html={animal.tail(furOf(animal, t), t)} />
+        </g>
       </g>
     </svg>
   )

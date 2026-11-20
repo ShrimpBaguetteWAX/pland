@@ -61,11 +61,12 @@ export function useMining(now: number) {
                   ? 'no-favorites'
                   : null
 
-  async function mine() {
-    if (!account || busy || block) return
+  /** Mines on the best land now; true once the mine has landed on chain. */
+  async function mine(): Promise<boolean> {
+    if (!account || busy || block) return false
     if (!canMine(wallet)) {
       toast.error(MINING_BLOCKED_MESSAGE)
-      return
+      return false
     }
     setBusy(true)
     try {
@@ -75,7 +76,7 @@ export function useMining(now: number) {
       const land = pickFavoriteLand(fresh.length ? fresh : lands, readyAt, mode, Date.now())
       if (!land) {
         toast.error('Could not read your favourite lands. Please try again.')
-        return
+        return false
       }
       let txId = ''
       const ok = await run((a, p) => buildMine(a, p, tools.data, land.asset_id), '', 'mine', {
@@ -83,13 +84,14 @@ export function useMining(now: number) {
         refresh: false,
         onSigned: (id) => (txId = id)
       })
-      if (!ok) return
+      if (!ok) return false
       // The button stays busy until the chain has answered, so it never shows MINE again too early.
       const paid = await mineResult(txId)
       const landed = !!paid || (await mineLanded(account, txId))
       await refreshMining(account)
       if (!landed) toast.error('The mine did not reach the chain. Nothing was spent, please try again.')
       else toast.success(paid ?? 'Mine successful')
+      return landed
     } finally {
       setBusy(false)
     }
