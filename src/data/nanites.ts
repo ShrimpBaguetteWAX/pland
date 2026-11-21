@@ -20,6 +20,8 @@ import { savedActions } from '@/wallet/autoSign'
 
 export interface NaniteConfig {
   mode: number
+  /** A division's wear gauge holds gauge_mult × (its attack + defense) points. */
+  gaugeMult: number
   pointsPerNanite: number
   maxRefine: number
   /** Chain units per nanite. */
@@ -52,6 +54,7 @@ export function useNaniteConfig(): UseQueryResult<NaniteConfig> {
       const c = config[0]
       return {
         mode: Number(c?.mode ?? 0),
+        gaugeMult: Number(c?.gauge_mult ?? 0),
         pointsPerNanite: Number(c?.points_per_nanite ?? 0),
         maxRefine: Math.max(1, Number(c?.max_refine ?? 50)),
         perNanite: Math.max(1, Number(units[0]?.per_nanite ?? 1)),
@@ -93,6 +96,26 @@ export function useNaniteAccount(account: string | null, perNanite: number | und
       return { nanites: Number(r?.nanites ?? 0) / u, refined: Number(r?.refined ?? 0) / u, spent: Number(r?.spent ?? 0) / u, worn: Number(r?.worn ?? 0) }
     }
   })
+}
+
+/** Each division's wear points (the integrity table, scoped by owner); a division never worn has none. */
+export function useIntegrity(account: string | null): UseQueryResult<Map<number, number>> {
+  return useQuery({
+    queryKey: ['nanite-integrity', account],
+    enabled: !!account,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const rows = await getRows<{ division_id: number | string; worn: number | string }>({ code: CONTRACTS.NANITES, scope: account!, table: 'integrity' })
+      return new Map(rows.map((r) => [Number(r.division_id), Number(r.worn)]))
+    }
+  })
+}
+
+/** How intact a division is, 0 to 1: its gauge (gauge_mult × attack + defense) less its wear. Null when the gauge is unknown. */
+export function condition(worn: number, atk: number, def: number, gaugeMult: number | undefined): number | null {
+  const gauge = (gaugeMult ?? 0) * (atk + def)
+  return gauge > 0 ? Math.max(0, Math.min(1, 1 - worn / gauge)) : null
 }
 
 /** Restores a division's wear: `amount` is in chain units (thousandths of a nanite), so less than one nanite works. */

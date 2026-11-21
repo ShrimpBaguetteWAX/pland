@@ -1386,3 +1386,23 @@
   width: 13px;
   height: 13px;
 }
+
+/* A division's condition in the Deployed list: how intact it is, and its wear. */
+.couch__wear {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--cz-tx) 10%, transparent);
+  color: var(--cz-dim);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.couch__wear.is-full {
+  color: #4cbf86;
+}
+
+.couch__wear.is-low {
+  color: #ef5b6a;
+}

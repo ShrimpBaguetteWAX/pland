@@ -9,6 +9,7 @@ import { formatNumber } from '@/lib/format'
 import type { PlanLine } from '@/lib/loop'
 import { useNow } from '@/lib/time'
 import { readCashOut, useLoopPlan } from '@/lib/useLoop'
+import { condition, useIntegrity, useNaniteConfig } from '@/data/nanites'
 import { useMining } from '@/mining/useMining'
 import { useReportCount, useTabTitle } from '@/state/tabCount'
 import { useTransaction } from '@/wallet/useTransaction'
@@ -307,6 +308,25 @@ export default function Couch({ onClose }: { onClose: () => void }) {
   const { account, runSequence, pending, spectating } = useTransaction()
   const now = useNow(1000)
   const loop = useLoopPlan(account, readCashOut())
+  // Each division's wear, for the Deployed list.
+  const integrity = useIntegrity(account)
+  const naniteConfig = useNaniteConfig()
+  /** A division's condition as a percent and its wear, for the lists ('' while unknown). */
+  const wearOf = (divisionId: number) => {
+    const worn = integrity.data?.get(divisionId) ?? 0
+    const d = loop.divisionById.get(divisionId)
+    const c = d ? condition(worn, d.atk, d.def, naniteConfig.data?.gaugeMult) : null
+    if (!integrity.data || c === null) return null
+    return { pct: Math.floor(c * 100), worn, low: c < 0.5 }
+  }
+  const wearTag = (divisionId: number) => {
+    const w = wearOf(divisionId)
+    return w ? (
+      <em className={`couch__wear${w.worn === 0 ? ' is-full' : w.low ? ' is-low' : ''}`} title={`${formatNumber(w.worn, 0)} wear: ${w.pct} % intact`}>
+        {w.pct} %{w.worn > 0 ? ` · ${formatNumber(w.worn, 0)} wear` : ''}
+      </em>
+    ) : null
+  }
   const m = useMining(now)
   const bank = useGameBalance(account || null)
   const nanites = useNaniteBalance(account || null)
@@ -915,7 +935,9 @@ export default function Couch({ onClose }: { onClose: () => void }) {
             <li key={`b-${d.missionId}-${d.divisionId}`} className="is-home">
               <span>
                 <b>{loop.econ.get(d.missionId)?.title ?? `Mission #${d.missionId}`}</b>
-                <small>Division {d.divisionId}</small>
+                <small>
+                  Division {d.divisionId} {wearTag(d.divisionId)}
+                </small>
               </span>
               <span className="t">
                 Returned
@@ -930,7 +952,9 @@ export default function Couch({ onClose }: { onClose: () => void }) {
             <li key={`${d.missionId}-${d.divisionId}`}>
               <span>
                 <b>{loop.econ.get(d.missionId)?.title ?? `Mission #${d.missionId}`}</b>
-                <small>Division {d.divisionId}</small>
+                <small>
+                  Division {d.divisionId} {wearTag(d.divisionId)}
+                </small>
               </span>
               <span className="t num">
                 {clock(d.unlockAt - now)}
