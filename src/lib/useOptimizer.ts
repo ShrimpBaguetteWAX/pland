@@ -17,6 +17,7 @@ import { receiveFor } from '@/lib/pool'
 import { GEAR_KINDS, kindOf, type Kind } from '@/lib/stats'
 import { useClockFor } from '@/lib/time'
 import { useArmyPotential } from '@/lib/useArmyPotential'
+import { useRepairTlm } from '@/lib/useMissionScores'
 import { useArmySearch } from '@/lib/useArmySearch'
 import { divisionState } from '@/ui/divisionState'
 import { useTransaction } from '@/wallet/useTransaction'
@@ -162,11 +163,19 @@ export function useOptimizer(
     }
     return m
   }, [rawMissions, floors.data, pools.data])
-  const missions = useMemo(
+  /** The missions as offered, NFT rewards counted at their floor: the list to switch missions on and off. */
+  const offered = useMemo(
     () => rawMissions.map((e) => (nftTlm.has(e.id) ? { ...e, rewardTlm: e.rewardTlm + nftTlm.get(e.id)! } : e)),
     [rawMissions, nftTlm]
   )
-  const candidates = useMemo(() => candidateMissions(missions), [missions])
+  const candidates = useMemo(() => candidateMissions(offered), [offered])
+  // What the search weighs: each mission's reward less the repair its wear costs (nanites at the
+  // cheapest price, as TLM), so TLM / h is what is left once every division is repaired after its run.
+  const { repairTlm } = useRepairTlm()
+  const missions = useMemo(() => offered.map((e) => {
+    const r = repairTlm(e)
+    return r > 0 ? { ...e, rewardTlm: e.rewardTlm - r } : e
+  }), [offered, repairTlm])
   const chosen = useMemo(() => missions.filter((m) => !off.has(m.id)), [missions, off])
 
   const unlockByDivision = useMemo(() => {

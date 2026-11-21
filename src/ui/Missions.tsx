@@ -5,7 +5,7 @@ import { formatDuration, formatNumber } from '@/lib/format'
 import { costParts, cycleSeconds, meetsRequirements, rewardParts, tlmPerHour, type MissionEconomics } from '@/lib/loop'
 import { chainDate, shortDuration } from '@/lib/time'
 import { useField } from '@/lib/useField'
-import { useMissionScores } from '@/lib/useMissionScores'
+import { netPerHour, useMissionScores } from '@/lib/useMissionScores'
 import { useMarket, useRewardPool } from '@/data/game'
 
 import { Portrait, rarityColor } from './Art'
@@ -132,7 +132,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
     })
 
   const econList = useMemo(() => [...econ.values()], [econ])
-  const { movePer100, score, nftNote, repairNote } = useMissionScores(divisions, econList)
+  const { movePer100, score, nftNote, repairNote, repairTlm } = useMissionScores(divisions, econList)
 
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = []
@@ -143,7 +143,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
       const fits = chosen.length ? fitting.length === chosen.length : fitting.length > 0
       // With none picked, the figure is for the quickest home division that fits; with picks, for all of them together.
       const counted = chosen.length ? fitting : fitting.sort((a, b) => a.move - b.move).slice(0, 1)
-      const perHour = counted.length ? counted.reduce((n, d) => n + tlmPerHour(e, d.move, market), 0) : null
+      const perHour = counted.length ? counted.reduce((n, d) => n + netPerHour(tlmPerHour(e, d.move, market), repairTlm(e), cycleSeconds(e, d.move)), 0) : null
       const { efficiency, shardEff } = score(e)
       const mine = field.filter((d) => d.missionId === e.id)
       const missing = chosen.filter((d) => !meetsRequirements(e, d.atk, d.def))
@@ -174,7 +174,7 @@ export function Missions({ account, spectating }: { account: string; spectating:
     })
     // What the picked divisions earn first; missions they cannot take after, by efficiency.
     return shown.sort((a, b) => Number(b.fits) - Number(a.fits) || (b.perHour ?? -1e9) - (a.perHour ?? -1e9) || (b.efficiency ?? -1e9) - (a.efficiency ?? -1e9) || a.e.title.localeCompare(b.e.title))
-  }, [econ, home, chosen, market, field, now, filter, score])
+  }, [econ, home, chosen, market, field, now, filter, score, repairTlm])
   const bestEfficiency = rows.reduce((n, r) => Math.max(n, r.efficiency ?? 0), 0)
   const bestShardEff = rows.reduce((n, r) => Math.max(n, r.shardEff ?? 0), 0)
 

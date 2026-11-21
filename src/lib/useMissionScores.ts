@@ -20,6 +20,28 @@ import { receiveFor } from './pool'
 const MOVE_DEFAULT = 40
 const MOVE_MAX = 100
 
+/**
+ * What a cycle's repair costs, in TLM: every join wears the division down by the mission's attack
+ * plus defense requirement, a nanite restores points_per_nanite of it, and the nanite is priced at
+ * the cheapest one on the market (the refinery material with the lowest listing per nanite), as TLM
+ * through the WAX → TLM pool. 0 before the price is known. Shared by the efficiency score, the TLM / h
+ * figures and the optimizer.
+ */
+export function useRepairTlm() {
+  const pools = useSwapPools()
+  const nanite = useNanitePrice()
+  const repairTlm = useMemo(() => {
+    const tlmPool = pools.data?.tlm
+    const ppn = nanite.config?.pointsPerNanite ?? 0
+    const wpn = nanite.price?.waxPerNanite
+    return (e: MissionEconomics): number => (tlmPool && ppn > 0 && wpn ? receiveFor(tlmPool, 'WAX', ((e.minAtk + e.minDef) / ppn) * wpn) : 0)
+  }, [pools.data, nanite.config, nanite.price])
+  return { repairTlm, nanite }
+}
+
+/** TLM an hour a division earns on a mission at its move, the repair taken off. */
+export const netPerHour = (perHour: number, repair: number, seconds: number) => (seconds > 0 ? perHour - (repair / seconds) * 3600 : perHour)
+
 export function useMissionScores(divisions: Division[], missions: MissionEconomics[]) {
   const market = useMarket()
   // How much move the army carries for its strength: what the efficiency score assumes.
@@ -44,17 +66,8 @@ export function useMissionScores(divisions: Division[], missions: MissionEconomi
     }
   }, [floors.data, pools.data])
 
-  // Every join wears the division down by the mission's attack plus defense requirement; a nanite
-  // restores points_per_nanite of it. The repair is priced at the cheapest nanite on the market
-  // (the refinery material with the lowest listing per nanite), as TLM through the WAX → TLM pool.
-  const nanite = useNanitePrice()
-  /** The TLM a cycle's repair costs; 0 before the nanite price is known. */
-  const repairTlm = useMemo(() => {
-    const tlmPool = pools.data?.tlm
-    const ppn = nanite.config?.pointsPerNanite ?? 0
-    const wpn = nanite.price?.waxPerNanite
-    return (e: MissionEconomics): number => (tlmPool && ppn > 0 && wpn ? receiveFor(tlmPool, 'WAX', ((e.minAtk + e.minDef) / ppn) * wpn) : 0)
-  }, [pools.data, nanite.config, nanite.price])
+  // The repair a cycle wears, in TLM (see useRepairTlm).
+  const { repairTlm, nanite } = useRepairTlm()
   /** The repair, for the efficiency tooltip. */
   const repairNote = (e: MissionEconomics): string | undefined => {
     const ppn = nanite.config?.pointsPerNanite
@@ -89,5 +102,5 @@ export function useMissionScores(divisions: Division[], missions: MissionEconomi
     },
     [market, movePer100, nftTlm, repairTlm]
   )
-  return { movePer100, score, nftNote, repairNote }
+  return { movePer100, score, nftNote, repairNote, repairTlm }
 }

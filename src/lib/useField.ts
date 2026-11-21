@@ -7,7 +7,8 @@ import { useTransaction } from '@/wallet/useTransaction'
 import { claimIfStillLocked } from './claimCheck'
 import { coveredBy, walletCosts, walletPart } from './deposit'
 import { formatNumber } from './format'
-import { missionEconomics, tlmPerHour, type MissionEconomics } from './loop'
+import { cycleSeconds, missionEconomics, tlmPerHour, type MissionEconomics } from './loop'
+import { netPerHour, useRepairTlm } from './useMissionScores'
 import { useClockFor } from './time'
 
 /** How long after its return time a division counts as back. */
@@ -61,6 +62,7 @@ export function useField(account: string): Field {
   const player = usePlayer(account)
   const deposit = useGameBalance(account)
   const { run, runSequence, pending, spectating } = useTransaction()
+  const { repairTlm } = useRepairTlm()
 
   const unlocks = useMemo(() => deployments.data?.map((d) => d.unlockAt) ?? [], [deployments.data])
   const now = useClockFor(unlocks)
@@ -81,7 +83,7 @@ export function useField(account: string): Field {
   const earning = field.reduce((n, d) => {
     const e = econ.get(d.missionId)
     const div = byId.get(d.divisionId)
-    return e && div ? n + tlmPerHour(e, div.move, market) : n
+    return e && div ? n + netPerHour(tlmPerHour(e, div.move, market), repairTlm(e), cycleSeconds(e, div.move)) : n
   }, 0)
   const waitingTlm = ready.reduce((n, d) => n + (econ.get(d.missionId)?.rewardTlm ?? 0), 0)
 
