@@ -508,6 +508,8 @@ export async function refreshPlayer(account: string | null) {
     queryClient.invalidateQueries({ queryKey: ['game-balance', account] }),
     queryClient.invalidateQueries({ queryKey: ['today-earnings', account] }),
     queryClient.invalidateQueries({ queryKey: ['tlm-balance', account] }),
+    // Nanites: spent by repairs (the couch loop), added by refining.
+    queryClient.invalidateQueries({ queryKey: ['nanite-account', account] }),
     queryClient.invalidateQueries({ queryKey: ['army', account] }),
     queryClient.invalidateQueries({ queryKey: ['deployments', account] }),
     queryClient.invalidateQueries({ queryKey: ['wallet-nfts', account] }),

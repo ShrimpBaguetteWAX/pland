@@ -75,6 +75,8 @@ export function useNaniteAccount(account: string | null, perNanite: number | und
     queryKey: ['nanite-account', account, perNanite],
     enabled: !!account && !!perNanite,
     staleTime: 30_000,
+    // Read again after every transaction (refreshPlayer), and now and then for ones made elsewhere.
+    refetchInterval: 60_000,
     queryFn: async () => {
       const code = CONTRACTS.NANITES
       const rows = await getRows<{ owner: string; nanites: number; refined: number; spent: number; worn: number }>({
