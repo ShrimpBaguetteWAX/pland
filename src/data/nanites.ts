@@ -4,6 +4,7 @@ import type { AnyAction } from '@wharfkit/session'
 import { CONTRACTS } from '@/chain/config'
 import { getRows } from '@/chain/rpc'
 import { useNftFloors } from '@/data/market'
+import { savedActions } from '@/wallet/autoSign'
 
 /*
  * The nanite system (nanites.pdef). Materials are refined into nanites by sending them to the
@@ -102,16 +103,32 @@ export const restoreAction = (account: string, permission: string, divisionId: n
   data: { owner: account, division_id: divisionId, amount }
 })
 
+/** A division to repair: `adds` is the wear a join right after the claim puts on it (the mission's attack plus defense requirement), when it goes straight back out. */
+export interface RepairItem {
+  divisionId: number
+  adds?: number
+}
+
+/** Nanite units per division: `now` restores the wear it has (after its claim, before anything else), `after` the wear its next join adds (right after that join). */
+export interface RepairPlan {
+  now: Map<number, number>
+  after: Map<number, number>
+}
+
+/** Wear points to chain units, rounded down: never more than the wear needs (at 5 units a point it is exact). */
+const unitsFor = (points: number, config: NaniteConfig) => Math.floor((points * config.perNanite) / config.pointsPerNanite)
+
 /**
  * The repairs to make right now, read fresh from the chain: each division's wear (the integrity
- * table, scoped by owner) and the nanite balance, in chain units. Every listed division that is
- * worn gets fully repaired, in order, while the balance covers the whole repair; one it cannot
- * cover is left as it is. Wear only shows for accounts the contract records it for (all of them once
- * it is live, the testers before).
+ * table, scoped by owner) and the nanite balance, in chain units. First every listed division with
+ * wear is fully repaired, in order, while the balance covers the whole repair (a division always comes
+ * home at 100 %); then, for each one going straight back out that is clean before its join, the wear
+ * that join adds (always the mission's attack plus defense requirement), so it is at 100 % while out
+ * too. A repair the balance cannot fully cover is left out, never made in part.
  */
-export async function planRepairs(account: string, divisionIds: number[], config: NaniteConfig): Promise<Map<number, number>> {
-  const out = new Map<number, number>()
-  if (!divisionIds.length || config.pointsPerNanite <= 0) return out
+export async function planRepairs(account: string, items: RepairItem[], config: NaniteConfig): Promise<RepairPlan> {
+  const plan: RepairPlan = { now: new Map(), after: new Map() }
+  if (!items.length || config.pointsPerNanite <= 0) return plan
   const code = CONTRACTS.NANITES
   const [integrity, accounts] = await Promise.all([
     getRows<{ division_id: number | string; worn: number | string }>({ code, scope: account, table: 'integrity' }),
@@ -119,16 +136,47 @@ export async function planRepairs(account: string, divisionIds: number[], config
   ])
   const worn = new Map(integrity.map((r) => [Number(r.division_id), Number(r.worn)]))
   let budget = Number(accounts.find((r) => r.owner === account)?.nanites ?? 0)
-  for (const id of divisionIds) {
-    const points = worn.get(id) ?? 0
-    if (points <= 0) continue
-    // Rounded down: never more than the wear needs (a part of a point may stay; at 5 units a point it is exact).
-    const need = Math.floor((points * config.perNanite) / config.pointsPerNanite)
+  const clean = new Set<number>()
+  for (const { divisionId } of items) {
+    const need = unitsFor(worn.get(divisionId) ?? 0, config)
+    if (need <= 0) clean.add(divisionId)
+    else if (need <= budget) {
+      plan.now.set(divisionId, need)
+      budget -= need
+      clean.add(divisionId)
+    }
+  }
+  for (const { divisionId, adds } of items) {
+    if (!adds || !clean.has(divisionId)) continue
+    const need = unitsFor(adds, config)
     if (need <= 0 || need > budget) continue
-    out.set(id, need)
+    plan.after.set(divisionId, need)
     budget -= need
   }
-  return out
+  return plan
+}
+
+/**
+ * Whether repairs may go into a transaction: always, unless joins are picked for auto-signing and the
+ * repair is not, so a transaction that would be auto-signed stays auto-signed instead of going to the
+ * wallet every time.
+ */
+export function repairsAllowed(): boolean {
+  const picked = savedActions()
+  return !picked.includes('miss.pdef::join') || picked.includes('nanites.pdef::restore')
+}
+
+/** The plan for these divisions, or an empty one while repairs are off or the config is unread (a failed read leaves them out too). */
+export async function repairPlanFor(account: string, items: RepairItem[], config: NaniteConfig | undefined): Promise<RepairPlan> {
+  const empty: RepairPlan = { now: new Map(), after: new Map() }
+  if (!config || !repairsAllowed() || !items.length) return empty
+  return planRepairs(account, items, config).catch(() => empty)
+}
+
+/** The restore action for one division from one side of a plan (none when it is not in it). */
+export const restoreFrom = (account: string, permission: string, side: Map<number, number>, divisionId: number): AnyAction[] => {
+  const amount = side.get(divisionId)
+  return amount ? [restoreAction(account, permission, divisionId, amount)] : []
 }
 
 /** Refines materials into nanites: they go to nanites.pdef with the memo "refine" and are burned. */

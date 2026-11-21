@@ -19,6 +19,7 @@ import { OptimizePanel } from './Optimize'
 import { PresetsPanel } from './Presets'
 import { StarRail } from './Stars'
 import { readPresets, writePresets, type Preset, type PresetDivision } from '@/lib/armyPresets'
+import { repairPlanFor, restoreFrom, useNaniteConfig } from '@/data/nanites'
 import { presetCreate, presetDisband, presetDismiss, presetEquip, presetMoveGear, presetRecruit, presetTakeOff, virtualArmy } from '@/lib/presetEdit'
 import { toast } from '@/components/toast'
 
@@ -163,6 +164,8 @@ export function Army({ account }: { account: string }) {
   /** "Unstake all" asks once more before it sends everything unused back. */
   const [confirmUnstakeAll, setConfirmUnstakeAll] = useState(false)
   const [confirmDisband, setConfirmDisband] = useState(false)
+  /** Disbanding repairs first (data/nanites.ts planRepairs): the division's wear, when the nanites cover it. */
+  const naniteConfig = useNaniteConfig()
   /** "Disband all" shows what it does and asks once more. */
   const [confirmDisbandAll, setConfirmDisbandAll] = useState(false)
   /**
@@ -309,7 +312,8 @@ export function Army({ account }: { account: string }) {
       return
     }
     const ok = await run(
-      (a, p): AnyAction[] => [
+      async (a, p): Promise<AnyAction[]> => [
+        ...restoreFrom(a, p, (await repairPlanFor(a, [{ divisionId: d.id }], naniteConfig.data)).now, d.id),
         ...d.units.flatMap((u) => GEAR_KINDS.filter((k) => u.gear[k]).map((k) => unassignGear(a, p, d.id, u.asset.assetId, u.gear[k]!.assetId))),
         ...d.units.map((u) => removeUnit(a, p, u.asset.assetId)),
         ...(d.leader ? [deleteDivision(a, p, d.leader.assetId)] : [])
@@ -333,12 +337,18 @@ export function Army({ account }: { account: string }) {
     const list = atHome
     if (!list.length) return
     const ok = await run(
-      (a, p): AnyAction[] =>
-        list.flatMap((d) => [
+      async (a, p): Promise<AnyAction[]> => {
+        // Every division's wear first (in the first transaction when it is split), then the disbanding.
+        const plan = (await repairPlanFor(a, list.map((d) => ({ divisionId: d.id })), naniteConfig.data)).now
+        return [
+          ...list.flatMap((d) => restoreFrom(a, p, plan, d.id)),
+          ...list.flatMap((d) => [
           ...d.units.flatMap((u) => GEAR_KINDS.filter((k) => u.gear[k]).map((k) => unassignGear(a, p, d.id, u.asset.assetId, u.gear[k]!.assetId))),
           ...d.units.map((u) => removeUnit(a, p, u.asset.assetId)),
           ...(d.leader ? [deleteDivision(a, p, d.leader.assetId)] : [])
-        ]),
+          ])
+        ]
+      },
       `${list.length} division${list.length === 1 ? '' : 's'} disbanded`,
       'disband-all',
       { split: true }

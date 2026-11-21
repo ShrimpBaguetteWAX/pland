@@ -13,8 +13,7 @@ import {
   usePlayer,
   type Deployment
 } from '@/data/game'
-import { planRepairs, restoreAction, useNaniteConfig } from '@/data/nanites'
-import { savedActions } from '@/wallet/autoSign'
+import { repairPlanFor, restoreFrom, useNaniteConfig, type RepairPlan } from '@/data/nanites'
 import { claimIfStillLocked } from '@/lib/claimCheck'
 import { coveredBy, walletCosts, walletPart } from '@/lib/deposit'
 import { missionEconomics, planLoops, type MissionEconomics, type PlanLine } from '@/lib/loop'
@@ -103,9 +102,10 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
    * back out goes with the claims and every further one is a transaction of its own. The swaps
    * are built from a pool quote read at signing time, so their minimum output is current.
    *
-   * Repairs (couch mode, where this loop runs): each claimed division's wear is restored with
-   * nanites between its claim and its next join, while the nanite balance covers the whole repair.
-   * Wear and balance are read when the first transaction is signed, so they are current.
+   * Repairs with nanites (couch mode, where this loop runs; data/nanites.ts planRepairs): right after
+   * the claims, any wear a claimed division still has, so it is at 100 % at home; and right after each
+   * join, the wear that join added, so it stays at 100 % while out. Only repairs the balance fully
+   * covers. Wear and balance are read when the first transaction is signed, so they are current.
    */
   function cycle(claims: Deployment[], redeploy: Deployment[]) {
     const sum = (items: Deployment[], f: (e: MissionEconomics) => number) =>
@@ -120,27 +120,24 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
     const funding = quoteFunding(market, cost, after)
     const surplusDef = cashOut ? Math.max(0, earnedDef - cost.def) : 0
     const sold = surplusDef > 0 ? tlmForDef(market, surplusDef) : 0
-    /** Nanite units per division to restore, worked out when the first transaction is signed. */
-    let repairs = new Map<number, number>()
-    const repair = (a: string, p: string, divisionId: number) => {
-      const amount = repairs.get(divisionId)
-      return amount ? [restoreAction(a, p, divisionId, amount)] : []
-    }
+    /** The repairs, worked out when the first transaction is signed. */
+    let plan: RepairPlan = { now: new Map(), after: new Map() }
     const outIds = new Set(redeploy.map((x) => x.divisionId))
-    // A loop that is auto-signed stays auto-signed: with joins picked for auto-signing but not the
-    // repair, the repair is left out rather than sending every loop to the wallet.
-    const picked = savedActions()
-    const repairable = !picked.includes('miss.pdef::join') || picked.includes('nanites.pdef::restore')
+    /** The wear a join adds: the mission's attack plus defense requirement. */
+    const wearOf = (d: Deployment) => {
+      const e = econ.get(d.missionId)
+      return e ? e.minAtk + e.minDef : 0
+    }
     const head = async (a: string, p: string) => {
       const [m, planned] = await Promise.all([
         freshMarket(market),
-        nanites.data && repairable ? planRepairs(a, claims.map((d) => d.divisionId), nanites.data).catch(() => new Map<number, number>()) : Promise.resolve(new Map<number, number>())
+        repairPlanFor(a, claims.map((d) => ({ divisionId: d.divisionId, adds: outIds.has(d.divisionId) ? wearOf(d) : undefined })), nanites.data)
       ])
-      repairs = planned
+      plan = planned
       return [
         ...claims.map((d) => claimMission(a, p, d.missionId, d.divisionId)),
-        // Claimed divisions that stay home are repaired here; the ones going back out just before their join.
-        ...claims.filter((d) => !outIds.has(d.divisionId)).flatMap((d) => repair(a, p, d.divisionId)),
+        // Back at 100 %: what wear they still have, right after the claims (the transaction is all or nothing).
+        ...claims.flatMap((d) => restoreFrom(a, p, plan.now, d.divisionId)),
         ...fundEntries(a, p, m, cost, after).actions,
         ...(surplusDef > 0 ? [sellDefAction(a, p, m, surplusDef).action] : [])
       ]
@@ -157,7 +154,7 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
     const [first, ...rest] = redeploy
     const parts: LoopPart[] = [
       {
-        build: async (a, p) => [...(await head(a, p)), ...(first ? [...repair(a, p, first.divisionId), ...out(a, p, first)] : [])],
+        build: async (a, p) => [...(await head(a, p)), ...(first ? [...out(a, p, first), ...restoreFrom(a, p, plan.after, first.divisionId)] : [])],
         // The claims free the divisions the joins after it send out.
         settle: true,
         success: !first
@@ -169,7 +166,7 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
       ...rest.map((x) => ({
         // The claim was in the first transaction: wait until the chain shows it. If it never does,
         // it did not land, and this transaction claims the division itself before sending it out.
-        build: async (a: string, p: string) => [...(await claimIfStillLocked(a, p, x)), ...repair(a, p, x.divisionId), ...out(a, p, x)],
+        build: async (a: string, p: string) => [...(await claimIfStillLocked(a, p, x)), ...out(a, p, x), ...restoreFrom(a, p, plan.after, x.divisionId)],
         success: `#${x.divisionId} sent back to ${econ.get(x.missionId)?.title ?? 'its mission'}`
       }))
     ]
@@ -188,11 +185,18 @@ export function useLoopPlan(account: string | null, cashOut: boolean) {
     const fromDeposit = coveredBy(entries, game.data)
     const cost = walletPart(entries, fromDeposit)
     const funding = quoteFunding(market, cost, wallet)
+    // Repairs, as in the loop: any wear first, then the wear the join adds, right after it.
+    let plan: RepairPlan = { now: new Map(), after: new Map() }
     const parts: LoopPart[] = lines.map((l, i) => ({
-      build: async (a: string, p: string) => [
-        ...(i === 0 ? fundEntries(a, p, await freshMarket(market), cost, wallet).actions : []),
-        ...deployActions(a, p, l.mission.id, l.division.id, !l.division.fresh, walletCosts(l.mission.costs, fromDeposit))
-      ],
+      build: async (a: string, p: string) => {
+        if (i === 0) plan = await repairPlanFor(a, lines.map((x) => ({ divisionId: x.division.id, adds: x.mission.minAtk + x.mission.minDef })), nanites.data)
+        return [
+          ...(i === 0 ? fundEntries(a, p, await freshMarket(market), cost, wallet).actions : []),
+          ...restoreFrom(a, p, plan.now, l.division.id),
+          ...deployActions(a, p, l.mission.id, l.division.id, !l.division.fresh, walletCosts(l.mission.costs, fromDeposit)),
+          ...restoreFrom(a, p, plan.after, l.division.id)
+        ]
+      },
       success: `#${l.division.id} sent to ${l.mission.title}`,
       settle: i === 0
     }))

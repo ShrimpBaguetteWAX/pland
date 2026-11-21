@@ -503,6 +503,8 @@ export function useDeployments(account: string | null): UseQueryResult<Deploymen
 
 /** Reads everything about the player again, after a transaction. */
 export async function refreshPlayer(account: string | null) {
+  // Nanites again once a repair (or a refine) has reached the nodes: about 5 s after the transaction.
+  setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['nanite-account', account] }), 5_000)
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: ['player', account] }),
     queryClient.invalidateQueries({ queryKey: ['game-balance', account] }),

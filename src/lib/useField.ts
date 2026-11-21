@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import { claimMission, deployActions } from '@/chain/actions/pd'
 import { useArmy, useDeployments, useGameBalance, useMarket, useMissionConfig, usePlayer, type Deployment, type Division } from '@/data/game'
+import { repairPlanFor, restoreFrom, useNaniteConfig, type RepairPlan } from '@/data/nanites'
 import { useTransaction } from '@/wallet/useTransaction'
 
 import { claimIfStillLocked } from './claimCheck'
@@ -63,6 +64,7 @@ export function useField(account: string): Field {
   const deposit = useGameBalance(account)
   const { run, runSequence, pending, spectating } = useTransaction()
   const { repairTlm } = useRepairTlm()
+  const nanites = useNaniteConfig()
 
   const unlocks = useMemo(() => deployments.data?.map((d) => d.unlockAt) ?? [], [deployments.data])
   const now = useClockFor(unlocks)
@@ -102,10 +104,22 @@ export function useField(account: string): Field {
     entries: list.reduce((n, d) => ({ tlm: n.tlm + (econ.get(d.missionId)?.costTlm ?? 0), def: n.def + (econ.get(d.missionId)?.costDef ?? 0) }), { tlm: 0, def: 0 })
   })
 
+  /** The wear a join adds: the mission's attack plus defense requirement. */
+  const wearOf = (d: Deployment) => {
+    const e = econ.get(d.missionId)
+    return e ? e.minAtk + e.minDef : 0
+  }
+
+  // Claims and claim-and-redeploy repair with nanites too (data/nanites.ts planRepairs): right after
+  // the claims, any wear a division still has, so it comes home at 100 %; and right after each join,
+  // the wear that join added. Only what the balance fully covers.
   const claim = (list: Deployment[]) => {
     if (!list.length) return
     void run(
-      (a, p) => list.map((d) => claimMission(a, p, d.missionId, d.divisionId)),
+      async (a, p) => {
+        const plan = await repairPlanFor(a, list.map((d) => ({ divisionId: d.divisionId })), nanites.data)
+        return [...list.map((d) => claimMission(a, p, d.missionId, d.divisionId)), ...list.flatMap((d) => restoreFrom(a, p, plan.now, d.divisionId))]
+      },
       list.length === 1 ? `Division #${list[0].divisionId} claimed` : `${list.length} rewards claimed`,
       list.length === 1 ? `claim-${list[0].divisionId}` : 'claim-all'
     )
@@ -129,15 +143,24 @@ export function useField(account: string): Field {
       return deployActions(a, p, x.missionId, x.divisionId, !!d && !d.fresh, walletCosts(econ.get(x.missionId)!.costs, fromDeposit))
     }
     const [first, ...rest] = back
+    let plan: RepairPlan = { now: new Map(), after: new Map() }
     void runSequence(
       [
         {
-          build: (a, p) => [...back.map((d) => claimMission(a, p, d.missionId, d.divisionId)), ...out(a, p, first)],
+          build: async (a, p) => {
+            plan = await repairPlanFor(a, back.map((d) => ({ divisionId: d.divisionId, adds: wearOf(d) })), nanites.data)
+            return [
+              ...back.map((d) => claimMission(a, p, d.missionId, d.divisionId)),
+              ...back.flatMap((d) => restoreFrom(a, p, plan.now, d.divisionId)),
+              ...out(a, p, first),
+              ...restoreFrom(a, p, plan.after, first.divisionId)
+            ]
+          },
           settle: true,
           success: rest.length ? `${back.length} claimed, #${first.divisionId} sent back out` : `#${first.divisionId} claimed and sent back out`
         },
         // Each later join waits for its claim to show on the chain, and claims itself if it never does (claimCheck.ts).
-        ...rest.map((x) => ({ build: async (a: string, p: string) => [...(await claimIfStillLocked(a, p, x)), ...out(a, p, x)], success: `#${x.divisionId} sent back to ${econ.get(x.missionId)?.title ?? 'its mission'}` }))
+        ...rest.map((x) => ({ build: async (a: string, p: string) => [...(await claimIfStillLocked(a, p, x)), ...out(a, p, x), ...restoreFrom(a, p, plan.after, x.divisionId)], success: `#${x.divisionId} sent back to ${econ.get(x.missionId)?.title ?? 'its mission'}` }))
       ],
       back.length === 1 ? `loop-${first.divisionId}` : 'loop-all',
       'Claim & redeploy'
