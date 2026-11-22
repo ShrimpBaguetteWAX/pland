@@ -1,0 +1,305 @@
+/*
+ * Couch mode's ledger: the last 14 days. Flat: fills and hairlines, no glow. Every colour comes from
+ * the couch theme (--cz-*, --hud-*, --kt-11), so every scheme works, the light ones included.
+ */
+
+.couch.is-kitten.is-hud .cl2 {
+  --cl-card: color-mix(in srgb, var(--cz-tx) 6%, transparent);
+  --cl-soft: color-mix(in srgb, var(--cz-tx) 14%, transparent);
+  --cl-good: #4cbf86;
+  --cl-bad: #ef5b6a;
+  gap: 10px;
+  padding-left: 2px;
+  padding-right: 2px;
+  font-family: var(--hud-font);
+}
+
+.couch.is-kitten.is-hud .cl2 .num {
+  font-variant-numeric: tabular-nums;
+}
+
+.couch.is-kitten.is-hud .cl2 .is-good {
+  color: var(--cl-good);
+}
+
+.couch.is-kitten.is-hud .cl2 .is-bad {
+  color: var(--cl-bad);
+}
+
+/* ---- The 14 days in figures ---- */
+.couch.is-kitten.is-hud .cl2__head {
+  display: grid;
+  flex: none;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.couch.is-kitten.is-hud .cl2__head small {
+  color: var(--cz-faint);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.couch.is-kitten.is-hud .cl2__head > b {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.couch.is-kitten.is-hud .cl2__head > b i {
+  margin-left: 5px;
+  color: var(--cz-dim);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.couch.is-kitten.is-hud .cl2__figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 2px;
+  color: var(--cz-faint);
+  font-size: 11.5px;
+}
+
+.couch.is-kitten.is-hud .cl2__figs b {
+  margin-left: 3px;
+  color: var(--cz-tx);
+  font-weight: 700;
+}
+
+/* ---- The bars: one a day, net up or down from the line ---- */
+.couch.is-kitten.is-hud .cl2__chart {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 3px;
+  padding: 10px 8px 6px;
+  border-radius: 14px;
+  background: var(--cl-card);
+  box-shadow: inset 0 0 0 1px var(--cl-soft);
+}
+
+.couch.is-kitten.is-hud .cl2__bar {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cz-faint);
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.couch.is-kitten.is-hud .cl2__bar:focus-visible {
+  outline: 2px solid var(--cz-tx);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The column a bar stands in; the line is at the bottom, or in the middle when a day went down. */
+.couch.is-kitten.is-hud .cl2__col {
+  position: relative;
+  width: 100%;
+  height: 118px;
+  border-radius: 6px;
+}
+
+.couch.is-kitten.is-hud .cl2__col::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  bottom: 0;
+  height: 1px;
+  background: var(--cl-soft);
+}
+
+.couch.is-kitten.is-hud .cl2__chart.has-down .cl2__col::after {
+  bottom: 50%;
+}
+
+.couch.is-kitten.is-hud .cl2__col i {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 0;
+  height: calc(var(--h) * 1%);
+  border-radius: 4px 4px 1px 1px;
+  background: color-mix(in srgb, var(--cl-good) 70%, transparent);
+}
+
+.couch.is-kitten.is-hud .cl2__chart.has-down .cl2__col i.is-up {
+  bottom: 50%;
+  height: calc(var(--h) * 0.5%);
+}
+
+.couch.is-kitten.is-hud .cl2__chart.has-down .cl2__col i.is-down {
+  top: 50%;
+  bottom: auto;
+  height: calc(var(--h) * 0.5%);
+  border-radius: 1px 1px 4px 4px;
+  background: color-mix(in srgb, var(--cl-bad) 70%, transparent);
+}
+
+/* Today is still running: hatched. */
+.couch.is-kitten.is-hud .cl2__bar.is-today .cl2__col i {
+  background-image: repeating-linear-gradient(135deg, transparent 0 3px, color-mix(in srgb, var(--kt-11, #1f0f18) 45%, transparent) 3px 5px);
+}
+
+.couch.is-kitten.is-hud .cl2__bar.is-on .cl2__col {
+  background: color-mix(in srgb, var(--cz-tx) 8%, transparent);
+}
+
+.couch.is-kitten.is-hud .cl2__bar.is-on .cl2__col i.is-up {
+  background-color: var(--cl-good);
+}
+
+.couch.is-kitten.is-hud .cl2__bar.is-on .cl2__col i.is-down {
+  background-color: var(--cl-bad);
+}
+
+.couch.is-kitten.is-hud .cl2__bar small {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.couch.is-kitten.is-hud .cl2__bar.is-on small {
+  color: var(--cz-tx);
+}
+
+/* ---- The day picked ---- */
+.couch.is-kitten.is-hud .cl2__day {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
+  background: var(--cl-card);
+  box-shadow: inset 0 0 0 1px var(--cl-soft);
+  color: var(--cz-tx);
+}
+
+.couch.is-kitten.is-hud .cl2__day-hd {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.couch.is-kitten.is-hud .cl2__day-hd > span {
+  display: grid;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.couch.is-kitten.is-hud .cl2__day-hd > span small {
+  color: var(--cz-faint);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.couch.is-kitten.is-hud .cl2__day-hd > b {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.couch.is-kitten.is-hud .cl2__step {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--cz-tx) 9%, transparent);
+  color: var(--cz-tx);
+  font: 700 18px / 1 var(--hud-font);
+  cursor: pointer;
+}
+
+.couch.is-kitten.is-hud .cl2__step:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.couch.is-kitten.is-hud .cl2__grp {
+  display: grid;
+  gap: 2px;
+}
+
+.couch.is-kitten.is-hud .cl2__grp-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0 4px;
+  box-shadow: inset 0 -1px 0 var(--cl-soft);
+}
+
+.couch.is-kitten.is-hud .cl2__grp-hd span {
+  color: var(--cz-faint);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.couch.is-kitten.is-hud .cl2__grp-hd b {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.couch.is-kitten.is-hud .cl2__ln {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+
+.couch.is-kitten.is-hud .cl2__ln > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.couch.is-kitten.is-hud .cl2__tok {
+  color: var(--cz-faint);
+  font-size: 11px;
+}
+
+.couch.is-kitten.is-hud .cl2__v {
+  min-width: 52px;
+  text-align: right;
+  font-weight: 700;
+}
+
+.couch.is-kitten.is-hud .cl2__nc {
+  color: var(--cz-faint);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.couch.is-kitten.is-hud .cl2__none {
+  margin: 4px 0;
+  color: var(--cz-faint);
+  font-size: 12px;
+}
+
+.couch.is-kitten.is-hud .cl2__foot {
+  flex: none;
+  margin: 0 4px;
+  color: var(--cz-faint);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
